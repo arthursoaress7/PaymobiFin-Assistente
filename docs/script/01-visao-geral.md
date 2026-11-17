@@ -20,7 +20,7 @@ O **PaymobiFin - Assistente** é um userscript que adiciona um painel flutuante 
 - Realiza consultas CAC (Central de Atendimento ao Cliente)
 - Faz download de CCBs em lote
 - Permite troca rápida entre contas do sistema
-- Gera mensagens de acordos para grupos de WhatsApp
+- Gera mensagens de acordos para grupos de WhatsApp (Negociação/Renegociação) e mensagens de retorno ao cliente (aba Mensagens)
 - Fornece timers e agendamentos de expediente
 
 ---
