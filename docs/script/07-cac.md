@@ -1,6 +1,6 @@
 # Módulo: Consulta CAC
 
-**Linhas:** 4161 – 4480  
+**Linhas:** 4984 – 5329  
 **Funções principais:** `cacConsultar()`, `cacAbrir()`, `cacMostrar()`, `cacReq()`
 
 ---

@@ -18,8 +18,8 @@
 |---|---|
 | Arquivo principal | `paymobifin-assistente.user.js` (~8.300 linhas) |
 | Tipo | Tampermonkey userscript (monólito, sem build) |
-| Versão atual | 13.29.2 |
-| Sites alvo | `paymobi.ercard.com.br` e `enviamotor.mobfacil.com.br` |
+| Versão atual | 13.30.0 |
+| Sites alvo | `paymobi-app.ercard.com.br` (ER; o antigo `paymobi.ercard.com.br` também é aceito) e `enviamotor.mobfacil.com.br` |
 | Arquitetura | **Monolítica** — não dividir em arquivos |
 | Fluxo Git | branch temporária → `development` (testes) → `main` (produção) |
 

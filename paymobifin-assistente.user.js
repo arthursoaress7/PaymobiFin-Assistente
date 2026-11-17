@@ -3,10 +3,10 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.29.2
+// @version      13.30.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
-// @include      /^https?:\/\/paymobi\.ercard\.com\.br(:\d+)?\/.*/
+// @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
 // @include      https://enviamotor.mobfacil.com.br/*
 // @include      https://app.tallos.com.br/*
 // @homepageURL  https://github.com/arthursoaress7/PaymobiFin-Assistente/tree/main
@@ -21,6 +21,7 @@
 // @connect      api-sa1.pusher.com
 // @connect      generativelanguage.googleapis.com
 // @connect      paymobi.ercard.com.br
+// @connect      paymobi-app.ercard.com.br
 // @require      https://js.pusher.com/8.4.0/pusher.min.js
 // @run-at       document-idle
 // ==/UserScript==
@@ -29,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.29.2');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.30.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -5009,7 +5010,7 @@
       try {
         // resolve exatamente como as consultas do painel (cacBase() + '/MesaCredito/...', relativo à página) e tira o caminho
         const u = new URL(cacBase() + '/MesaCredito/MesaCreditoLista', location.href);
-        if (!/(^|\.)paymobi\.ercard\.com\.br$/i.test(u.hostname)) return;
+        if (!/(^|\.)paymobi(-app)?\.ercard\.com\.br$/i.test(u.hostname)) return;   // ER: endereço antigo e novo (paymobi-app, desde 11/2026)
         const b = (u.origin + u.pathname.replace(/\/MesaCredito\/MesaCreditoLista$/, '')).replace(/\/+$/, '');
         if (GM_getValue('erBase', '') !== b) GM_setValue('erBase', b);
       } catch (_) {}

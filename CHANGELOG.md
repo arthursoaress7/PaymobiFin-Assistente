@@ -1,5 +1,26 @@
 # Changelog
 
+## [v13.30.0] — 2026-11-17
+
+### ✨ Novas funcionalidades
+
+- feat: Campanha do Fôlego com checkbox de quebra de acordo que libera o pagamento anterior (c768b1c)
+- feat: botão Aplicar cliente atual na aba Mensagens (d5a5b25)
+
+### 🐛 Correções
+
+- fix: script volta a iniciar no novo endereço do ER (paymobi-app.ercard.com.br) (#66) (4b8ffc8)
+- fix: script volta a iniciar no novo endereço do ER (paymobi-app.ercard.com.br) (143ffae)
+- fix: Campanha do Fôlego no formato aprovado pela gestora e só com os campos usados (2baa19c)
+- fix: Campanha do Fôlego com quebra de acordo opcional e parcela(s) negociada(s) em texto (cde91cf)
+
+### 🔧 Outros
+
+- ci: merge automático dispara o Preparar release; restaura o arquivo-ponte (bbcbb5d)
+- docs: documentação alinhada às mudanças de mensagens e linhas atualizadas (#64) (291ffd1)
+- docs: documentação alinhada às mudanças de mensagens e linhas atualizadas (ff0db93)
+- refactor: aba Mensagens só com retornos ao cliente; mensagens do grupo ficam em Negociação/Renegociação (9f2fe17)
+
 ## [v13.29.2] — 2026-11-14
 
 ### 🐛 Correções

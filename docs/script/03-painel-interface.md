@@ -1,6 +1,6 @@
 # Módulo: Painel Principal e Interface
 
-**Linhas:** 837 – 2880 (bloco `iniciarPainel`)  
+**Linhas:** 973 – 3607 (bloco `iniciarPainel`)  
 **Funções principais:** `iniciarPainel()`, `atualizarUI()`, `atualizarConfigUI()`
 
 ---
@@ -48,7 +48,7 @@ No fim do `<style>` do painel há um bloco só de CSS, todo escopado em `#mf-p[d
 
 ```
 ┌─────────────────────────────────────┐
-│ ■ PaymobiFin - Assistente  v13.29.2 │  ← barra de título (arrastar, minimizar)
+│ ■ PaymobiFin - Assistente  v13.30.0 │  ← barra de título (arrastar, minimizar)
 ├─────────────────────────────────────┤
 │ Atendimento | Histórico | Agenda | Relatórios | Mais ▾ │  ← abas
 ├─────────────────────────────────────┤
