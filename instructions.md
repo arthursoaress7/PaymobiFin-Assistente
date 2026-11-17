@@ -11,7 +11,7 @@ O **PaymobiFin - Assistente** é um userscript Tampermonkey que roda em dois sit
 
 | Site | Função |
 |---|---|
-| `paymobi.ercard.com.br` | Painel principal com todas as funcionalidades |
+| `paymobi-app.ercard.com.br` (antigo: `paymobi.ercard.com.br`) | Painel principal com todas as funcionalidades |
 | `enviamotor.mobfacil.com.br` | Motor de coleta de dados de crédito (iframe) |
 
 **Arquivo de código:** `paymobifin-assistente.user.js` — único arquivo JavaScript, ~8.300 linhas, sem transpilador ou bundler.
