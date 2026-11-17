@@ -58,7 +58,7 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 | `regularizacao` | Regularização de parcela(s) em atraso |
 | `semacordo` | Sem acordo / pagamento normal |
 
-**Campanha do Fôlego — formato da mensagem:** dados da parcela (Cliente, CPF, Parcelas em Atraso, Parcela(s) negociada(s), Valor Original da Parcela, Vencimento), o pagamento parcial, o pagamento anterior sobre a parcela (linha omitida se não houver) e o dia/valor do restante. O caminho normal é o acordo de parcela(s) em atraso; o trecho ", após quebra de acordo" só entra quando **"Houve quebra de acordo anterior"** é marcado (desmarcado por padrão). Campos próprios: `parcela_negociada` (texto: "9" ou "8, 9 e 10"), `quebra_acordo`, `valor_pago_anterior`, `data_pago_anterior`; o vencimento usa `vencimento` ("Vencimento da parcela negociada").
+**Campanha do Fôlego — formato da mensagem (aprovado pela gestora, 17/11/2026):** título `*CAMPANHA DO FÔLEGO*` (negrito no WhatsApp); Cliente, CPF, Parcela(s) negociada(s), Valor Original da Parcela, Vencimento; "Cliente pagou parcialmente R$ X (data)."; dia e valor do restante. Campos da modalidade: `parcela_negociada` (digita-se o número: "3" sai "3° parcela", "8, 9 e 10" sai "8°, 9° e 10° parcelas"), `vencimento` ("Vencimento da parcela negociada"), valor/data do pagamento parcial e valor/dia do restante; Cliente, CPF e Valor original vêm dos blocos fixos (na Renegociação, que esconde o bloco Cobrança, o "Valor original da parcela" aparece na própria modalidade). O restante é digitado (sem cálculo automático).
 
 **Trecho opcional nos modelos:** `{{?variavel}}` some quando vazio sem tirar a linha (ex.: `{{?quebra_acordo_txt}}`). `{{variavel}}` sem `?` continua tirando a linha quando vazio.
 
