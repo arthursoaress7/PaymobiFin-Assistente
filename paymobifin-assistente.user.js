@@ -4198,6 +4198,10 @@
       dividir_qtd: { rot: 'Dividido em (nº de parcelas)', tipo: 'num' },
       dividir_valor: { rot: 'Valor de cada parte', tipo: 'moeda' },
       parcela_negociada: { rot: 'Parcela(s) negociada(s) (nº: 3 ou 8, 9 e 10)', tipo: 'texto' },
+      quebra_acordo: { rot: 'Houve quebra de acordo', tipo: 'check' },
+      quebra_acordo_txt: { rot: '", após quebra de acordo" (quando marcado)', tipo: 'calc' },
+      valor_pago_anterior: { rot: 'Pago anteriormente sobre a parcela', tipo: 'moeda' },
+      data_pago_anterior: { rot: 'Data do pagamento anterior', tipo: 'data' },
     });
     const NG_CAB = c => 'Acordo realizado — ' + c + '\n\nCliente: {{nome}}\nProposta: {{proposta}}\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\n';
     const NG_ABR = ['abrangencia_tipo', 'parcela_inicial', 'parcelas_especificas'];
@@ -4232,11 +4236,12 @@
           return { pedido: 'Cliente ' + (verbo === 'fechou' ? 'fechou o pagamento parcial de ' : 'solicitou pagar parcialmente ') + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r, acordo: 'Prosseguimos com o pagamento parcial de ' + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r }; },
       },
       folego: {
-        nome: 'Campanha do Fôlego (pagamento parcial)', campos: ['nome', 'proposta', 'cpf', 'parcela_negociada', 'valor_parcela', 'vencimento', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante'],
+        nome: 'Campanha do Fôlego (pagamento parcial)', campos: ['nome', 'proposta', 'cpf', 'parcela_negociada', 'valor_parcela', 'vencimento', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante', 'quebra_acordo', 'valor_pago_anterior', 'data_pago_anterior'],
         obrig: ['nome', 'parcela_negociada', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante'],
         rotulos: { data_pagamento: 'Data do pagamento parcial', valor_pago_parcial: 'Valor pago parcialmente', valor_restante: 'Valor do restante', data_restante: 'Dia do pagamento do restante', vencimento: 'Vencimento da parcela negociada', valor_parcela: 'Valor original da parcela' },
         // formato aprovado pela gestora (17/11/2026); "*...*" = negrito no WhatsApp. Parcela negociada sai como "3° parcela".
-        texto: '*CAMPANHA DO FÔLEGO*\n\nCliente: {{nome}}\nCPF: {{cpf}}\nParcela(s) negociada(s): {{parcela_negociada}}\nValor Original da Parcela: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nCliente pagou parcialmente {{valor_pago_parcial}} ({{data_pagamento}}).\n\nDia que ele vai pagar o restante: {{data_restante}}\nValor que ele vai pagar no dia: {{valor_restante}}',
+        // "Houve quebra de acordo" marcado: libera o pagamento anterior e acrescenta ", após quebra de acordo" + a linha "Anteriormente...".
+        texto: '*CAMPANHA DO FÔLEGO*\n\nCliente: {{nome}}\nCPF: {{cpf}}\nParcela(s) negociada(s): {{parcela_negociada}}\nValor Original da Parcela: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nCliente pagou parcialmente {{valor_pago_parcial}} ({{data_pagamento}}){{?quebra_acordo_txt}}.\nAnteriormente o cliente pagou {{valor_pago_anterior}} ({{data_pago_anterior}}) sobre o valor da parcela.\n\nDia que ele vai pagar o restante: {{data_restante}}\nValor que ele vai pagar no dia: {{valor_restante}}',
         frases: (v, verbo) => { const r = ' e o restante no valor de ' + v('valor_restante') + ' no dia ' + v('data_restante');
           return { pedido: 'Campanha do Fôlego: Cliente ' + (verbo === 'fechou' ? 'fechou acordo para pagar ' : 'solicitou pagar ') + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r, acordo: 'Prosseguimos com o acordo de ' + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r }; },
       },
@@ -4331,6 +4336,8 @@
         if (t === 'especificas') return ngValor('parcelas_especificas') ? 'parcelas ' + ngValor('parcelas_especificas') : '';
         return '';
       }
+      if (k === 'quebra_acordo_txt') return ngValores.quebra_acordo ? ', após quebra de acordo' : '';
+      if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
       if (k === 'parcela_negociada') {   // "3" -> "3° parcela"; "8, 9 e 10" -> "8°, 9° e 10° parcelas"; texto livre fica como digitado
         const t = String(v == null ? '' : v).trim(), ns = t.match(/\d+/g);
         if (!ns || t.replace(/\d+|[°ºª,;/]|\be\b|\s|parcelas?/gi, '')) return t.replace(/\s+/g, ' ');
@@ -4424,7 +4431,7 @@
       inp.addEventListener(def.tipo === 'check' || def.tipo === 'select' ? 'change' : 'input', () => {
         ngValores[c] = def.tipo === 'check' ? inp.checked : inp.value;
         inp.classList.remove('mf-erro');
-        if (c === 'abrangencia_tipo' || c === 'tipo_antecipacao') ngMostrarDependentes();
+        if (c === 'abrangencia_tipo' || c === 'tipo_antecipacao' || c === 'quebra_acordo') ngMostrarDependentes();
       });
       if (def.tipo === 'check') { lab.style.flexDirection = 'row'; lab.style.alignItems = 'center'; lab.append(inp, document.createTextNode(' ' + rot)); }
       else {   // rótulo + " *" (num span, só para a cor do obrigatório na Nova UI; o texto do rótulo é o mesmo)
@@ -4461,6 +4468,8 @@
       vis('parcela_inicial', ngValores.abrangencia_tipo === 'apartir');
       vis('parcelas_especificas', ngValores.abrangencia_tipo === 'especificas');
       vis('qtd_antecipadas', ngValores.tipo_antecipacao !== 'quitacao');
+      vis('valor_pago_anterior', !!ngValores.quebra_acordo);
+      vis('data_pago_anterior', !!ngValores.quebra_acordo);
     }
     // pagamento parcial: saldo = total devido − pago (atualiza a cada digitação; não aceita pagamento acima do total)
     function ngSaldoHook() {
@@ -4551,6 +4560,7 @@
       $('#mf-ng-cfg-texto').value = ngTextoModelo(k);
       const vars = [...m.campos.filter(c => NG_CAMPOS[c].tipo !== 'check').map(c => '{{' + c + '}} ' + ((m.rotulos && m.rotulos[c]) || NG_CAMPOS[c].rot)),
         ...(m.campos.includes('abrangencia_tipo') ? ['{{abrangencia}} Abrangência por extenso (calculada)'] : []),
+        ...(m.campos.includes('quebra_acordo') ? ['{{?quebra_acordo_txt}} ", após quebra de acordo" quando "Houve quebra de acordo" está marcado (pagamento anterior só sai com ele marcado)'] : []),
         ...(m.campos.includes('tipo_antecipacao') ? ['{{antecipacao_descr}} "a antecipação de N parcelas" ou "a quitação de todo o contrato" (calculada)'] : []),
         ...(/\{\{\s*(chave_pix|banco|agencia|conta)/.test(NG_ALL[k].texto) ? Object.entries(NG_VARS_PAGAMENTO).map(([v, r]) => '{{' + v + '}} ' + r + ' (dados para pagamento)') : [])];
       $('#mf-ng-cfg-vars').textContent = 'Variáveis deste modelo:\n' + vars.join('\n') + '\nLinha com variável vazia sai do texto; bloco que fica sem nenhum dado sai inteiro. {{?variavel}} = trecho opcional (vazio some sem tirar a linha).' +

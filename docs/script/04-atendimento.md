@@ -60,6 +60,8 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 
 **Campanha do Fôlego — formato da mensagem (aprovado pela gestora, 17/11/2026):** título `*CAMPANHA DO FÔLEGO*` (negrito no WhatsApp); Cliente, CPF, Parcela(s) negociada(s), Valor Original da Parcela, Vencimento; "Cliente pagou parcialmente R$ X (data)."; dia e valor do restante. Campos da modalidade: `parcela_negociada` (digita-se o número: "3" sai "3° parcela", "8, 9 e 10" sai "8°, 9° e 10° parcelas"), `vencimento` ("Vencimento da parcela negociada"), valor/data do pagamento parcial e valor/dia do restante; Cliente, CPF e Valor original vêm dos blocos fixos (na Renegociação, que esconde o bloco Cobrança, o "Valor original da parcela" aparece na própria modalidade). O restante é digitado (sem cálculo automático).
 
+**Quebra de acordo (opcional):** o checkbox **"Houve quebra de acordo"** (`quebra_acordo`, depois de "Dia do pagamento do restante", desmarcado por padrão) libera os campos do pagamento anterior (`valor_pago_anterior`, `data_pago_anterior`) e acrescenta à mensagem ", após quebra de acordo" e a linha "Anteriormente o cliente pagou R$ X (data) sobre o valor da parcela." Desmarcado, os campos ficam ocultos e não entram no texto mesmo que tenham sido preenchidos.
+
 **Trecho opcional nos modelos:** `{{?variavel}}` some quando vazio sem tirar a linha (ex.: `{{?quebra_acordo_txt}}`). `{{variavel}}` sem `?` continua tirando a linha quando vazio.
 
 ---
