@@ -4,7 +4,7 @@
 **Versão atual:** 13.29.2  
 **Tipo:** Tampermonkey Userscript  
 **Sites alvo:**
-- `https://paymobi.ercard.com.br/*` — painel principal (ER)
+- `https://paymobi-app.ercard.com.br/*` — painel principal (ER). O endereço antigo `https://paymobi.ercard.com.br/*` continua aceito (`@include` com `paymobi(-app)?`)
 - `https://enviamotor.mobfacil.com.br/*` — motor de análise de crédito
 
 ---
@@ -32,7 +32,7 @@ O script é dividido em dois pontos de entrada principais:
 | Função | URL | Responsabilidade |
 |---|---|---|
 | `iniciarMotor()` | `enviamotor.mobfacil.com.br` | Coleta dados da árvore de análise de crédito dentro do iframe do motor |
-| `iniciarPainel()` | `paymobi.ercard.com.br` | Renderiza o painel completo com todas as abas e funcionalidades |
+| `iniciarPainel()` | `paymobi-app.ercard.com.br` (e o antigo `paymobi.ercard.com.br`) | Renderiza o painel completo com todas as abas e funcionalidades |
 
 ### Módulos internos ao painel (`iniciarPainel`)
 

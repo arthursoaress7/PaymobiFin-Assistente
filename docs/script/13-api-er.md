@@ -88,7 +88,7 @@ Observações:
 | A — Dentro do iframe | O código do motor (`iniciarMotor`, já roda em `enviamotor.mobfacil.com.br`) chama `/api/visualizador` com o token de `location.pathname`, ou escuta a resposta que a página recebe | Sem mudança (`@include` já cobre o domínio) | Fim dos cliques e da navegação na árvore. O iframe continua sendo carregado |
 | B — Sem iframe | A página do ER chama `MesaAnaliseMobFacil`, tira o token do `src` e faz o `POST` com `GM_xmlhttpRequest` | Exige `@connect enviamotor.mobfacil.com.br` (Categoria B) | Também elimina o carregamento do iframe: só duas requisições por proposta |
 
-Hoje o cabeçalho tem `@connect` para `api-sa1.pusher.com`, `generativelanguage.googleapis.com` e `paymobi.ercard.com.br`.
+Hoje o cabeçalho tem `@connect` para `api-sa1.pusher.com`, `generativelanguage.googleapis.com`, `paymobi.ercard.com.br` e `paymobi-app.ercard.com.br` (novo endereço do ER, visto em 17/11/2026; o `@include` aceita os dois).
 **Resposta:** `application/json; charset=utf-8`
 
 `flagUltimos` provavelmente limita a resposta às últimas execuções. Testar com `true` pode resolver a escolha entre várias execuções do mesmo fluxo.

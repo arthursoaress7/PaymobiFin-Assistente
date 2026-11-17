@@ -11,7 +11,7 @@ O **PaymobiFin - Assistente** é um userscript Tampermonkey que roda em dois sit
 
 | Site | Função |
 |---|---|
-| `paymobi.ercard.com.br` | Painel principal com todas as funcionalidades |
+| `paymobi-app.ercard.com.br` (antigo: `paymobi.ercard.com.br`) | Painel principal com todas as funcionalidades |
 | `enviamotor.mobfacil.com.br` | Motor de coleta de dados de crédito (iframe) |
 
 **Arquivo de código:** `paymobifin-assistente.user.js` — único arquivo JavaScript, ~8.300 linhas, sem transpilador ou bundler.
@@ -328,8 +328,8 @@ O incremento é calculado no **PR de release** (workflow "Preparar release", scr
 
 | Arquivo | Trigger | Responsabilidade |
 |---|---|---|
-| `.github/workflows/validate-pr.yml` | PR para `main`, `development` ou `feature/**` | Valida título, origem (PR para a `main` só de `development`, `release/proxima` ou `hotfix/*`), conflitos, integridade e sintaxe do script (`node --check`) e versão da documentação. Classifica Categoria A/B. Job **Merge automático**: Categoria A para `development`/`feature/**` é integrada sozinha (Squash; sincronização `main` → `development` por merge commit). |
-| `.github/workflows/release-pr.yml` ("Preparar release") | `push` → `development` | Abre ou atualiza o PR de release `release/proxima` → `main` com a próxima versão, documentação e `CHANGELOG.md` (`.github/scripts/preparar_release.py`). Fecha o PR se não houver nada novo. |
+| `.github/workflows/validate-pr.yml` | PR para `main`, `development` ou `feature/**` | Valida título, origem (PR para a `main` só de `development`, `release/proxima` ou `hotfix/*`), conflitos, integridade e sintaxe do script (`node --check`) e versão da documentação. Classifica Categoria A/B. Job **Merge automático**: Categoria A para `development`/`feature/**` é integrada sozinha (Squash; sincronização `main` → `development` por merge commit). Depois do merge na `development`, dispara o "Preparar release" (`workflow_dispatch`), porque o merge feito pelo `GITHUB_TOKEN` não dispara o `push`. |
+| `.github/workflows/release-pr.yml` ("Preparar release") | `push` → `development`; `workflow_dispatch` (disparado pelo merge automático ou à mão em Actions) | Abre ou atualiza o PR de release `release/proxima` → `main` com a próxima versão, documentação e `CHANGELOG.md` (`.github/scripts/preparar_release.py`). Fecha o PR se não houver nada novo. |
 | `.github/workflows/release.yml` | `push` → `main` | Cria a tag `vX.Y.Z` (do `@version`) e a GitHub Release com as notas do `CHANGELOG.md`. Abre o PR "chore: sincroniza main na development" quando a `main` tem commits que a `development` não tem. Não faz commits na `main`. |
 
 ### Fluxo completo
@@ -578,7 +578,7 @@ Ver `.github/SETUP.md` para o passo a passo completo.
 
 **Riscos sem essas configurações:**
 1. Sem proteção, um merge manual na `main` com a validação reprovada ainda passa (aconteceu nos PRs #43 e #44)
-2. Sem `RELEASE_TOKEN`, o PR de release não é aberto depois do merge automático na `development`
+2. Sem `RELEASE_TOKEN`, o PR de release fica sem a verificação "Validar alterações". A branch `release/proxima` é atualizada depois de cada merge automático (o merge dispara o "Preparar release"), mas sem "Allow GitHub Actions to create and approve pull requests" o PR de release precisa ser aberto à mão (o resumo da execução traz o link). Aconteceu em 17/11/2026: a correção do endereço do ER ficou na `development` e a `main` parou de iniciar no `paymobi-app.ercard.com.br`
 
 ---
 

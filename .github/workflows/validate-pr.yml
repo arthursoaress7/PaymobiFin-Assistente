@@ -9,7 +9,9 @@ name: Validate PR
 # - Rótulo "sem-auto-merge" no PR: desliga o merge automático daquele PR.
 #
 # Token: o merge automático usa o secret RELEASE_TOKEN (PAT). Sem ele, usa o GITHUB_TOKEN,
-# mas aí o merge na development não dispara o workflow "Preparar release".
+# e o merge feito pelo GITHUB_TOKEN não dispara o "Preparar release" pelo push. Por isso, depois
+# do merge na development, este workflow dispara o "Preparar release" (workflow_dispatch, que o
+# GITHUB_TOKEN pode acionar). Com o RELEASE_TOKEN as duas execuções se fundem (concurrency do release).
 
 on:
   pull_request:
@@ -188,6 +190,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      actions: write   # disparar o "Preparar release" depois do merge na development
     steps:
       - name: Integrar o PR
         env:
@@ -206,3 +209,24 @@ jobs:
             gh pr merge "$PR" --repo "$REPO" $METODO
             echo "✅ PR #$PR integrado ($METODO)."
           fi
+
+      - name: Atualizar o PR de release (merge na development)
+        if: github.event.pull_request.base.ref == 'development'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # o merge com --auto pode acontecer alguns segundos depois: espera o PR ficar MERGED (até ~3 min)
+          for i in $(seq 1 18); do
+            ESTADO=$(gh pr view "$PR" --repo "$REPO" --json state --jq .state)
+            [ "$ESTADO" = "MERGED" ] && break
+            sleep 10
+          done
+          if [ "$ESTADO" != "MERGED" ]; then
+            echo "::warning::PR #$PR ainda não integrado ($ESTADO): o \"Preparar release\" não foi disparado. Rode-o à mão (Actions > Preparar release > Run workflow)."
+            exit 0
+          fi
+          gh workflow run release-pr.yml --repo "$REPO" --ref development
+          echo "✅ \"Preparar release\" disparado para atualizar o PR de release."
+
