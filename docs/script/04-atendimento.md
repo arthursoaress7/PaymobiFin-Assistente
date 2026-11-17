@@ -177,6 +177,7 @@ O fluxo tem duas etapas e cada uma fica num lugar só:
 
 - Os modelos Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba Mensagens (eram cópias do que o Atendimento já gera para o grupo). Textos personalizados deles que existam em `negModelos` ficam guardados, sem uso; nada é apagado.
 - Se o modelo salvo em `negModeloAtual` não existe mais, a aba abre em "Retorno do setor".
+- **"Aplicar cliente atual"** também existe na aba Mensagens (`#mf-ng-aplicar`, mesma função `atAplicarCliente` do Atendimento): preenche com o cliente da busca do topo (CAC/proposta) e **continua em Mensagens**. Campo que o modelo usa com outro sentido (rótulo próprio em `rotulos`, ex.: "Valor da parcela" do retorno PIX = parcela do acordo) não é preenchido pela proposta.
 - Modelos personalizados salvos em `negModelos` (Configurações > Gerador de negociações).
 
 ---

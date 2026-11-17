@@ -1947,6 +1947,9 @@
               <div id="mf-ng-desc" class="mf-info" style="margin-top:6px"></div>
             </div>
             <details class="mf-grupo" id="mf-ng-dados" data-grupo="ng-dados" open><summary>Dados</summary>
+              <div class="mf-linha" style="flex-wrap:wrap;gap:6px;margin:2px 0 6px">
+                <button id="mf-ng-aplicar" class="cinza mf-bs-mini" title="Preenche com o cliente da busca do topo (dados do CAC/proposta).">Aplicar cliente atual</button>
+              </div>
               <div id="mf-ng-slot"><div id="mf-ng-campos"></div></div>
             </details>
             <details class="mf-grupo" id="mf-ng-saida" data-grupo="ng-saida" open><summary>Texto</summary>
@@ -5835,16 +5838,20 @@
         vencimento_antigo: atIso(c.vencMaisAntigo), parcela_atual: num(c.parcelaAtual),
       };
       if (c.parcelaAtual && !String(ngValores.parcela_inicial || '').trim()) novos.parcela_inicial = num(c.parcelaAtual);
+      // Mensagens: campo que o modelo usa com outro sentido (ex.: "Valor da parcela" do retorno PIX = parcela do acordo) não é preenchido pela proposta
+      const outroSentido = ngCtx === 'mensagens' ? (ngDef().rotulos || {}) : {};
+      Object.keys(novos).forEach(k => { if (k in outroSentido) delete novos[k]; });
       const conflitos = Object.entries(novos).filter(([k, v]) => v && String(ngValores[k] || '').trim() && String(ngValores[k]).trim() !== String(v));
       if (conflitos.length && !confirm(conflitos.length + ' campo(s) já preenchido(s) serão substituídos pelos dados do cliente atual. Continuar?')) return;
       let n = 0;
       Object.entries(novos).forEach(([k, v]) => { if (v) { ngValores[k] = v; n++; } });
       if (novos.parcela_inicial && !ngValores.abrangencia_tipo) ngValores.abrangencia_tipo = 'apartir';
-      if (ngCtx === 'mensagens') atTrocar('negociacao'); else atDesenhar();
+      atDesenhar();   // fica na tela atual (Negociação, Renegociação ou Mensagens)
       mostrarAba('neg');
-      msg('Dados de ' + (c.nome || 'cliente') + ' aplicados (' + n + ' campo(s)). O número de contato não vem da proposta: digite o que o cliente usou.');
+      msg('Dados de ' + (c.nome || 'cliente') + ' aplicados (' + n + ' campo(s)).' + (ngCtx === 'mensagens' ? ' Revise e gere o texto.' : ' O número de contato não vem da proposta: digite o que o cliente usou.'));
     }
     $('#mf-at-aplicar').onclick = atAplicarCliente;
+    $('#mf-ng-aplicar').onclick = atAplicarCliente;
 
     /* ---- Desbloqueios: renderização e handlers ---- */
     function atDesbBloco(campos) {
