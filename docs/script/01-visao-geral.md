@@ -38,21 +38,22 @@ O script é dividido em dois pontos de entrada principais:
 
 | Seção no código | Módulo | Linha aprox. |
 |---|---|---|
-| Leitura da árvore | Motor de coleta React | 114 |
-| Iframe do motor | Navegação da árvore MobFacil | 375 |
-| Interface base | Painel, abas, arrastar, redimensionar | 838 |
-| CCBs | Download de certificados | 2881 |
-| Contas | Troca rápida de conta | 3069 |
-| Gerador de Negociações | Formulário + textos + planilha | 3274 |
-| Lembretes | Pagamentos parciais (v2) | 3768 |
-| Consulta CAC | Central de Atendimento | 4161 |
-| Atendimento | Negociação e Renegociação | 4546 |
-| Timers | Agendamentos de expediente | 4835 |
-| Navegação/Aparência | Nova UI / UI Antiga | 5172 |
-| Equipe | Compartilhamento via Pusher | 5273 |
-| Histórico | Acordos registrados pela equipe | 5740 |
-| Busca de cliente | Central de busca somente leitura | 5969 |
-| Navegação automática | Troca de tela automática no ER | 6274 |
+| Leitura da árvore | Motor de coleta React | 152 |
+| Iframe do motor | Navegação da árvore MobFacil | 451 |
+| Interface base | Painel, abas, arrastar, redimensionar | 973 |
+| CCBs | Download de certificados | 3608 |
+| Contas | Troca rápida de conta | 3800 |
+| Gerador de Negociações | Modelos (grupo e cliente), campos e montagem dos textos | 4092 |
+| Lembretes | Pagamentos parciais (v2) | 4591 |
+| Consulta CAC | Central de Atendimento | 4984 |
+| Relatório de Pendências | Pendências do ER (somente leitura) | 5330 |
+| Atendimento | Negociação, Renegociação, Desbloqueios e Mensagens | 5537 |
+| Timers | Agendamentos de expediente | 5901 |
+| Navegação/Aparência | Nova UI / UI Antiga | 6237 |
+| Equipe | Compartilhamento via Pusher | 6355 |
+| Histórico | Acordos registrados pela equipe | 6822 |
+| Busca de cliente | Central de busca somente leitura | 7051 |
+| Navegação automática | Troca de tela automática no ER | 7357 |
 
 ---
 

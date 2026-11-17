@@ -1,14 +1,16 @@
 # Módulo: Atendimento (Negociação e Renegociação)
 
-**Linhas:** 4546 – 4834  
-**Gerador de textos:** 3274 – 4160  
+**Linhas:** 5537 – 5900  
+**Gerador de textos:** 4092 – 4590 (modelos, campos, `ngValor`, `ngMontar`); `ngFrases` logo antes do Atendimento  
 **Funções principais:** `atDesenhar()`, `atLinhas()`, `atMontarPlano()`, `ngGerarTextos()`, `ngFrases()`
 
 ---
 
 ## Responsabilidade
 
-O módulo de Atendimento centraliza o registro de negociações e renegociações. Ele mantém uma **ficha única em memória** que serve tanto para a aba Negociação quanto para a Renegociação — o que foi digitado em uma aparece na outra. Nada é salvo até clicar em "Registrar no histórico".
+O módulo de Atendimento centraliza o registro de negociações e renegociações. Ele mantém uma **ficha única em memória** que serve a Negociação, a Renegociação e a aba Mensagens — o que foi digitado em uma aparece nas outras. Nada é salvo até clicar em "Registrar no histórico".
+
+O Atendimento tem 4 telas (`.mf-at-seg`): **Negociação**, **Renegociação**, **Desbloqueios** (`12-desbloqueios.md`) e **Mensagens** (retorno ao cliente — ver "Mensagens: grupo × cliente").
 
 ---
 
@@ -146,7 +148,9 @@ Formatos: valores `R$ 0,00`, datas `dd/mm/aaaa`, telefone `(11) 912345678`.
 
 ## Aplicar cliente atual
 
-`atAplicarCliente()` — preenche os campos de cliente (Proposta, Nome, CPF, IMEI, Filial, Atendente) com os dados da Busca de cliente ativa. O campo Número de contato **nunca** é preenchido automaticamente.
+`atAplicarCliente()` — preenche a ficha com os dados da Busca de cliente ativa: Proposta, Nome, CPF, IMEI, Data da proposta, Filial, Atendente, Valor da parcela, FPD, Parcelas em atraso, Dias de atraso, Vencimento mais antigo e Parcela atual (e "A partir da parcela", se vazio). Pergunta antes de substituir o que já foi digitado. O campo Número de contato **nunca** é preenchido automaticamente.
+
+O botão existe em Negociação, Renegociação e Mensagens (`#mf-at-aplicar` / `#mf-ng-aplicar`) e **fica na tela em que foi clicado**. Em Mensagens, campo com rótulo próprio no modelo (`rotulos`) não é preenchido pela proposta. Desbloqueios tem botão próprio (`#mf-at-desb-aplicar`).
 
 ---
 

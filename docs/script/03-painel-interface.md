@@ -1,6 +1,6 @@
 # Módulo: Painel Principal e Interface
 
-**Linhas:** 837 – 2880 (bloco `iniciarPainel`)  
+**Linhas:** 973 – 3607 (bloco `iniciarPainel`)  
 **Funções principais:** `iniciarPainel()`, `atualizarUI()`, `atualizarConfigUI()`
 
 ---
