@@ -2,7 +2,7 @@
 
 ## CCBs (Cédulas de Crédito Bancário)
 
-**Linhas:** 2881 – 3068  
+**Linhas:** 3608 – 3799  
 **Origem dos dados:** Fila de Propostas (`MostraConsulta('FilaPropostas')`)
 
 ---
@@ -35,7 +35,7 @@ Cada passo espera a resposta do sistema (`aguardarResposta`). Se a resposta for 
 
 ## Contas (Troca rápida)
 
-**Linhas:** 3069 – 3273
+**Linhas:** 3800 – 4091
 
 ---
 

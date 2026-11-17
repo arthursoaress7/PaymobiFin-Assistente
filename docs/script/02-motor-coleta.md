@@ -1,6 +1,6 @@
 # Módulo: Motor de Coleta (MobFacil)
 
-**Linhas:** 114 – 836  
+**Linhas:** 152 – 972  
 **Funções de entrada:** `iniciarMotor()` (linha 376)
 
 ---

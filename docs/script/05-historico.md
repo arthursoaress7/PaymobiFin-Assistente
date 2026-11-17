@@ -1,6 +1,6 @@
 # Módulo: Histórico de Acordos
 
-**Linhas:** 5740 – 5968  
+**Linhas:** 6822 – 7050  
 **Chave de armazenamento:** `mfAcordos` (versão 1)  
 **Retenção:** 30 dias após a última alteração
 

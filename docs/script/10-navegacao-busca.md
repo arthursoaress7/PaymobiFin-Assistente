@@ -2,7 +2,7 @@
 
 ## Navegação Automática
 
-**Linhas:** 6274 – 6293  
+**Linhas:** 7357 – 7420 (inclui Mesa de Crédito: datas do dia)  
 **Chave de armazenamento:** `navAuto`
 
 ---
@@ -50,7 +50,7 @@ Ao abrir, a Mesa vem do sistema com as datas padrão dele (dois dias para trás)
 
 ## Busca de Cliente
 
-**Linhas:** 5969 – 6273  
+**Linhas:** 7051 – 7356  
 **Armazenamento:** `sessionStorage` da aba (não persiste entre sessões)
 
 ---
@@ -65,7 +65,7 @@ Central de busca somente leitura para consultar dados de um cliente pelo CPF, IM
 2. O usuário digita e pressiona Enter ou clica no botão de busca
 3. O script consulta o ER (Mesa de Crédito) e exibe os resultados
 4. O usuário pode clicar em um resultado para:
-   - **"Aplicar cliente atual" / "Usar em: Atendimento"** → preenche os campos de cliente no Atendimento
+   - **"Aplicar cliente atual" / "Usar em: Atendimento"** → preenche os campos de cliente no Atendimento (o botão "Aplicar cliente atual" existe em Negociação, Renegociação, Desbloqueios e Mensagens; preenche a tela em que está)
    - **"Usar em: CAC"** → abre a Consulta CAC com o CPF
    - **"Usar em: Lembretes"** → preenche o campo de proposta nos Lembretes
 
