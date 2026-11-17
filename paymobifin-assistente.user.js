@@ -221,7 +221,7 @@
   const erEndereco = (origem) => {
     if (origem === 'motor') return erNoMotor() ? location.origin : '';
     if (erNoRD()) return String(GM_getValue('erBase', '') || '').replace(/\/+$/, '');
-    if (!/(^|\.)paymobi\.ercard\.com\.br$/i.test(location.hostname)) return '';
+    if (!/(^|\.)paymobi(-app)?\.ercard\.com\.br$/i.test(location.hostname)) return '';   // endereço antigo e novo (paymobi-app, desde 11/2026)
     const v = (document.getElementById('txtCaminhoSistema') || {}).value;
     if (v) return v.replace(/\/+$/, '');
     const m = location.pathname.match(/^(.*?\/ErCardWeb)(\/|$)/i);
