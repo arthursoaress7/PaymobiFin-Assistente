@@ -4211,6 +4211,9 @@
       valor_regularizar: { rot: 'Valor da regularização', tipo: 'moeda' },
       dividir_qtd: { rot: 'Dividido em (nº de parcelas)', tipo: 'num' },
       dividir_valor: { rot: 'Valor de cada parte', tipo: 'moeda' },
+      parcela_negociada: { rot: 'Parcela negociada (nº)', tipo: 'num' },
+      valor_pago_anterior: { rot: 'Pago anteriormente sobre a parcela (se houver)', tipo: 'moeda' },
+      data_pago_anterior: { rot: 'Data do pagamento anterior', tipo: 'data' },
     });
     const NG_CAB = c => 'Acordo realizado — ' + c + '\n\nCliente: {{nome}}\nProposta: {{proposta}}\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\n';
     const NG_ABR = ['abrangencia_tipo', 'parcela_inicial', 'parcelas_especificas'];
@@ -4245,9 +4248,11 @@
           return { pedido: 'Cliente ' + (verbo === 'fechou' ? 'fechou o pagamento parcial de ' : 'solicitou pagar parcialmente ') + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r, acordo: 'Prosseguimos com o pagamento parcial de ' + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r }; },
       },
       folego: {
-        nome: 'Campanha do Fôlego (pagamento parcial)', campos: ['nome', 'proposta', 'parcela_atual', 'valor_total_devido', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante', 'com_juros', 'condicoes', 'observacoes'],
-        obrig: ['nome', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante'], saldo: true, rotulos: { data_pagamento: 'Data do pagamento inicial', valor_pago_parcial: 'Pagamento inicial', valor_restante: 'Saldo restante', condicoes: 'Condições da campanha' },
-        texto: NG_CAB('Campanha do Fôlego') + 'Pagamento inicial de {{valor_pago_parcial}} no dia {{data_pagamento}}.\nValor total devido: {{valor_total_devido}}\nSaldo restante: {{valor_restante}}\nPagamento do restante: {{data_restante}}\nRestante com juros: {{com_juros}}\n\nCondições da campanha: {{condicoes}}\n\nObservações: {{observacoes}}',
+        nome: 'Campanha do Fôlego (pagamento parcial)', campos: ['nome', 'proposta', 'cpf', 'parcelas_atraso', 'parcela_negociada', 'valor_parcela', 'vencimento', 'parcela_atual', 'valor_total_devido', 'valor_pago_parcial', 'data_pagamento', 'valor_pago_anterior', 'data_pago_anterior', 'valor_restante', 'data_restante', 'com_juros', 'condicoes', 'observacoes'],
+        obrig: ['nome', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante'], saldo: true,
+        rotulos: { data_pagamento: 'Data do pagamento parcial', valor_pago_parcial: 'Pago parcialmente (após quebra de acordo)', valor_restante: 'Saldo restante', vencimento: 'Vencimento da parcela negociada', valor_parcela: 'Valor original da parcela', condicoes: 'Condições da campanha' },
+        // formato pedido pelo setor (17/11/2026); a linha do pagamento anterior só sai se valor e data forem informados
+        texto: 'Cliente: {{nome}}\nCPF: {{cpf}}\nParcelas em Atraso: {{parcelas_atraso}}\nParcela negociada: {{parcela_negociada}}\nValor Original da Parcela: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nCliente pagou parcialmente {{valor_pago_parcial}} ({{data_pagamento}}), após quebra de acordo.\nAnteriormente o cliente pagou {{valor_pago_anterior}} ({{data_pago_anterior}}) sobre o valor da parcela.\n\nDia que ele vai pagar o restante: {{data_restante}}\nValor que ele vai pagar no dia: {{valor_restante}}',
         frases: (v, verbo) => { const r = ' e o restante no valor de ' + v('valor_restante') + (v('com_juros') ? ' com juros' : '') + ' no dia ' + v('data_restante');
           return { pedido: 'Campanha do Fôlego: Cliente ' + (verbo === 'fechou' ? 'fechou acordo para pagar ' : 'solicitou pagar ') + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r, acordo: 'Prosseguimos com o acordo de ' + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r }; },
       },

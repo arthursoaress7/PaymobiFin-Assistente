@@ -58,6 +58,8 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 | `regularizacao` | Regularização de parcela(s) em atraso |
 | `semacordo` | Sem acordo / pagamento normal |
 
+**Campanha do Fôlego — formato da mensagem:** dados da parcela (Cliente, CPF, Parcelas em Atraso, Parcela negociada, Valor Original da Parcela, Vencimento), o pagamento parcial após quebra de acordo, o pagamento anterior sobre a parcela (linha omitida se não houver) e o dia/valor do restante. Campos próprios: `parcela_negociada`, `valor_pago_anterior`, `data_pago_anterior`; o vencimento usa `vencimento` ("Vencimento da parcela negociada").
+
 ---
 
 ## Geração de textos
