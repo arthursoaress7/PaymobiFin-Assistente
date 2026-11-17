@@ -19,8 +19,8 @@ Os passos abaixo fazem esse fluxo funcionar de ponta a ponta.
 
 ## Passo 1 — Criar o token `RELEASE_TOKEN`
 
-PRs e merges feitos com o token padrão do GitHub Actions (`GITHUB_TOKEN`) **não disparam outros workflows**. Sem um token pessoal:
-- o merge automático na `development` não abre o PR de release;
+PRs e merges feitos com o token padrão do GitHub Actions (`GITHUB_TOKEN`) **não disparam outros workflows** pelo `push`. Sem um token pessoal:
+- o merge automático na `development` só atualiza a branch do release porque a validação dispara o "Preparar release" à parte (`workflow_dispatch`); abrir o PR de release ainda depende do Passo 2;
 - o PR de release e o PR de sincronização ficam sem a verificação "Validar alterações".
 
 **Criar o token:**
