@@ -188,15 +188,17 @@ O módulo de lembretes (`lb*`) já possui:
 
 O módulo de mensagens (`ng*` e `at*`) já possui:
 
-- **7 modelos de mensagem** (`NG_MODELOS`): Pedido de negociação, Acordo realizado, Retorno do setor, Campanha do Fôlego, Retorno do setor — Instruções de pagamento, Solicitação de negociação, Antecipação de parcela.
+- **Mensagens para o grupo** (Negociação/Renegociação, botão "Mensagem p/ grupo"): uma por modalidade (`NG_MODALIDADES`); "Condições gerais" usa `NG_ACORDO_GERAL`.
+- **3 modelos de mensagem para o cliente** (aba Mensagens, `NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento, Antecipação de parcela. Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba em 17/11/2026 (eram cópias do que o Atendimento gera para o grupo).
 - **11 modalidades de acordo** (`NG_MODALIDADES`): Novo valor mensal, Parcelamento, Entrada + parcelas, Pagamento parcial + restante, Campanha do Fôlego, PIX semanal/Automático, Alteração de vencimento, Antecipação/quitação, Regularização, Sem acordo, Condições gerais.
 - **Preenchimento automático existente:**
   - `data_contato` = hoje (padrão)
   - `responsavel` = nome da equipe ou apelido da conta ativa
-  - `com_juros` = true (padrão)
+  - `com_juros` = true (padrão; só na modalidade Pagamento parcial)
   - `abrangencia` = calculada a partir de `abrangencia_tipo` + `parcela_inicial`/`parcelas_especificas`
   - `antecipacao_descr` = calculada a partir de `tipo_antecipacao` + `qtd_antecipadas`
-  - `valor_restante` = `total_devido` − `valor_pago_parcial` (auto-calculado, bloqueia pagar acima do total)
+  - `valor_restante` = `total_devido` − `valor_pago_parcial` (auto-calculado na modalidade Pagamento parcial, bloqueia pagar acima do total; na Campanha do Fôlego o restante é digitado)
+  - `parcela_negociada` (Campanha do Fôlego): o número digitado sai por extenso ("3" → "3° parcela")
   - Dados de pagamento (`chave_pix`, `banco`, `agência`, `conta`) vindos de Configurações
   - `atSugerir()`: copia data 1° pagamento, quantidade de parcelas e "Todo Contrato" dos campos do acordo (só se estiverem vazios)
 - **Preenchimento manual:** todo o resto — nome, proposta, CPF, valores das parcelas, entrada, datas, quantidades, observações, vencimentos.
@@ -209,11 +211,12 @@ O módulo de mensagens (`ng*` e `at*`) já possui:
 - [ ] **P2.1 — Revisar os modelos de mensagens existentes**
 
   **Status:** Pendente  
-  **Objetivo:** avaliar se os 7 modelos e 11 modalidades atuais atendem às necessidades da equipe.  
+  **Objetivo:** avaliar se os modelos (3 para o cliente) e as 11 modalidades atuais atendem às necessidades da equipe.  
   **Comportamento esperado:** modelos cobrem todos os cenários do dia a dia sem precisar edição manual excessiva.  
   **Critérios de aceite:** lista de modelos que precisam ajuste, novos modelos necessários ou modelos obsoletos.  
   **Dependências:** feedback da equipe sobre o uso real.  
-  **Observações:** não criar modelos novos sem necessidade confirmada.
+  **Observações:** não criar modelos novos sem necessidade confirmada.  
+  **Andamento (17/11/2026):** mensagens do grupo e do cliente separadas (#58, #60); Campanha do Fôlego no formato aprovado pela gestora, com quebra de acordo opcional (#59, #61, #62). Falta revisar os textos dos 3 modelos para o cliente (ex.: "Retorno do setor" ainda tem cabeçalho de texto interno).
 
 ---
 
@@ -223,7 +226,7 @@ O módulo de mensagens (`ng*` e `at*`) já possui:
   **Objetivo:** reduzir digitação manual identificando campos que poderiam ser preenchidos automaticamente a partir de dados já disponíveis.  
   **Comportamento esperado:** ao aplicar o cliente atual (`atAplicarCliente`), o máximo de campos relevantes deve vir preenchido.  
   **Critérios de aceite:** lista de campos que hoje são manuais mas poderiam ser automáticos, com origem do dado.  
-  **Dependências:** `atAplicarCliente` já preenche: nome, proposta, CPF, IMEI, data da proposta, filial, atendente, valor da parcela, FPD, parcelas em atraso, dias de atraso, vencimento mais antigo, parcela atual. O Número de contato é sempre manual (por design).  
+  **Dependências:** `atAplicarCliente` (Negociação, Renegociação e Mensagens) já preenche: nome, proposta, CPF, IMEI, data da proposta, filial, atendente, valor da parcela, FPD, parcelas em atraso, dias de atraso, vencimento mais antigo, parcela atual. O Número de contato é sempre manual (por design).  
   **Observações:** o número de contato (RD Station) nunca deve ser preenchido com o telefone da proposta — isso é uma regra confirmada.
 
 ---

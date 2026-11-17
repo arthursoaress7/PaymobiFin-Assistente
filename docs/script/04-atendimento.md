@@ -1,14 +1,16 @@
 # Módulo: Atendimento (Negociação e Renegociação)
 
-**Linhas:** 4546 – 4834  
-**Gerador de textos:** 3274 – 4160  
+**Linhas:** 5537 – 5900  
+**Gerador de textos:** 4092 – 4590 (modelos, campos, `ngValor`, `ngMontar`); `ngFrases` logo antes do Atendimento  
 **Funções principais:** `atDesenhar()`, `atLinhas()`, `atMontarPlano()`, `ngGerarTextos()`, `ngFrases()`
 
 ---
 
 ## Responsabilidade
 
-O módulo de Atendimento centraliza o registro de negociações e renegociações. Ele mantém uma **ficha única em memória** que serve tanto para a aba Negociação quanto para a Renegociação — o que foi digitado em uma aparece na outra. Nada é salvo até clicar em "Registrar no histórico".
+O módulo de Atendimento centraliza o registro de negociações e renegociações. Ele mantém uma **ficha única em memória** que serve a Negociação, a Renegociação e a aba Mensagens — o que foi digitado em uma aparece nas outras. Nada é salvo até clicar em "Registrar no histórico".
+
+O Atendimento tem 4 telas (`.mf-at-seg`): **Negociação**, **Renegociação**, **Desbloqueios** (`12-desbloqueios.md`) e **Mensagens** (retorno ao cliente — ver "Mensagens: grupo × cliente").
 
 ---
 
@@ -57,6 +59,12 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 | `antecipacao` | Antecipação / quitação |
 | `regularizacao` | Regularização de parcela(s) em atraso |
 | `semacordo` | Sem acordo / pagamento normal |
+
+**Campanha do Fôlego — formato da mensagem (aprovado pela gestora, 17/11/2026):** título `*CAMPANHA DO FÔLEGO*` (negrito no WhatsApp); Cliente, CPF, Parcela(s) negociada(s), Valor Original da Parcela, Vencimento; "Cliente pagou parcialmente R$ X (data)."; dia e valor do restante. Campos da modalidade: `parcela_negociada` (digita-se o número: "3" sai "3° parcela", "8, 9 e 10" sai "8°, 9° e 10° parcelas"), `vencimento` ("Vencimento da parcela negociada"), valor/data do pagamento parcial e valor/dia do restante; Cliente, CPF e Valor original vêm dos blocos fixos (na Renegociação, que esconde o bloco Cobrança, o "Valor original da parcela" aparece na própria modalidade). O restante é digitado (sem cálculo automático).
+
+**Quebra de acordo (opcional):** o checkbox **"Houve quebra de acordo"** (`quebra_acordo`, depois de "Dia do pagamento do restante", desmarcado por padrão) libera os campos do pagamento anterior (`valor_pago_anterior`, `data_pago_anterior`) e acrescenta à mensagem ", após quebra de acordo" e a linha "Anteriormente o cliente pagou R$ X (data) sobre o valor da parcela." Desmarcado, os campos ficam ocultos e não entram no texto mesmo que tenham sido preenchidos.
+
+**Trecho opcional nos modelos:** `{{?variavel}}` some quando vazio sem tirar a linha (ex.: `{{?quebra_acordo_txt}}`). `{{variavel}}` sem `?` continua tirando a linha quando vazio.
 
 ---
 
@@ -140,7 +148,9 @@ Formatos: valores `R$ 0,00`, datas `dd/mm/aaaa`, telefone `(11) 912345678`.
 
 ## Aplicar cliente atual
 
-`atAplicarCliente()` — preenche os campos de cliente (Proposta, Nome, CPF, IMEI, Filial, Atendente) com os dados da Busca de cliente ativa. O campo Número de contato **nunca** é preenchido automaticamente.
+`atAplicarCliente()` — preenche a ficha com os dados da Busca de cliente ativa: Proposta, Nome, CPF, IMEI, Data da proposta, Filial, Atendente, Valor da parcela, FPD, Parcelas em atraso, Dias de atraso, Vencimento mais antigo e Parcela atual (e "A partir da parcela", se vazio). Pergunta antes de substituir o que já foi digitado. O campo Número de contato **nunca** é preenchido automaticamente.
+
+O botão existe em Negociação, Renegociação e Mensagens (`#mf-at-aplicar` / `#mf-ng-aplicar`) e **fica na tela em que foi clicado**. Em Mensagens, campo com rótulo próprio no modelo (`rotulos`) não é preenchido pela proposta. Desbloqueios tem botão próprio (`#mf-at-desb-aplicar`).
 
 ---
 
@@ -164,11 +174,17 @@ Só aparência e retorno visual: os campos, ids, botões, textos gerados e linha
 
 ---
 
-## Mensagens para grupo
+## Mensagens: grupo × cliente
 
-- **"Mensagem p/ grupo"** (botão no Atendimento): gera a mensagem da modalidade atual
-- **Aba Mensagens**: acesso a todos os modelos — Pedido de negociação, Acordo realizado por modalidade, Retorno do setor, Campanha do Fôlego, Instrução de pagamento, Solicitação de negociação, Antecipação de parcela
-- Modelos personalizados salvos em `negModelos`
+O fluxo tem duas etapas e cada uma fica num lugar só:
+
+1. **Grupo + planilha — Negociação / Renegociação.** O botão **"Mensagem p/ grupo"** gera a mensagem da modalidade atual (`NG_MODALIDADES`, chave `acordo:<modalidade>`; a modalidade "Condições gerais" usa `NG_ACORDO_GERAL`, chave `acordo`). Os mesmos dados geram a linha da planilha e os textos "Pedido do cliente" / "Acordo Realizado".
+2. **Cliente — aba Mensagens** ("Mensagens para o cliente"). Só os retornos ao cliente, enviados **depois** de validar no grupo (`NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento (PIX/TED), Antecipação de parcela.
+
+- Os modelos Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba Mensagens (eram cópias do que o Atendimento já gera para o grupo). Textos personalizados deles que existam em `negModelos` ficam guardados, sem uso; nada é apagado.
+- Se o modelo salvo em `negModeloAtual` não existe mais, a aba abre em "Retorno do setor".
+- **"Aplicar cliente atual"** também existe na aba Mensagens (`#mf-ng-aplicar`, mesma função `atAplicarCliente` do Atendimento): preenche com o cliente da busca do topo (CAC/proposta) e **continua em Mensagens**. Campo que o modelo usa com outro sentido (rótulo próprio em `rotulos`, ex.: "Valor da parcela" do retorno PIX = parcela do acordo) não é preenchido pela proposta.
+- Modelos personalizados salvos em `negModelos` (Configurações > Gerador de negociações).
 
 ---
 
