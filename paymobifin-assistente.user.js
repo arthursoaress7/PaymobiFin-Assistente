@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.31.0
+// @version      13.32.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -30,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.31.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.32.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -4128,6 +4128,7 @@
       data_restante: { rot: 'Data do valor restante', tipo: 'data' },
       prazo_dias_uteis: { rot: 'Validade (dias úteis)', tipo: 'num' },
       valor_solicitado: { rot: 'Valor solicitado pelo cliente', tipo: 'moeda' },
+      dia_solicitado: { rot: 'Dia de pagamento solicitado pelo cliente', tipo: 'dia' },
       vencimento_solicitado: { rot: 'Vencimento solicitado', tipo: 'data' },
       parcela_antecipada: { rot: 'Parcela antecipada (ex.: 03/10)', tipo: 'texto' },
       vencimento_original: { rot: 'Vencimento original da parcela', tipo: 'data' },
@@ -4155,11 +4156,11 @@
         texto: 'Segue retorno do setor responsável pela negociação:\n\nParcelas: {{quantidade_parcelas}}\nValor: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nPara confirmação desta negociação, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
       },
       retornoFolego: {
-        nome: 'Retorno ao cliente — Campanha do Fôlego', desc: 'Condições autorizadas pelo setor na Campanha do Fôlego, com a chave PIX e a conta cadastradas em Configurações > Gerador de negociações.',
-        campos: ['nome', 'cpf', 'valor_entrada', 'valor_parcela_acordo', 'vencimento', 'validade', 'incluir_ted'],
-        obrig: ['nome', 'cpf', 'valor_entrada', 'valor_parcela_acordo', 'vencimento', 'validade', 'chave_pix'],
-        rotulos: { valor_entrada: 'Entrada autorizada', valor_parcela_acordo: 'Valor das parcelas autorizadas', vencimento: 'Vencimento autorizado', validade: 'Acordo válido até' },
-        texto: 'Retorno do setor responsável\n\nCliente: {{nome}}\nCPF: {{cpf}}\n\nCondições autorizadas pelo setor:\nEntrada: {{valor_entrada}}\nValor das parcelas: {{valor_parcela_acordo}}\nVencimento: {{vencimento}}\n\nAcordo válido até {{validade}}\n\nInformamos que caso haja alguma intermitência durante esse período entre em contato conosco para melhores esclarecimentos\nPara confirmação desse acordo segue o link para pagamento.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante.',
+        nome: 'Retorno ao cliente — Campanha do Fôlego', desc: 'Fôlego não é parcelamento: é uma entrada (pagamento parcial) + data para pagar o restante, e só vale depois que o cliente paga a entrada. Usa a chave PIX e a conta cadastradas em Configurações > Gerador de negociações.',
+        campos: ['valor_entrada', 'valor_total_juros', 'valor_restante', 'parcela_negociada', 'prazo_dias_uteis', 'proximo_vencimento', 'incluir_ted'],
+        obrig: ['valor_entrada', 'valor_restante', 'parcela_negociada', 'prazo_dias_uteis', 'proximo_vencimento', 'chave_pix'], saldo: 'valor_total_juros', saldoPago: 'valor_entrada',
+        rotulos: { valor_entrada: 'Valor da entrada', valor_total_juros: 'Valor total com juros (opcional: calcula o restante)', valor_restante: 'Valor restante', parcela_negociada: 'Parcela referente ao acordo (nº: 1 ou 3 4 5)', proximo_vencimento: 'Vencimento do restante' },
+        texto: 'Segue retorno do setor responsável pela negociação:\n\nEntrada\nValor: {{valor_entrada}}\nValor restante: {{valor_restante}}\nParcela referente ao acordo: {{parcela_negociada}}\n\nPara confirmação desta negociação, peço que realize o pagamento da entrada via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
       },
       antecipacao: {
         nome: 'Antecipação de parcela', desc: 'Dados da antecipação como informados; nenhum valor é calculado pelo script.',
@@ -4186,6 +4187,7 @@
       parcelas_especificas: { rot: 'Parcelas negociadas (ex.: 8, 9 e 10)', tipo: 'texto' },
       abrangencia: { rot: 'Abrangência (texto)', tipo: 'calc' },
       operacao: { rot: 'Operação (Resultado do atendimento)', tipo: 'calc' },
+      data_entrada_txt: { rot: '" (data da entrada)" (quando preenchida)', tipo: 'calc' },
       operacao_maiusc: { rot: 'Operação em maiúsculas', tipo: 'calc' },
       acao_parcial: { rot: 'Pagamento parcial conforme o Resultado', tipo: 'calc' },
       valor_total_devido: { rot: 'Valor total devido', tipo: 'moeda' },
@@ -4235,11 +4237,12 @@
         frases: (v, verbo) => { const d = v('dia_vencimento') ? ', com vencimento para todo dia ' + v('dia_vencimento') : '';
           return { pedido: 'Cliente ' + verbo + ' renegociar as parcelas para ' + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + d, acordo: 'Prosseguimos com o acordo de ' + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + d }; },
       },
-      entrada: {
-        nome: 'Entrada + parcelas', campos: ['nome', 'proposta', 'parcela_atual', ...NG_ABR, 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
-        obrig: ['nome', 'valor_entrada', 'quantidade_parcelas', 'valor_parcela_acordo'],
-        texto: NG_CAB('Entrada + parcelas') + 'Prosseguimos com 1 parcela de {{valor_entrada}} como entrada e {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nData da entrada: {{data_entrada}}\nVencimento das parcelas: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
-        frases: (v, verbo) => { const e = '1 parcela de ' + v('valor_entrada') + ' como entrada' + (v('data_entrada') ? ' no dia ' + v('data_entrada') : '') + ', e ' + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + (v('dia_vencimento') ? ', vencendo todo dia ' + v('dia_vencimento') : '');
+      entrada: {   // formato da equipe (19/11/2026): pedido do cliente + simulação; entrada opcional (some se vazia)
+        nome: 'Entrada + parcelas', campos: ['nome', 'proposta', 'cpf', 'parcela_atual', ...NG_ABR, 'dia_solicitado', 'valor_solicitado', 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
+        obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
+        rotulos: { valor_solicitado: 'Valor de parcela solicitado pelo cliente', valor_entrada: 'Valor da entrada (se houver)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas simuladas', valor_parcela_acordo: 'Valor da parcela simulada' },
+        texto: '{{operacao}} — Renegociação\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\nCliente solicitou pagamento todo dia {{dia_solicitado}} e parcelas de {{valor_solicitado}}\nEntrada: {{valor_entrada}}{{?data_entrada_txt}}\nForam simuladas {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nVencimento: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
+        frases: (v, verbo) => { const e = (v('valor_entrada') ? '1 parcela de ' + v('valor_entrada') + ' como entrada' + (v('data_entrada') ? ' no dia ' + v('data_entrada') : '') + ', e ' : '') + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + (v('dia_vencimento') ? ', vencendo todo dia ' + v('dia_vencimento') : '');
           return { pedido: 'Cliente ' + verbo + ' ' + e, acordo: 'Prosseguimos com ' + e }; },
       },
       parcial: {
@@ -4362,6 +4365,7 @@
         const sel = $('#mf-ng-frase-tipo'), r = sel ? sel.value : 'fechou';
         return r === 'solicitou' || r === 'nao' ? 'Cliente solicita pagar parcialmente' : 'Cliente pagou parcialmente';
       }
+      if (k === 'data_entrada_txt') return ngValores.data_entrada ? ' (' + ngValor('data_entrada') + ')' : '';
       if (k === 'quebra_acordo_txt') return ngValores.quebra_acordo ? ', após quebra de acordo' : '';
       if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
       // Renegociação: vazio = usa a "Parcela(s) negociada(s)" do acordo (mesmo formato)
@@ -4460,6 +4464,8 @@
         ngValores[c] = def.tipo === 'check' ? inp.checked : inp.value;
         inp.classList.remove('mf-erro');
         if (c === 'abrangencia_tipo' || c === 'tipo_antecipacao' || c === 'quebra_acordo') ngMostrarDependentes();
+        // Renegociação: a data do contrato novo e a periodicidade mudam as datas sugeridas do plano de parcelas
+        if ((c === 'data_reneg' || c === 'plano_periodo') && ngCtx === 'renegociacao') atPlanoCampos();
       });
       if (def.tipo === 'check') { lab.style.flexDirection = 'row'; lab.style.alignItems = 'center'; lab.append(inp, document.createTextNode(' ' + rot)); }
       else {   // rótulo + " *" (num span, só para a cor do obrigatório na Nova UI; o texto do rótulo é o mesmo)
@@ -4501,12 +4507,14 @@
     }
     // pagamento parcial: saldo = total − pago (atualiza a cada digitação; não aceita pagamento acima do total)
     // saldo: true = total em valor_total_devido; saldo: '<campo>' = total nesse campo (Campanha do Fôlego: valor_total_juros)
+    // saldoPago: '<campo>' = campo do valor pago (padrão valor_pago_parcial; retorno do Fôlego: valor_entrada)
     function ngSaldoHook() {
       const sd = ngDef().saldo;
       if (!sd) return;
       const campoTot = typeof sd === 'string' ? sd : 'valor_total_devido', nomeTot = campoTot === 'valor_total_juros' ? 'total com juros' : 'total devido';
+      const nomePago = ngDef().saldoPago === 'valor_entrada' ? 'valor da entrada' : 'valor pago';
       const g = c => painel.querySelector('#mf-ng-campos [data-campo="' + c + '"]');
-      const tot = g(campoTot), pago = g('valor_pago_parcial'), rest = g('valor_restante');
+      const tot = g(campoTot), pago = g(ngDef().saldoPago || 'valor_pago_parcial'), rest = g('valor_restante');
       if (!tot || !pago || !rest) return;
       const box = document.createElement('div');
       box.className = 'mf-ng-saldo mf-cheia';
@@ -4516,10 +4524,10 @@
         ngValores._saldoErro = '';
         box.classList.remove('erro');
         if (t != null && p != null) {
-          if (p > t) { ngValores._saldoErro = 'O valor pago (' + ngReais(p) + ') é maior que o ' + nomeTot + ' (' + ngReais(t) + ').'; box.textContent = ngValores._saldoErro; box.classList.add('erro'); rest.readOnly = false; return; }
+          if (p > t) { ngValores._saldoErro = 'O ' + nomePago + ' (' + ngReais(p) + ') é maior que o ' + nomeTot + ' (' + ngReais(t) + ').'; box.textContent = ngValores._saldoErro; box.classList.add('erro'); rest.readOnly = false; return; }
           rest.value = ((t - p) / 100).toFixed(2).replace('.', ','); rest.readOnly = true; ngValores.valor_restante = rest.value;
           box.textContent = 'Saldo restante: ' + ngReais(t - p);
-        } else { rest.readOnly = false; box.textContent = tot.value.trim() ? 'Informe o valor pago para calcular o saldo.' : 'Informe o ' + nomeTot + ' para calcular o saldo (ou digite o restante).'; }
+        } else { rest.readOnly = false; box.textContent = tot.value.trim() ? 'Informe o ' + nomePago + ' para calcular o saldo.' : 'Informe o ' + nomeTot + ' para calcular o saldo (ou digite o restante).'; }
       };
       [tot, pago].forEach(i => i.addEventListener('input', calc));
       calc();
@@ -5726,12 +5734,21 @@
       if (mod === 'pix') Object.assign(s, { periodo: 'semanal', qtd: v('qtd_semanas'), valor: v('valor_semanal'), entradaValor: v('valor_entrada') });
       if (mod === 'regularizacao') Object.assign(s, { qtd: v('dividir_qtd'), valor: v('dividir_valor'), inicio: v('data_pagamento') });
       if (mod === 'vencimento') Object.assign(s, { qtd: /^\d+$/.test(String(v('parcelas_afetadas') || '').trim()) ? v('parcelas_afetadas') : '', valor: v('valor_parcela_acordo') });
-      // 1º vencimento: o próximo "dia D" depois da entrada (só quando os dois foram informados)
+      // Data renegociação (data do contrato novo / comprovante da entrada): base das datas quando o acordo não traz outra
+      const iso = x => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : '';
+      const reneg = iso(v('data_reneg'));
+      const temEntrada = String(s.entradaValor || '').trim() || String(v('plano_entrada_valor') || '').trim();
+      if (!iso(s.entradaData) && temEntrada && reneg) s.entradaData = reneg;
+      const base = iso(s.entradaData) || reneg;
+      // periodicidade escolhida à mão vale; senão, a da modalidade
+      const per = v('plano_periodo') && v('plano_periodo') !== (atPlanoAuto.plano_periodo || '') ? v('plano_periodo') : s.periodo;
+      // 1º vencimento: o próximo "dia D" depois da base (entrada ou renegociação); sem dia D, 1 mês depois (semanal: 7 dias)
       const dia = +(v('dia_vencimento') || v('novo_dia') || 0);
-      if (!s.inicio && s.entradaData && dia >= 1 && dia <= 31) {
-        const mesmoMes = atSomarMeses(s.entradaData.slice(0, 8) + atPad(dia), 0);
-        s.inicio = mesmoMes > s.entradaData ? mesmoMes : atSomarMeses(s.entradaData.slice(0, 8) + atPad(dia), 1);
+      if (!s.inicio && base && dia >= 1 && dia <= 31 && per !== 'semanal') {
+        const mesmoMes = atSomarMeses(base.slice(0, 8) + atPad(dia), 0);
+        s.inicio = mesmoMes > base ? mesmoMes : atSomarMeses(base.slice(0, 8) + atPad(dia), 1);
       }
+      if (!s.inicio && base) s.inicio = per === 'semanal' ? atSomarDias(base, 7) : atSomarMeses(base, 1);
       return s;
     }
     // sugestões do acordo: preenchem o que está vazio ou o que ainda é a sugestão anterior (o que foi editado à mão fica)

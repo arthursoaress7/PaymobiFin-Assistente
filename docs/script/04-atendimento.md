@@ -105,7 +105,7 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 
 | Modalidade | Linhas sugeridas |
 |---|---|
-| Entrada + parcelas | Entrada (data da entrada) + N parcelas mensais |
+| Entrada + parcelas | Mensagem do grupo no formato da equipe (19/11/2026): título `{{operacao}} — Renegociação`, cliente/CPF, parcela atual e abrangência, o pedido do cliente ("Cliente solicitou pagamento todo dia X e parcelas de R$ Y" — campos `dia_solicitado` e `valor_solicitado`), a entrada (opcional: some se vazia; data entre parênteses via `data_entrada_txt`), "Foram simuladas N parcelas de R$ Z." e "Vencimento: todo dia D". Obrigatórios: nome, quantidade e valor da parcela simulada |
 | Novo valor mensal / Parcelamento | N parcelas mensais a partir do 1º vencimento |
 | PIX semanal / Automático | N pagamentos semanais (+ entrada se informada) |
 | Pagamento parcial / Fôlego | 2 linhas: valor agora + saldo restante |
@@ -114,6 +114,15 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 | Alteração de vencimento | N parcelas afetadas × novo valor |
 
 > **Dia 31 em mês curto:** cai no último dia do mês (ex.: 28/02).
+
+### Datas automáticas do plano
+
+A **Data renegociação** (data do contrato novo, a mesma do comprovante da entrada) é a base das datas quando o acordo não traz outra:
+
+- **Data da entrada:** a do acordo; sem ela, a Data renegociação (só quando há valor de entrada).
+- **1º vencimento das parcelas:** com "Dia de vencimento" (ou "Novo dia de vencimento") no acordo, o próximo dia D depois da entrada (ou da renegociação); sem dia D, **1 mês depois** (Mensal) ou **7 dias depois** (Semanal).
+- A periodicidade escolhida à mão vale para o cálculo; senão, a da modalidade.
+- Como as outras sugestões (`atPlanoAuto`), só preenchem campo vazio ou que ainda tem a sugestão anterior: data digitada à mão não é trocada. Mudar a Data renegociação ou a Periodicidade atualiza as sugestões na hora.
 
 ---
 
@@ -186,7 +195,7 @@ O fluxo tem duas etapas e cada uma fica num lugar só:
 
 1. **Grupo + planilha — Negociação / Renegociação.** O botão **"Mensagem p/ grupo"** gera a mensagem da modalidade atual (`NG_MODALIDADES`, chave `acordo:<modalidade>`; a modalidade "Condições gerais" usa `NG_ACORDO_GERAL`, chave `acordo`). Os mesmos dados geram a linha da planilha e os textos "Pedido do cliente" / "Acordo Realizado".
 2. **Cliente — aba Mensagens** ("Mensagens para o cliente"). Só os retornos ao cliente, enviados **depois** de validar no grupo (`NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento (PIX/TED), Retorno ao cliente — Campanha do Fôlego, Antecipação de parcela.
-- Cada modelo tem os próprios campos (`campos`, `obrig`); trocar o modelo redesenha o formulário. **Retorno ao cliente — Campanha do Fôlego** (`retornoFolego`): nome, CPF, entrada, valor das parcelas, vencimento e validade do acordo, todos obrigatórios; chave PIX obrigatória e conta para TED opcional (`incluir_ted`), ambas vindas de Configurações > Gerador de negociações. Nome e CPF são preenchidos por "Aplicar cliente atual".
+- Cada modelo tem os próprios campos (`campos`, `obrig`); trocar o modelo redesenha o formulário. **Retorno ao cliente — Campanha do Fôlego** (`retornoFolego`, formato de 19/11/2026): a Fôlego é entrada (pagamento parcial) + data para pagar o restante, e só vale depois que o cliente paga a entrada. Mesmo formato do "Instruções de pagamento", com bloco "Entrada" (valor da entrada, valor restante — calculado como total com juros − entrada quando o campo opcional "Valor total com juros" é preenchido (`saldo: 'valor_total_juros'`, `saldoPago: 'valor_entrada'` em `ngSaldoHook`); o total não aparece no texto — e parcela referente ao acordo — `parcela_negociada`, formatada como "1° parcela"), validade em dias úteis e o vencimento do restante como "próximo vencimento"; todos obrigatórios. Chave PIX obrigatória e conta para TED opcional (`incluir_ted`), ambas de Configurações > Gerador de negociações.
 
 - Os modelos Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba Mensagens (eram cópias do que o Atendimento já gera para o grupo). Textos personalizados deles que existam em `negModelos` ficam guardados, sem uso; nada é apagado.
 - Se o modelo salvo em `negModeloAtual` não existe mais, a aba abre em "Retorno do setor".
@@ -211,5 +220,5 @@ O fluxo tem duas etapas e cada uma fica num lugar só:
 | `ngCampoEl(c, rot, obrig)` | Cria o elemento HTML de um campo |
 | `ngBlocosNova(grade, m)` | Organiza campos em blocos na Nova UI |
 | `ngMostrarDependentes()` | Mostra/oculta campos dependentes da modalidade |
-| `ngSaldoHook()` | Atualiza o saldo (total − pago) no pagamento parcial (`valor_total_devido`) e na Campanha do Fôlego (`valor_total_juros`) |
+| `ngSaldoHook()` | Atualiza o saldo (total − pago) no pagamento parcial (`valor_total_devido`), na Campanha do Fôlego (`valor_total_juros`) e no retorno do Fôlego (`valor_total_juros` − `valor_entrada`, via `saldoPago`) |
 | `ngFaltando()` | Lista campos obrigatórios não preenchidos |
