@@ -4157,10 +4157,10 @@
       },
       retornoFolego: {
         nome: 'Retorno ao cliente — Campanha do Fôlego', desc: 'Fôlego não é parcelamento: é uma entrada (pagamento parcial) + data para pagar o restante, e só vale depois que o cliente paga a entrada. Usa a chave PIX e a conta cadastradas em Configurações > Gerador de negociações.',
-        campos: ['valor_entrada', 'valor_restante', 'parcela_negociada', 'prazo_dias_uteis', 'proximo_vencimento', 'incluir_ted'],
-        obrig: ['valor_entrada', 'valor_restante', 'parcela_negociada', 'prazo_dias_uteis', 'proximo_vencimento', 'chave_pix'],
-        rotulos: { valor_entrada: 'Valor da entrada', valor_restante: 'Valor restante', parcela_negociada: 'Parcela referente ao acordo (nº: 1 ou 3 4 5)', proximo_vencimento: 'Vencimento do restante' },
-        texto: 'Segue retorno do setor responsável pela negociação:\n\nEntrada\nValor: {{valor_entrada}}\nValor restante: {{valor_restante}}\nParcela referente ao acordo: {{parcela_negociada}}\n\nPara confirmação desta negociação, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
+        campos: ['valor_entrada', 'valor_total_juros', 'valor_restante', 'parcela_negociada', 'prazo_dias_uteis', 'proximo_vencimento', 'incluir_ted'],
+        obrig: ['valor_entrada', 'valor_restante', 'parcela_negociada', 'prazo_dias_uteis', 'proximo_vencimento', 'chave_pix'], saldo: 'valor_total_juros', saldoPago: 'valor_entrada',
+        rotulos: { valor_entrada: 'Valor da entrada', valor_total_juros: 'Valor total com juros (opcional: calcula o restante)', valor_restante: 'Valor restante', parcela_negociada: 'Parcela referente ao acordo (nº: 1 ou 3 4 5)', proximo_vencimento: 'Vencimento do restante' },
+        texto: 'Segue retorno do setor responsável pela negociação:\n\nEntrada\nValor: {{valor_entrada}}\nValor restante: {{valor_restante}}\nParcela referente ao acordo: {{parcela_negociada}}\n\nPara confirmação desta negociação, peço que realize o pagamento da entrada via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
       },
       antecipacao: {
         nome: 'Antecipação de parcela', desc: 'Dados da antecipação como informados; nenhum valor é calculado pelo script.',
@@ -4241,7 +4241,7 @@
         nome: 'Entrada + parcelas', campos: ['nome', 'proposta', 'cpf', 'parcela_atual', ...NG_ABR, 'dia_solicitado', 'valor_solicitado', 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
         obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
         rotulos: { valor_solicitado: 'Valor de parcela solicitado pelo cliente', valor_entrada: 'Valor da entrada (se houver)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas simuladas', valor_parcela_acordo: 'Valor da parcela simulada' },
-        texto: '{{operacao}} — Renegociação\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\nCliente solicitou pagamento todo dia {{dia_solicitado}} e parcelas de {{valor_solicitado}}\nEntrada: {{valor_entrada}}{{?data_entrada_txt}}\nFoi simulado {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nVencimento: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
+        texto: '{{operacao}} — Renegociação\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\nCliente solicitou pagamento todo dia {{dia_solicitado}} e parcelas de {{valor_solicitado}}\nEntrada: {{valor_entrada}}{{?data_entrada_txt}}\nForam simuladas {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nVencimento: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
         frases: (v, verbo) => { const e = (v('valor_entrada') ? '1 parcela de ' + v('valor_entrada') + ' como entrada' + (v('data_entrada') ? ' no dia ' + v('data_entrada') : '') + ', e ' : '') + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + (v('dia_vencimento') ? ', vencendo todo dia ' + v('dia_vencimento') : '');
           return { pedido: 'Cliente ' + verbo + ' ' + e, acordo: 'Prosseguimos com ' + e }; },
       },
@@ -4505,12 +4505,14 @@
     }
     // pagamento parcial: saldo = total − pago (atualiza a cada digitação; não aceita pagamento acima do total)
     // saldo: true = total em valor_total_devido; saldo: '<campo>' = total nesse campo (Campanha do Fôlego: valor_total_juros)
+    // saldoPago: '<campo>' = campo do valor pago (padrão valor_pago_parcial; retorno do Fôlego: valor_entrada)
     function ngSaldoHook() {
       const sd = ngDef().saldo;
       if (!sd) return;
       const campoTot = typeof sd === 'string' ? sd : 'valor_total_devido', nomeTot = campoTot === 'valor_total_juros' ? 'total com juros' : 'total devido';
+      const nomePago = ngDef().saldoPago === 'valor_entrada' ? 'valor da entrada' : 'valor pago';
       const g = c => painel.querySelector('#mf-ng-campos [data-campo="' + c + '"]');
-      const tot = g(campoTot), pago = g('valor_pago_parcial'), rest = g('valor_restante');
+      const tot = g(campoTot), pago = g(ngDef().saldoPago || 'valor_pago_parcial'), rest = g('valor_restante');
       if (!tot || !pago || !rest) return;
       const box = document.createElement('div');
       box.className = 'mf-ng-saldo mf-cheia';
@@ -4520,10 +4522,10 @@
         ngValores._saldoErro = '';
         box.classList.remove('erro');
         if (t != null && p != null) {
-          if (p > t) { ngValores._saldoErro = 'O valor pago (' + ngReais(p) + ') é maior que o ' + nomeTot + ' (' + ngReais(t) + ').'; box.textContent = ngValores._saldoErro; box.classList.add('erro'); rest.readOnly = false; return; }
+          if (p > t) { ngValores._saldoErro = 'O ' + nomePago + ' (' + ngReais(p) + ') é maior que o ' + nomeTot + ' (' + ngReais(t) + ').'; box.textContent = ngValores._saldoErro; box.classList.add('erro'); rest.readOnly = false; return; }
           rest.value = ((t - p) / 100).toFixed(2).replace('.', ','); rest.readOnly = true; ngValores.valor_restante = rest.value;
           box.textContent = 'Saldo restante: ' + ngReais(t - p);
-        } else { rest.readOnly = false; box.textContent = tot.value.trim() ? 'Informe o valor pago para calcular o saldo.' : 'Informe o ' + nomeTot + ' para calcular o saldo (ou digite o restante).'; }
+        } else { rest.readOnly = false; box.textContent = tot.value.trim() ? 'Informe o ' + nomePago + ' para calcular o saldo.' : 'Informe o ' + nomeTot + ' para calcular o saldo (ou digite o restante).'; }
       };
       [tot, pago].forEach(i => i.addEventListener('input', calc));
       calc();
