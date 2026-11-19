@@ -24,7 +24,7 @@ Campos organizados em blocos:
 |---|---|
 | **Cliente** | Proposta\*, Nome\*, CPF, IMEI, Data da proposta, Filial, Atendente, Número de contato (RD Station)\*, Quem negociou, Data do contato (padrão: hoje) |
 | **Cobrança** | Valor parcela, FPD, Parcelas em atraso, Dias atraso, Vencimento mais antigo, Parcela atual |
-| **Acordo** | Resultado\* (fechou / solicitou / não concluída) + Modalidade\* + campos da modalidade |
+| **Acordo** | Resultado\* (fechou / pagou tudo / solicitou / não concluída) + Modalidade\* + campos da modalidade |
 | **Textos** | Pedido do cliente, Acordo Realizado, A partir de qual parcela |
 | **Acompanhamento** | 12 colunas opcionais (botão "Trazer do acordo" preenche data e quantidade) |
 
@@ -34,7 +34,7 @@ Aproveita o bloco Cliente do Modelo 1 e acrescenta:
 
 | Bloco | Campos |
 |---|---|
-| **Acordo** | Modalidade\* (resultado fixo = fechou) |
+| **Acordo** | Resultado\* (as mesmas opções da Negociação) + Modalidade\* |
 | **Textos** | Acordo Solicitado, Acordo Realizado |
 | **Renegociação** | Responsável\*, Formalizou (SIM), Data renegociação, Contrato novo, Observação, Régua, Recebeu boletos, Concluída |
 | **Plano de parcelas** | Tabela editável gerada automaticamente a partir do acordo |
@@ -60,7 +60,7 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 | `regularizacao` | Regularização de parcela(s) em atraso |
 | `semacordo` | Sem acordo / pagamento normal |
 
-**Campanha do Fôlego — formato da mensagem (aprovado pela gestora, 17/11/2026):** título `*CAMPANHA DO FÔLEGO*` (negrito no WhatsApp); Cliente, CPF, Parcela(s) negociada(s), Valor Original da Parcela, Vencimento; "Cliente pagou parcialmente R$ X (data)."; dia e valor do restante. Campos da modalidade: `parcela_negociada` (digita-se o número: "3" sai "3° parcela", "8, 9 e 10" sai "8°, 9° e 10° parcelas"), `vencimento` ("Vencimento da parcela negociada"), valor/data do pagamento parcial e valor/dia do restante; Cliente, CPF e Valor original vêm dos blocos fixos (na Renegociação, que esconde o bloco Cobrança, o "Valor original da parcela" aparece na própria modalidade). O restante é digitado (sem cálculo automático).
+**Campanha do Fôlego — formato da mensagem (aprovado pela gestora, 17/11/2026):** título `*CAMPANHA DO FÔLEGO*` (negrito no WhatsApp); Cliente, CPF, Parcela(s) negociada(s), Valor Original da Parcela, Vencimento; "Cliente pagou parcialmente R$ X (data)."; "Valor total com juros"; dia e valor do restante. Campos da modalidade: `parcela_negociada` (digita-se o número: "3" sai "3° parcela", "8, 9 e 10" sai "8°, 9° e 10° parcelas"), `vencimento` ("Vencimento da parcela negociada"), valor/data do pagamento parcial e valor/dia do restante; Cliente, CPF e Valor original vêm dos blocos fixos (na Renegociação, que esconde o bloco Cobrança, o "Valor original da parcela" aparece na própria modalidade). Campo `valor_total_juros` ("Valor total com juros", obrigatório): o **valor do restante é calculado** = total com juros − valor pago parcialmente (`saldo: 'valor_total_juros'` em `ngSaldoHook`; fica só leitura enquanto os dois estão preenchidos; pagamento maior que o total dá erro). (Atualizado em 19/11/2026.)
 
 **Quebra de acordo (opcional):** o checkbox **"Houve quebra de acordo"** (`quebra_acordo`, depois de "Dia do pagamento do restante", desmarcado por padrão) libera os campos do pagamento anterior (`valor_pago_anterior`, `data_pago_anterior`) e acrescenta à mensagem ", após quebra de acordo" e a linha "Anteriormente o cliente pagou R$ X (data) sobre o valor da parcela." Desmarcado, os campos ficam ocultos e não entram no texto mesmo que tenham sido preenchidos.
 
@@ -77,10 +77,13 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 | Resultado | Frase gerada |
 |---|---|
 | `fechou` | "Cliente fechou acordo de…" |
+| `finalizou` | Mesma frase de `fechou` (o cliente pagou tudo) |
 | `solicitou` | "Cliente solicitou…" (simulação) |
 | `não concluída` | Apenas o pedido, sem frase de acordo |
 
 A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada com 14 casos).
+
+**Operação na mensagem do grupo (19/11/2026):** o título da mensagem diz a operação escolhida em Resultado, nas duas telas (Negociação e Renegociação). Variáveis calculadas `{{operacao}}` ("Acordo solicitado" / "Acordo realizado" / "Acordo finalizado" / "Negociação não concluída") e `{{operacao_maiusc}}` (o mesmo em maiúsculas). Modalidades: `NG_CAB` = `{{operacao}} — <modalidade>`; acordo geral: `{{operacao}}`; Campanha do Fôlego: `*CAMPANHA DO FÔLEGO — {{operacao_maiusc}}*`. Na Campanha do Fôlego, `{{acao_parcial}}` troca "Cliente pagou parcialmente" por "Cliente solicita pagar parcialmente" quando o Resultado é solicitou ou não concluída. Fora do Atendimento (aba Mensagens) as variáveis ficam vazias. Textos personalizados salvos em `negModelos` antes dessa mudança não têm a variável: restaurar o padrão em Configurações. Status no histórico: fechou → `realizado`, pagou tudo → `finalizado`, solicitou → `pendente`, não concluída → `nao_concluido`.
 
 ---
 
@@ -131,16 +134,19 @@ cliente · Número Contrato Novo · Data Renegociação · Procedimento feito na
 régua · Recebeu Boletos? · Negociação Concluída?
 ```
 
-### Renegociação: 1 linha por parcela, 26 colunas
+### Renegociação: 1 linha por parcela, 27 colunas
 
 ```
 Proposta · Nome · Responsável pela Negociação · Formalizou o acordo? · CPF ·
-IMEI · Data da Proposta (Contrato Original) · Data Renegociação · Filial ·
+IMEI · Data da Proposta (Contrato Original) · Número da Parcela Renegociada ·
+Data Renegociação · Filial ·
 Atendente · Acordo Solicitado · Acordo Realizado · Valor parcela · Valor Pago ·
 Número Contato · Data do Contato · Ação · Situação · Baixa Parcela ER ·
 Quebra de Acordo · Vencimento · Observação · Número Contrato Novo ·
 Procedimento feito na régua · Recebeu Boletos? · Negociação Concluída?
 ```
+
+"Número da Parcela Renegociada" (campo `parcela_renegociada`, bloco Renegociação) vai igual em todas as linhas do acordo. Digita-se só o número (`3`, `3 4 5`, `8, 9 e 10`) e sai no mesmo formato do texto do acordo (`3° parcela`, `3°, 4° e 5° parcelas`); texto livre fica como digitado. Se ficar vazio, usa a "Parcela(s) negociada(s)" do acordo (`parcela_negociada`).
 
 Formatos: valores `R$ 0,00`, datas `dd/mm/aaaa`, telefone `(11) 912345678`.
 
@@ -179,7 +185,8 @@ Só aparência e retorno visual: os campos, ids, botões, textos gerados e linha
 O fluxo tem duas etapas e cada uma fica num lugar só:
 
 1. **Grupo + planilha — Negociação / Renegociação.** O botão **"Mensagem p/ grupo"** gera a mensagem da modalidade atual (`NG_MODALIDADES`, chave `acordo:<modalidade>`; a modalidade "Condições gerais" usa `NG_ACORDO_GERAL`, chave `acordo`). Os mesmos dados geram a linha da planilha e os textos "Pedido do cliente" / "Acordo Realizado".
-2. **Cliente — aba Mensagens** ("Mensagens para o cliente"). Só os retornos ao cliente, enviados **depois** de validar no grupo (`NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento (PIX/TED), Antecipação de parcela.
+2. **Cliente — aba Mensagens** ("Mensagens para o cliente"). Só os retornos ao cliente, enviados **depois** de validar no grupo (`NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento (PIX/TED), Retorno ao cliente — Campanha do Fôlego, Antecipação de parcela.
+- Cada modelo tem os próprios campos (`campos`, `obrig`); trocar o modelo redesenha o formulário. **Retorno ao cliente — Campanha do Fôlego** (`retornoFolego`): nome, CPF, entrada, valor das parcelas, vencimento e validade do acordo, todos obrigatórios; chave PIX obrigatória e conta para TED opcional (`incluir_ted`), ambas vindas de Configurações > Gerador de negociações. Nome e CPF são preenchidos por "Aplicar cliente atual".
 
 - Os modelos Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba Mensagens (eram cópias do que o Atendimento já gera para o grupo). Textos personalizados deles que existam em `negModelos` ficam guardados, sem uso; nada é apagado.
 - Se o modelo salvo em `negModeloAtual` não existe mais, a aba abre em "Retorno do setor".
@@ -204,5 +211,5 @@ O fluxo tem duas etapas e cada uma fica num lugar só:
 | `ngCampoEl(c, rot, obrig)` | Cria o elemento HTML de um campo |
 | `ngBlocosNova(grade, m)` | Organiza campos em blocos na Nova UI |
 | `ngMostrarDependentes()` | Mostra/oculta campos dependentes da modalidade |
-| `ngSaldoHook()` | Atualiza o saldo (total − pago) no pagamento parcial |
+| `ngSaldoHook()` | Atualiza o saldo (total − pago) no pagamento parcial (`valor_total_devido`) e na Campanha do Fôlego (`valor_total_juros`) |
 | `ngFaltando()` | Lista campos obrigatórios não preenchidos |

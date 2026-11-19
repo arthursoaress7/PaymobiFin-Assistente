@@ -20,7 +20,7 @@ Armazena e exibe os acordos registrados pela equipe. Funciona como um log local 
 | Nome | ✓ | |
 | Número de contato | ✓ | Formato `(11) 912345678` |
 | Modalidade | ✓ | Chave da modalidade (ex.: `entrada`) |
-| Situação | ✓ | `realizado`, `pendente`, `nao_concluido`, `anulado` |
+| Situação | ✓ | `realizado`, `finalizado`, `pendente`, `nao_concluido`, `anulado` |
 | Textos | ✓ | Pedido do cliente, Acordo Realizado |
 | Campos digitados | ✓ | Todos os campos preenchidos no Atendimento |
 | Parcelas | ✓ | Plano de parcelas completo |
@@ -96,6 +96,7 @@ Cada item usa classes CSS para indicar a situação visualmente:
 | Situação | Cor da borda lateral |
 |---|---|
 | `realizado` | Verde |
+| `finalizado` | Azul (cliente pagou tudo) |
 | `pendente` | Laranja |
 | `nao_concluido` | Cinza |
 | `anulado` | Vermelho (com opacidade reduzida) |
