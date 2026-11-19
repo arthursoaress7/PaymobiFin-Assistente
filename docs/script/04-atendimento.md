@@ -24,7 +24,7 @@ Campos organizados em blocos:
 |---|---|
 | **Cliente** | Proposta\*, Nome\*, CPF, IMEI, Data da proposta, Filial, Atendente, Número de contato (RD Station)\*, Quem negociou, Data do contato (padrão: hoje) |
 | **Cobrança** | Valor parcela, FPD, Parcelas em atraso, Dias atraso, Vencimento mais antigo, Parcela atual |
-| **Acordo** | Resultado\* (fechou / solicitou / não concluída) + Modalidade\* + campos da modalidade |
+| **Acordo** | Resultado\* (fechou / pagou tudo / solicitou / não concluída) + Modalidade\* + campos da modalidade |
 | **Textos** | Pedido do cliente, Acordo Realizado, A partir de qual parcela |
 | **Acompanhamento** | 12 colunas opcionais (botão "Trazer do acordo" preenche data e quantidade) |
 
@@ -34,7 +34,7 @@ Aproveita o bloco Cliente do Modelo 1 e acrescenta:
 
 | Bloco | Campos |
 |---|---|
-| **Acordo** | Modalidade\* (resultado fixo = fechou) |
+| **Acordo** | Resultado\* (as mesmas opções da Negociação) + Modalidade\* |
 | **Textos** | Acordo Solicitado, Acordo Realizado |
 | **Renegociação** | Responsável\*, Formalizou (SIM), Data renegociação, Contrato novo, Observação, Régua, Recebeu boletos, Concluída |
 | **Plano de parcelas** | Tabela editável gerada automaticamente a partir do acordo |
@@ -77,10 +77,13 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 | Resultado | Frase gerada |
 |---|---|
 | `fechou` | "Cliente fechou acordo de…" |
+| `finalizou` | Mesma frase de `fechou` (o cliente pagou tudo) |
 | `solicitou` | "Cliente solicitou…" (simulação) |
 | `não concluída` | Apenas o pedido, sem frase de acordo |
 
 A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada com 14 casos).
+
+**Operação na mensagem do grupo (19/11/2026):** o título da mensagem diz a operação escolhida em Resultado, nas duas telas (Negociação e Renegociação). Variáveis calculadas `{{operacao}}` ("Acordo solicitado" / "Acordo realizado" / "Acordo finalizado" / "Negociação não concluída") e `{{operacao_maiusc}}` (o mesmo em maiúsculas). Modalidades: `NG_CAB` = `{{operacao}} — <modalidade>`; acordo geral: `{{operacao}}`; Campanha do Fôlego: `*CAMPANHA DO FÔLEGO — {{operacao_maiusc}}*`. Fora do Atendimento (aba Mensagens) as variáveis ficam vazias. Textos personalizados salvos em `negModelos` antes dessa mudança não têm a variável: restaurar o padrão em Configurações. Status no histórico: fechou → `realizado`, pagou tudo → `finalizado`, solicitou → `pendente`, não concluída → `nao_concluido`.
 
 ---
 
