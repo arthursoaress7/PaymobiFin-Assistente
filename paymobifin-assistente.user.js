@@ -2115,7 +2115,7 @@
               <button id="mf-ng-cfg-restaurar" class="cinza">Restaurar original</button>
             </div>
             <div id="mf-ng-cfg-vars" class="mf-info" style="margin-top:6px;white-space:pre-wrap"></div>
-            <div class="mf-info" style="margin:10px 0 4px">Dados para pagamento (só neste navegador; usados no modelo "Retorno do setor — Instruções de pagamento")</div>
+            <div class="mf-info" style="margin:10px 0 4px">Dados para pagamento (só neste navegador; usados nos modelos "Retorno do setor — Instruções de pagamento" e "Retorno ao cliente — Campanha do Fôlego")</div>
             <div class="mf-grade">
               <input id="mf-ng-pix" type="text" placeholder="Chave PIX" autocomplete="off" class="mf-cheia">
               <input id="mf-ng-banco" type="text" placeholder="Banco" autocomplete="off">
@@ -4151,6 +4151,13 @@
         obrig: ['quantidade_parcelas', 'valor_parcela', 'vencimento', 'prazo_dias_uteis', 'proximo_vencimento', 'chave_pix'],
         rotulos: { valor_parcela: 'Valor da parcela' },
         texto: 'Segue retorno do setor responsável pela negociação:\n\nParcelas: {{quantidade_parcelas}}\nValor: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nPara confirmação desta negociação, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
+      },
+      retornoFolego: {
+        nome: 'Retorno ao cliente — Campanha do Fôlego', desc: 'Condições autorizadas pelo setor na Campanha do Fôlego, com a chave PIX e a conta cadastradas em Configurações > Gerador de negociações.',
+        campos: ['nome', 'cpf', 'valor_entrada', 'valor_parcela_acordo', 'vencimento', 'validade', 'incluir_ted'],
+        obrig: ['nome', 'cpf', 'valor_entrada', 'valor_parcela_acordo', 'vencimento', 'validade', 'chave_pix'],
+        rotulos: { valor_entrada: 'Entrada autorizada', valor_parcela_acordo: 'Valor das parcelas autorizadas', vencimento: 'Vencimento autorizado', validade: 'Acordo válido até' },
+        texto: 'Retorno do setor responsável\n\nCliente: {{nome}}\nCPF: {{cpf}}\n\nCondições autorizadas pelo setor:\nEntrada: {{valor_entrada}}\nValor das parcelas: {{valor_parcela_acordo}}\nVencimento: {{vencimento}}\n\nAcordo válido até {{validade}}\n\nInformamos que caso haja alguma intermitência durante esse período entre em contato conosco para melhores esclarecimentos\nPara confirmação desse acordo segue o link para pagamento.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante.',
       },
       antecipacao: {
         nome: 'Antecipação de parcela', desc: 'Dados da antecipação como informados; nenhum valor é calculado pelo script.',
