@@ -143,7 +143,7 @@ Quebra de Acordo · Vencimento · Observação · Número Contrato Novo ·
 Procedimento feito na régua · Recebeu Boletos? · Negociação Concluída?
 ```
 
-"Número da Parcela Renegociada" (campo `parcela_renegociada`, bloco Renegociação) é texto livre e vai igual em todas as linhas do acordo.
+"Número da Parcela Renegociada" (campo `parcela_renegociada`, bloco Renegociação) vai igual em todas as linhas do acordo. Digita-se só o número (`3`, `3 4 5`, `8, 9 e 10`) e sai no mesmo formato do texto do acordo (`3° parcela`, `3°, 4° e 5° parcelas`); texto livre fica como digitado. Se ficar vazio, usa a "Parcela(s) negociada(s)" do acordo (`parcela_negociada`).
 
 Formatos: valores `R$ 0,00`, datas `dd/mm/aaaa`, telefone `(11) 912345678`.
 
