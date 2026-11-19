@@ -4464,6 +4464,8 @@
         ngValores[c] = def.tipo === 'check' ? inp.checked : inp.value;
         inp.classList.remove('mf-erro');
         if (c === 'abrangencia_tipo' || c === 'tipo_antecipacao' || c === 'quebra_acordo') ngMostrarDependentes();
+        // Renegociação: a data do contrato novo e a periodicidade mudam as datas sugeridas do plano de parcelas
+        if ((c === 'data_reneg' || c === 'plano_periodo') && ngCtx === 'renegociacao') atPlanoCampos();
       });
       if (def.tipo === 'check') { lab.style.flexDirection = 'row'; lab.style.alignItems = 'center'; lab.append(inp, document.createTextNode(' ' + rot)); }
       else {   // rótulo + " *" (num span, só para a cor do obrigatório na Nova UI; o texto do rótulo é o mesmo)
@@ -5732,12 +5734,21 @@
       if (mod === 'pix') Object.assign(s, { periodo: 'semanal', qtd: v('qtd_semanas'), valor: v('valor_semanal'), entradaValor: v('valor_entrada') });
       if (mod === 'regularizacao') Object.assign(s, { qtd: v('dividir_qtd'), valor: v('dividir_valor'), inicio: v('data_pagamento') });
       if (mod === 'vencimento') Object.assign(s, { qtd: /^\d+$/.test(String(v('parcelas_afetadas') || '').trim()) ? v('parcelas_afetadas') : '', valor: v('valor_parcela_acordo') });
-      // 1º vencimento: o próximo "dia D" depois da entrada (só quando os dois foram informados)
+      // Data renegociação (data do contrato novo / comprovante da entrada): base das datas quando o acordo não traz outra
+      const iso = x => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : '';
+      const reneg = iso(v('data_reneg'));
+      const temEntrada = String(s.entradaValor || '').trim() || String(v('plano_entrada_valor') || '').trim();
+      if (!iso(s.entradaData) && temEntrada && reneg) s.entradaData = reneg;
+      const base = iso(s.entradaData) || reneg;
+      // periodicidade escolhida à mão vale; senão, a da modalidade
+      const per = v('plano_periodo') && v('plano_periodo') !== (atPlanoAuto.plano_periodo || '') ? v('plano_periodo') : s.periodo;
+      // 1º vencimento: o próximo "dia D" depois da base (entrada ou renegociação); sem dia D, 1 mês depois (semanal: 7 dias)
       const dia = +(v('dia_vencimento') || v('novo_dia') || 0);
-      if (!s.inicio && s.entradaData && dia >= 1 && dia <= 31) {
-        const mesmoMes = atSomarMeses(s.entradaData.slice(0, 8) + atPad(dia), 0);
-        s.inicio = mesmoMes > s.entradaData ? mesmoMes : atSomarMeses(s.entradaData.slice(0, 8) + atPad(dia), 1);
+      if (!s.inicio && base && dia >= 1 && dia <= 31 && per !== 'semanal') {
+        const mesmoMes = atSomarMeses(base.slice(0, 8) + atPad(dia), 0);
+        s.inicio = mesmoMes > base ? mesmoMes : atSomarMeses(base.slice(0, 8) + atPad(dia), 1);
       }
+      if (!s.inicio && base) s.inicio = per === 'semanal' ? atSomarDias(base, 7) : atSomarMeses(base, 1);
       return s;
     }
     // sugestões do acordo: preenchem o que está vazio ou o que ainda é a sugestão anterior (o que foi editado à mão fica)

@@ -115,6 +115,15 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 
 > **Dia 31 em mês curto:** cai no último dia do mês (ex.: 28/02).
 
+### Datas automáticas do plano
+
+A **Data renegociação** (data do contrato novo, a mesma do comprovante da entrada) é a base das datas quando o acordo não traz outra:
+
+- **Data da entrada:** a do acordo; sem ela, a Data renegociação (só quando há valor de entrada).
+- **1º vencimento das parcelas:** com "Dia de vencimento" (ou "Novo dia de vencimento") no acordo, o próximo dia D depois da entrada (ou da renegociação); sem dia D, **1 mês depois** (Mensal) ou **7 dias depois** (Semanal).
+- A periodicidade escolhida à mão vale para o cálculo; senão, a da modalidade.
+- Como as outras sugestões (`atPlanoAuto`), só preenchem campo vazio ou que ainda tem a sugestão anterior: data digitada à mão não é trocada. Mudar a Data renegociação ou a Periodicidade atualiza as sugestões na hora.
+
 ---
 
 ## Cópia para planilha
