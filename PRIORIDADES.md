@@ -268,7 +268,7 @@ O módulo de geração de acordos (`at*`) já possui:
   - Valor pago: valor da 1ª linha, "N/A" nas demais
   - Saldo restante no pagamento parcial: total − pago (bloqueia pagar acima do total)
 - **Edição manual preservada:** tudo no plano é editável. Campos que o usuário já preencheu não são sobrescritos pela sugestão.
-- **Cópia para planilha:** `atLinhas()` monta as linhas tabuladas — Negociação (1 linha, 30 colunas) ou Renegociação (1 linha por parcela, 26 colunas).
+- **Cópia para planilha:** `atLinhas()` monta as linhas tabuladas — Negociação (1 linha, 30 colunas) ou Renegociação (1 linha por parcela, 27 colunas).
 - **Manual:** quantidades, valores, data da entrada, 1º vencimento (embora sugerido), observações, procedimento na régua, recebeu boletos, negociação concluída.
 
 ### Tarefas

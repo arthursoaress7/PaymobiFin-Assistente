@@ -5545,7 +5545,7 @@
     /* ================= ATENDIMENTO: Modelo 1 Negociação · Modelo 2 Renegociação =================
        Uma ficha só (ngValores, em memória) alimenta as duas planilhas, os textos e as mensagens do grupo.
          Negociação  : 1 linha por proposta, 30 colunas (Proposta … Negociação Concluída?)
-         Renegociação: 1 linha por PARCELA do acordo, 26 colunas (Proposta … Negociação Concluída?)
+         Renegociação: 1 linha por PARCELA do acordo, 27 colunas (Proposta … Negociação Concluída?)
        Regras tiradas da planilha real (Negociação.Renegociação.xlsx): Ação "Pagamento Parcela 01/24" (PIX semanal:
        "Pagamentos 01/88"); a 1ª linha é sempre a entrada, "Efetivado (Entrada)" (quitação: "Efetivado (Quitação)");
        as demais "Em Aberto" com Valor Pago "N/A". O Número de Contato é SEMPRE digitado (RD Station): o telefone da
@@ -5572,6 +5572,7 @@
       recebeu_boletos: { rot: 'Recebeu boletos?', tipo: 'select', opcoes: [['', '(em branco)'], ['SIM', 'SIM'], ['NÃO', 'NÃO'], ['N/A', 'N/A'], ['Pix Automático', 'Pix Automático']] },
       concluida: { rot: 'Negociação concluída?', tipo: 'select', opcoes: [['', '(em branco)'], ['SIM', 'SIM'], ['NÃO', 'NÃO'], ['N/A', 'N/A']] },
       responsavel: { rot: 'Responsável pela negociação', tipo: 'texto' },
+      parcela_renegociada: { rot: 'Número da parcela renegociada', tipo: 'texto', dica: 'Parcela(s) do contrato original que foram renegociadas (ex.: 3 ou 8, 9 e 10). Vai igual em todas as linhas.' },
       formalizou: { rot: 'Formalizou o acordo?', tipo: 'select', opcoes: [['SIM', 'SIM'], ['NÃO', 'NÃO']] },
       obs_reneg: { rot: 'Observação (todas as linhas)', tipo: 'texto', dica: 'Ex.: Boletos no App' },
       // ---- Desbloqueios ----
@@ -5593,7 +5594,7 @@
     const AT_CLIENTE = ['proposta', 'nome', 'cpf', 'imei', 'data_proposta', 'filial', 'atendente', 'contato', 'quem_negociou', 'data_contato'];
     const AT_COBRANCA = ['valor_parcela', 'fpd', 'parcelas_atraso', 'dias_atraso', 'vencimento_antigo', 'parcela_atual'];
     const AT_ACOMP = ['data_envio', 'data_1pag', 'vencimentos', 'parcelas_negociadas', 'qtd_parcelas_neg', 'pag_entrada', 'boleto_disp', 'contrato_novo', 'data_reneg', 'regua', 'recebeu_boletos', 'concluida'];
-    const AT_RENEG = ['responsavel', 'formalizou', 'data_reneg', 'contrato_novo', 'obs_reneg', 'regua', 'recebeu_boletos', 'concluida'];
+    const AT_RENEG = ['responsavel', 'formalizou', 'parcela_renegociada', 'data_reneg', 'contrato_novo', 'obs_reneg', 'regua', 'recebeu_boletos', 'concluida'];
     const AT_PLANO = ['plano_entrada_valor', 'plano_entrada_data', 'plano_qtd', 'plano_valor', 'plano_periodo', 'plano_inicio'];
     const AT_COL_NEG = [['Proposta', 'proposta'], ['Nome', 'nome'], ['CPF', 'cpf'], ['IMEI', 'imei'], ['Data da Proposta', 'data_proposta'], ['Filial', 'filial'],
       ['Atendente', 'atendente'], ['Número Contato', 'contato'], ['Quem negociou', 'quem_negociou'], ['Data do Contato', 'data_contato'], ['Valor parcela', 'valor_parcela'],
@@ -5603,7 +5604,8 @@
       ['Pagamento da entrada', 'pag_entrada'], ['Disponibilizado boleto para o cliente', 'boleto_disp'], ['Número Contrato Novo', 'contrato_novo'],
       ['Data Renegociação (comprovante pag.)', 'data_reneg'], ['Procedimento feito na regua', 'regua'], ['Recebeu Boletos?', 'recebeu_boletos'], ['Negociação Concluída?', 'concluida']];
     const AT_COL_RENEG = [['Proposta', 'proposta'], ['Nome', 'nome'], ['Responsável pela Negociação', 'responsavel'], ['Formalizou o acordo?', 'formalizou'], ['CPF', 'cpf'],
-      ['IMEI', 'imei'], ['Data da Proposta (Contrato Original)', 'data_proposta'], ['Data Renegociação', 'data_reneg'], ['Filial', 'filial'], ['Atendente', 'atendente'],
+      ['IMEI', 'imei'], ['Data da Proposta (Contrato Original)', 'data_proposta'],
+      ['Número da Parcela Renegociada', 'parcela_renegociada'], ['Data Renegociação', 'data_reneg'], ['Filial', 'filial'], ['Atendente', 'atendente'],
       ['Acordo Solicitado', 't:pedido'], ['Acordo Realizado', 't:acordo'], ['Valor parcela', 'p:valor'], ['Valor Pago', 'p:pago'], ['Número Contato', 'contato'],
       ['Data do Contato', 'data_contato'], ['Ação', 'p:acao'], ['Situação', 'p:situacao'], ['Baixa Parcela ER', 'p:baixa'], ['Quebra de Acordo', 'p:quebra'],
       ['Vencimento', 'p:venc'], ['Observação', 'obs_reneg'], ['Número Contrato Novo', 'contrato_novo'], ['Procedimento feito na regua', 'regua'],
