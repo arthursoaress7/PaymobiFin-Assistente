@@ -4128,6 +4128,7 @@
       data_restante: { rot: 'Data do valor restante', tipo: 'data' },
       prazo_dias_uteis: { rot: 'Validade (dias úteis)', tipo: 'num' },
       valor_solicitado: { rot: 'Valor solicitado pelo cliente', tipo: 'moeda' },
+      dia_solicitado: { rot: 'Dia de pagamento solicitado pelo cliente', tipo: 'dia' },
       vencimento_solicitado: { rot: 'Vencimento solicitado', tipo: 'data' },
       parcela_antecipada: { rot: 'Parcela antecipada (ex.: 03/10)', tipo: 'texto' },
       vencimento_original: { rot: 'Vencimento original da parcela', tipo: 'data' },
@@ -4186,6 +4187,7 @@
       parcelas_especificas: { rot: 'Parcelas negociadas (ex.: 8, 9 e 10)', tipo: 'texto' },
       abrangencia: { rot: 'Abrangência (texto)', tipo: 'calc' },
       operacao: { rot: 'Operação (Resultado do atendimento)', tipo: 'calc' },
+      data_entrada_txt: { rot: '" (data da entrada)" (quando preenchida)', tipo: 'calc' },
       operacao_maiusc: { rot: 'Operação em maiúsculas', tipo: 'calc' },
       acao_parcial: { rot: 'Pagamento parcial conforme o Resultado', tipo: 'calc' },
       valor_total_devido: { rot: 'Valor total devido', tipo: 'moeda' },
@@ -4235,11 +4237,12 @@
         frases: (v, verbo) => { const d = v('dia_vencimento') ? ', com vencimento para todo dia ' + v('dia_vencimento') : '';
           return { pedido: 'Cliente ' + verbo + ' renegociar as parcelas para ' + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + d, acordo: 'Prosseguimos com o acordo de ' + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + d }; },
       },
-      entrada: {
-        nome: 'Entrada + parcelas', campos: ['nome', 'proposta', 'parcela_atual', ...NG_ABR, 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
-        obrig: ['nome', 'valor_entrada', 'quantidade_parcelas', 'valor_parcela_acordo'],
-        texto: NG_CAB('Entrada + parcelas') + 'Prosseguimos com 1 parcela de {{valor_entrada}} como entrada e {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nData da entrada: {{data_entrada}}\nVencimento das parcelas: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
-        frases: (v, verbo) => { const e = '1 parcela de ' + v('valor_entrada') + ' como entrada' + (v('data_entrada') ? ' no dia ' + v('data_entrada') : '') + ', e ' + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + (v('dia_vencimento') ? ', vencendo todo dia ' + v('dia_vencimento') : '');
+      entrada: {   // formato da equipe (19/11/2026): pedido do cliente + simulação; entrada opcional (some se vazia)
+        nome: 'Entrada + parcelas', campos: ['nome', 'proposta', 'cpf', 'parcela_atual', ...NG_ABR, 'dia_solicitado', 'valor_solicitado', 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
+        obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
+        rotulos: { valor_solicitado: 'Valor de parcela solicitado pelo cliente', valor_entrada: 'Valor da entrada (se houver)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas simuladas', valor_parcela_acordo: 'Valor da parcela simulada' },
+        texto: '{{operacao}} — Renegociação\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\nCliente solicitou pagamento todo dia {{dia_solicitado}} e parcelas de {{valor_solicitado}}\nEntrada: {{valor_entrada}}{{?data_entrada_txt}}\nFoi simulado {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nVencimento: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
+        frases: (v, verbo) => { const e = (v('valor_entrada') ? '1 parcela de ' + v('valor_entrada') + ' como entrada' + (v('data_entrada') ? ' no dia ' + v('data_entrada') : '') + ', e ' : '') + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + (v('dia_vencimento') ? ', vencendo todo dia ' + v('dia_vencimento') : '');
           return { pedido: 'Cliente ' + verbo + ' ' + e, acordo: 'Prosseguimos com ' + e }; },
       },
       parcial: {
@@ -4362,6 +4365,7 @@
         const sel = $('#mf-ng-frase-tipo'), r = sel ? sel.value : 'fechou';
         return r === 'solicitou' || r === 'nao' ? 'Cliente solicita pagar parcialmente' : 'Cliente pagou parcialmente';
       }
+      if (k === 'data_entrada_txt') return ngValores.data_entrada ? ' (' + ngValor('data_entrada') + ')' : '';
       if (k === 'quebra_acordo_txt') return ngValores.quebra_acordo ? ', após quebra de acordo' : '';
       if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
       // Renegociação: vazio = usa a "Parcela(s) negociada(s)" do acordo (mesmo formato)

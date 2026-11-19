@@ -105,7 +105,7 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 
 | Modalidade | Linhas sugeridas |
 |---|---|
-| Entrada + parcelas | Entrada (data da entrada) + N parcelas mensais |
+| Entrada + parcelas | Mensagem do grupo no formato da equipe (19/11/2026): título `{{operacao}} — Renegociação`, cliente/CPF, parcela atual e abrangência, o pedido do cliente ("Cliente solicitou pagamento todo dia X e parcelas de R$ Y" — campos `dia_solicitado` e `valor_solicitado`), a entrada (opcional: some se vazia; data entre parênteses via `data_entrada_txt`), "Foi simulado N parcelas de R$ Z." e "Vencimento: todo dia D". Obrigatórios: nome, quantidade e valor da parcela simulada |
 | Novo valor mensal / Parcelamento | N parcelas mensais a partir do 1º vencimento |
 | PIX semanal / Automático | N pagamentos semanais (+ entrada se informada) |
 | Pagamento parcial / Fôlego | 2 linhas: valor agora + saldo restante |
