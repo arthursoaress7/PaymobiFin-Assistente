@@ -29,7 +29,6 @@
 
 - **Não divida o arquivo** — refatoração não está no escopo atual
 - **Não altere `@downloadURL`/`@updateURL`** — push na `main` atualiza todos os usuários
-- **Não edite `automacaomobfacil.user.js`** — é o nome antigo, congelado na 13.27.2 só para migrar instalações antigas; o código vai em `paymobifin-assistente.user.js`
 - **Nunca commitar em `main` ou `development` diretamente** — sempre via branch + PR
 - **Branch temporária parte de `development`**, não de `main`
 - **PR de trabalho vai para `development`** — a `main` recebe só pelo PR de release (`release/proxima`), integrado pelo responsável

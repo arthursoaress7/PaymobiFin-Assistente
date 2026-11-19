@@ -16,7 +16,7 @@ O **PaymobiFin - Assistente** é um userscript Tampermonkey que roda em dois sit
 
 **Arquivo de código:** `paymobifin-assistente.user.js` — único arquivo JavaScript, ~8.300 linhas, sem transpilador ou bundler.
 
-**Arquivo-ponte:** `automacaomobfacil.user.js` é o nome antigo do script. Ficou congelado na v13.27.2 (cópia idêntica, já com `@downloadURL`/`@updateURL` apontando para o arquivo novo) só para migrar as instalações antigas: o Tampermonkey de quem instalou pelo endereço antigo baixa a 13.27.2 e passa a seguir o arquivo novo. **Não editar** — toda alteração vai em `paymobifin-assistente.user.js`. Remoção prevista em `PRIORIDADES.md` (P4.8).
+**Nome antigo:** até a v13.27.1 o script se chamava `automacaomobfacil.user.js`. Esse arquivo ficou como ponte (congelado na 13.27.2) para migrar as instalações antigas e foi removido em 19/11/2026 (P4.8). Instalações que ainda apontem para o nome antigo não recebem mais atualizações: reinstalar pelo endereço de `paymobifin-assistente.user.js`.
 
 **Versão atual:** 13.31.0 (fonte de verdade: campo `@version` no cabeçalho do script — ver item 12)
 
