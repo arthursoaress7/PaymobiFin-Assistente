@@ -131,16 +131,19 @@ cliente · Número Contrato Novo · Data Renegociação · Procedimento feito na
 régua · Recebeu Boletos? · Negociação Concluída?
 ```
 
-### Renegociação: 1 linha por parcela, 26 colunas
+### Renegociação: 1 linha por parcela, 27 colunas
 
 ```
 Proposta · Nome · Responsável pela Negociação · Formalizou o acordo? · CPF ·
-IMEI · Data da Proposta (Contrato Original) · Data Renegociação · Filial ·
+IMEI · Data da Proposta (Contrato Original) · Número da Parcela Renegociada ·
+Data Renegociação · Filial ·
 Atendente · Acordo Solicitado · Acordo Realizado · Valor parcela · Valor Pago ·
 Número Contato · Data do Contato · Ação · Situação · Baixa Parcela ER ·
 Quebra de Acordo · Vencimento · Observação · Número Contrato Novo ·
 Procedimento feito na régua · Recebeu Boletos? · Negociação Concluída?
 ```
+
+"Número da Parcela Renegociada" (campo `parcela_renegociada`, bloco Renegociação) é texto livre e vai igual em todas as linhas do acordo.
 
 Formatos: valores `R$ 0,00`, datas `dd/mm/aaaa`, telefone `(11) 912345678`.
 
