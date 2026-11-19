@@ -1,5 +1,18 @@
 # Changelog
 
+## [v13.32.0] — 2026-11-19
+
+### ✨ Novas funcionalidades
+
+- feat: datas do plano de parcelas a partir da Data renegociação (#87) (fa65781)
+- feat: retorno do Fôlego pede o pagamento da entrada e calcula o restante; concordância na simulação (#86) (f3a9874)
+- feat: mensagem do grupo de Entrada + parcelas com pedido do cliente e simulação (#85) (f030cd4)
+- feat: retorno da Campanha do Fôlego com valor restante e parcela referente ao acordo (#84) (b0eed52)
+
+### 🐛 Correções
+
+- fix: Retorno da Campanha do Fôlego no formato entrada + vencimento do restante (#83) (8211e37)
+
 ## [v13.31.0] — 2026-11-19
 
 ### ✨ Novas funcionalidades
