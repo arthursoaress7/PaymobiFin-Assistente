@@ -44,7 +44,7 @@ Userscript Tampermonkey que adiciona um painel flutuante ao sistema ER da Paymob
 
 **Atualização automática:** o Tampermonkey verifica atualizações periodicamente via `@updateURL`, que aponta para a branch `main`. Toda alteração integrada na `main` será distribuída automaticamente aos usuários.
 
-**Quem instalou pelo endereço antigo** (`.../automacaomobfacil.user.js`) não precisa fazer nada: na próxima verificação o Tampermonkey baixa a 13.27.2 e passa a buscar as atualizações no arquivo novo, sem perder contas nem configurações.
+**Quem instalou pelo endereço antigo** (`.../automacaomobfacil.user.js`, até a v13.27.1): esse arquivo foi removido em 19/11/2026. Se o Tampermonkey mostrar versão abaixo da 13.27.2, reinstale pelo endereço acima (`paymobifin-assistente.user.js`); com o mesmo nome, contas e configurações continuam.
 
 ---
 
@@ -53,7 +53,6 @@ Userscript Tampermonkey que adiciona um painel flutuante ao sistema ER da Paymob
 ```
 PaymobiFin-Assistente/
 ├── paymobifin-assistente.user.js   ← código-fonte (monólito)
-├── automacaomobfacil.user.js       ← nome antigo, congelado: só migra instalações antigas (não editar)
 ├── README.md                       ← este arquivo
 ├── instructions.md                 ← manual operacional para IAs e desenvolvedores
 ├── CLAUDE.md                       ← entrada rápida para o Claude Code
