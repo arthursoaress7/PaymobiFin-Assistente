@@ -2172,6 +2172,19 @@
     painel.dataset.ui = cfg('aparencia') === 'antiga' ? 'antiga' : 'nova';   // aparência aplicada antes de mostrar (sem "piscar")
     document.body.appendChild(painel);
     const $ = s => painel.querySelector(s);
+    // O ER usa o plugin bootstrap-select: telas que aplicam $('select').selectpicker() na página inteira trocam os <select>
+    // do painel por um botão de 220 px (fora da grade, cobre o campo ao lado). O painel desfaz isso só nos seletores dele.
+    const desfazerSelectpicker = () => {
+      painel.querySelectorAll('.bootstrap-select').forEach(w => {
+        const sel = w.querySelector('select');
+        if (!sel) return w.remove();
+        try { PAGINA.jQuery(sel).selectpicker('destroy'); } catch (_) {}
+        if (sel.closest('.bootstrap-select') === w) w.replaceWith(sel);   // reserva: tira do invólucro sem o plugin
+        sel.classList.remove('bs-select-hidden', 'selectpicker');
+        sel.style.removeProperty('display');
+      });
+    };
+    new MutationObserver(desfazerSelectpicker).observe(painel, { childList: true, subtree: true });
     // aviso do painel. Na aba Atendimento (Nova UI) ele fica preso no rodapé e o × o esconde até o próximo aviso
     const msg = t => { const m = $('#mf-msg'); m.classList.remove('mf-msg-fechada'); return (m.textContent = t); };
     $('#mf-msg').addEventListener('click', e => {
