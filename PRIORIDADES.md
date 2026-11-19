@@ -414,13 +414,13 @@ O módulo de geração de acordos (`at*`) já possui:
   **Critérios de aceite:** os workflows (validação e release) leem o arquivo novo; a validação confere que os endereços de atualização apontam para o arquivo novo e bloqueia alterações no arquivo-ponte.  
   **Observações:** alteração Categoria B (endereços de atualização e workflows), autorizada pelo responsável.
 
-- [ ] **P4.8 — Remover o arquivo-ponte `automacaomobfacil.user.js`**
+- [x] **P4.8 — Remover o arquivo-ponte `automacaomobfacil.user.js`**
 
-  **Status:** Aguardando (não antes de 09/12/2026)  
+  **Status:** Concluído (19/11/2026) — removido antes da data prevista (09/12/2026) por decisão do responsável, que confirmou a migração da equipe  
   **Objetivo:** apagar o nome antigo depois que todas as instalações já migraram para `paymobifin-assistente.user.js`.  
   **Critérios de aceite:** confirmar com a equipe que o Tampermonkey de cada pessoa mostra a versão 13.27.2 ou mais nova e o endereço de atualização terminando em `paymobifin-assistente.user.js`.  
   **Riscos:** quem ainda estiver no endereço antigo deixa de receber atualizações sem aviso.  
-  **Observações:** alteração Categoria B (afeta a distribuição); exige autorização explícita.
+  **Observações:** alteração Categoria B (afeta a distribuição), autorizada pelo responsável em 19/11/2026. A validação (`validate-pr.yml`) continua tratando esse nome como Categoria B; não foi alterada.
 
 - [x] **P4.9 — Compatibilidade com a atualização do ER (sessão expirada)**
 

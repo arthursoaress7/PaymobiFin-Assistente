@@ -1,6 +1,6 @@
 # Visão Geral do Script — paymobifin-assistente.user.js
 
-**Arquivo:** `paymobifin-assistente.user.js` (até a v13.27.1 se chamava `automacaomobfacil.user.js`; esse nome ficou como ponte congelada para migrar as instalações antigas)  
+**Arquivo:** `paymobifin-assistente.user.js` (até a v13.27.1 se chamava `automacaomobfacil.user.js`; esse nome ficou como ponte para migrar as instalações antigas e foi removido em 19/11/2026)  
 **Versão atual:** 13.31.0  
 **Tipo:** Tampermonkey Userscript  
 **Sites alvo:**
