@@ -4187,6 +4187,7 @@
       abrangencia: { rot: 'Abrangência (texto)', tipo: 'calc' },
       operacao: { rot: 'Operação (Resultado do atendimento)', tipo: 'calc' },
       operacao_maiusc: { rot: 'Operação em maiúsculas', tipo: 'calc' },
+      acao_parcial: { rot: 'Pagamento parcial conforme o Resultado', tipo: 'calc' },
       valor_total_devido: { rot: 'Valor total devido', tipo: 'moeda' },
       valor_pago_parcial: { rot: 'Valor pago agora (parcial)', tipo: 'moeda' },
       com_juros: { rot: 'Restante com juros', tipo: 'check', padrao: true },
@@ -4255,7 +4256,7 @@
         // formato aprovado pela gestora (17/11/2026); "*...*" = negrito no WhatsApp. Parcela negociada sai como "3° parcela".
         // valor do restante = valor total com juros − valor pago parcialmente (saldo: calculado em ngSaldoHook; editável se faltar um dos dois).
         // "Houve quebra de acordo" marcado: libera o pagamento anterior e acrescenta ", após quebra de acordo" + a linha "Anteriormente...".
-        texto: '*CAMPANHA DO FÔLEGO — {{operacao_maiusc}}*\n\nCliente: {{nome}}\nCPF: {{cpf}}\nParcela(s) negociada(s): {{parcela_negociada}}\nValor Original da Parcela: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nCliente pagou parcialmente {{valor_pago_parcial}} ({{data_pagamento}}){{?quebra_acordo_txt}}.\nAnteriormente o cliente pagou {{valor_pago_anterior}} ({{data_pago_anterior}}) sobre o valor da parcela.\n\nValor total com juros: {{valor_total_juros}}\nDia que ele vai pagar o restante: {{data_restante}}\nValor que ele vai pagar no dia: {{valor_restante}}',
+        texto: '*CAMPANHA DO FÔLEGO — {{operacao_maiusc}}*\n\nCliente: {{nome}}\nCPF: {{cpf}}\nParcela(s) negociada(s): {{parcela_negociada}}\nValor Original da Parcela: {{valor_parcela}}\nVencimento: {{vencimento}}\n\n{{acao_parcial}} {{valor_pago_parcial}} ({{data_pagamento}}){{?quebra_acordo_txt}}.\nAnteriormente o cliente pagou {{valor_pago_anterior}} ({{data_pago_anterior}}) sobre o valor da parcela.\n\nValor total com juros: {{valor_total_juros}}\nDia que ele vai pagar o restante: {{data_restante}}\nValor que ele vai pagar no dia: {{valor_restante}}',
         frases: (v, verbo) => { const r = ' e o restante no valor de ' + v('valor_restante') + ' no dia ' + v('data_restante');
           return { pedido: 'Campanha do Fôlego: Cliente ' + (verbo === 'fechou' ? 'fechou acordo para pagar ' : 'solicitou pagar ') + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r, acordo: 'Prosseguimos com o acordo de ' + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r }; },
       },
@@ -4355,6 +4356,11 @@
         const sel = $('#mf-ng-frase-tipo');
         const t = { fechou: 'Acordo realizado', finalizou: 'Acordo finalizado', solicitou: 'Acordo solicitado', nao: 'Negociação não concluída' }[sel ? sel.value : 'fechou'] || 'Acordo realizado';
         return k === 'operacao' ? t : t.toUpperCase();
+      }
+      if (k === 'acao_parcial') {   // solicitado / não concluída: o cliente ainda não pagou
+        if (!ngNoAtendimento()) return '';
+        const sel = $('#mf-ng-frase-tipo'), r = sel ? sel.value : 'fechou';
+        return r === 'solicitou' || r === 'nao' ? 'Cliente solicita pagar parcialmente' : 'Cliente pagou parcialmente';
       }
       if (k === 'quebra_acordo_txt') return ngValores.quebra_acordo ? ', após quebra de acordo' : '';
       if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
@@ -4584,6 +4590,7 @@
       const k = selCfgNg.value, m = NG_ALL[k];
       $('#mf-ng-cfg-texto').value = ngTextoModelo(k);
       const vars = [...m.campos.filter(c => NG_CAMPOS[c].tipo !== 'check').map(c => '{{' + c + '}} ' + ((m.rotulos && m.rotulos[c]) || NG_CAMPOS[c].rot)),
+        ...(/\{\{\s*acao_parcial/.test(NG_ALL[k].texto) ? ['{{acao_parcial}} "Cliente pagou parcialmente" ou, com Resultado = solicitou / não concluída, "Cliente solicita pagar parcialmente"'] : []),
         ...(/\{\{\s*operacao/.test(NG_ALL[k].texto) ? ['{{operacao}} "Acordo solicitado", "Acordo realizado" ou "Acordo finalizado" (campo Resultado do Atendimento)', '{{operacao_maiusc}} o mesmo, em MAIÚSCULAS'] : []),
         ...(m.campos.includes('abrangencia_tipo') ? ['{{abrangencia}} Abrangência por extenso (calculada)'] : []),
         ...(m.campos.includes('quebra_acordo') ? ['{{?quebra_acordo_txt}} ", após quebra de acordo" quando "Houve quebra de acordo" está marcado (pagamento anterior só sai com ele marcado)'] : []),
