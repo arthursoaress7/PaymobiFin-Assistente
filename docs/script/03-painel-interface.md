@@ -48,7 +48,7 @@ No fim do `<style>` do painel há um bloco só de CSS, todo escopado em `#mf-p[d
 
 ```
 ┌─────────────────────────────────────┐
-│ ■ PaymobiFin - Assistente  v13.32.0 │  ← barra de título (arrastar, minimizar)
+│ ■ PaymobiFin - Assistente  v13.32.1 │  ← barra de título (arrastar, minimizar)
 ├─────────────────────────────────────┤
 │ Atendimento | Histórico | Agenda | Relatórios | Mais ▾ │  ← abas
 ├─────────────────────────────────────┤
@@ -187,3 +187,7 @@ A aba de Configurações é montada por `atualizarConfigUI()` e expõe todas as 
 - **Arrastar:** evento `pointerdown` na barra de título; movimenta com `pointermove`; respeita os limites da tela
 - **Redimensionar:** três alças (`mf-rz-d` direita, `mf-rz-b` baixo, `mf-rz-c` canto); ao redimensionar, aplica `mf-tam-livre` para usar dimensões absolutas
 - O estado de posição e tamanho é salvo no armazenamento e restaurado ao recarregar
+
+## Seletores do painel e o bootstrap-select do ER
+
+O ER carrega o plugin **bootstrap-select**, e algumas telas aplicam `$('select').selectpicker()` na página inteira. Isso trocava os `<select>` do painel por um botão do plugin com **220 px fixos** (`.bootstrap-select { width: 220px }`), maior que a coluna da grade: no Acordo, a "Abrangência" cobria o campo "A partir da parcela". Desde a v13.32.1, `desfazerSelectpicker` (um `MutationObserver` no painel) desfaz o plugin assim que ele aparece, só nos seletores do painel (`selectpicker('destroy')`; sem o plugin, tira o `<select>` do invólucro à mão). Os seletores do ER não são tocados.

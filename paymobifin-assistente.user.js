@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.32.0
+// @version      13.32.1
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -30,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.32.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.32.1');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -2172,6 +2172,19 @@
     painel.dataset.ui = cfg('aparencia') === 'antiga' ? 'antiga' : 'nova';   // aparência aplicada antes de mostrar (sem "piscar")
     document.body.appendChild(painel);
     const $ = s => painel.querySelector(s);
+    // O ER usa o plugin bootstrap-select: telas que aplicam $('select').selectpicker() na página inteira trocam os <select>
+    // do painel por um botão de 220 px (fora da grade, cobre o campo ao lado). O painel desfaz isso só nos seletores dele.
+    const desfazerSelectpicker = () => {
+      painel.querySelectorAll('.bootstrap-select').forEach(w => {
+        const sel = w.querySelector('select');
+        if (!sel) return w.remove();
+        try { PAGINA.jQuery(sel).selectpicker('destroy'); } catch (_) {}
+        if (sel.closest('.bootstrap-select') === w) w.replaceWith(sel);   // reserva: tira do invólucro sem o plugin
+        sel.classList.remove('bs-select-hidden', 'selectpicker');
+        sel.style.removeProperty('display');
+      });
+    };
+    new MutationObserver(desfazerSelectpicker).observe(painel, { childList: true, subtree: true });
     // aviso do painel. Na aba Atendimento (Nova UI) ele fica preso no rodapé e o × o esconde até o próximo aviso
     const msg = t => { const m = $('#mf-msg'); m.classList.remove('mf-msg-fechada'); return (m.textContent = t); };
     $('#mf-msg').addEventListener('click', e => {
