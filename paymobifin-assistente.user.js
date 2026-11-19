@@ -4186,6 +4186,7 @@
       valor_total_devido: { rot: 'Valor total devido', tipo: 'moeda' },
       valor_pago_parcial: { rot: 'Valor pago agora (parcial)', tipo: 'moeda' },
       com_juros: { rot: 'Restante com juros', tipo: 'check', padrao: true },
+      valor_total_juros: { rot: 'Valor total com juros', tipo: 'moeda', dica: 'Valor da parcela já com os juros. O valor do restante = total com juros − valor pago parcialmente.' },
       forma_pix: { rot: 'Forma', tipo: 'select', opcoes: [['PIX semanal', 'PIX semanal'], ['PIX Automático', 'PIX Automático']] },
       valor_semanal: { rot: 'Valor semanal', tipo: 'moeda' },
       qtd_semanas: { rot: 'Nº de pagamentos semanais', tipo: 'num' },
@@ -4244,12 +4245,13 @@
           return { pedido: 'Cliente ' + (verbo === 'fechou' ? 'fechou o pagamento parcial de ' : 'solicitou pagar parcialmente ') + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r, acordo: 'Prosseguimos com o pagamento parcial de ' + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r }; },
       },
       folego: {
-        nome: 'Campanha do Fôlego (pagamento parcial)', campos: ['nome', 'proposta', 'cpf', 'parcela_negociada', 'valor_parcela', 'vencimento', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante', 'quebra_acordo', 'valor_pago_anterior', 'data_pago_anterior'],
-        obrig: ['nome', 'parcela_negociada', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante'],
+        nome: 'Campanha do Fôlego (pagamento parcial)', campos: ['nome', 'proposta', 'cpf', 'parcela_negociada', 'valor_parcela', 'vencimento', 'valor_pago_parcial', 'data_pagamento', 'valor_total_juros', 'valor_restante', 'data_restante', 'quebra_acordo', 'valor_pago_anterior', 'data_pago_anterior'],
+        obrig: ['nome', 'parcela_negociada', 'valor_pago_parcial', 'data_pagamento', 'valor_total_juros', 'valor_restante', 'data_restante'], saldo: 'valor_total_juros',
         rotulos: { data_pagamento: 'Data do pagamento parcial', valor_pago_parcial: 'Valor pago parcialmente', valor_restante: 'Valor do restante', data_restante: 'Dia do pagamento do restante', vencimento: 'Vencimento da parcela negociada', valor_parcela: 'Valor original da parcela' },
         // formato aprovado pela gestora (17/11/2026); "*...*" = negrito no WhatsApp. Parcela negociada sai como "3° parcela".
+        // valor do restante = valor total com juros − valor pago parcialmente (saldo: calculado em ngSaldoHook; editável se faltar um dos dois).
         // "Houve quebra de acordo" marcado: libera o pagamento anterior e acrescenta ", após quebra de acordo" + a linha "Anteriormente...".
-        texto: '*CAMPANHA DO FÔLEGO*\n\nCliente: {{nome}}\nCPF: {{cpf}}\nParcela(s) negociada(s): {{parcela_negociada}}\nValor Original da Parcela: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nCliente pagou parcialmente {{valor_pago_parcial}} ({{data_pagamento}}){{?quebra_acordo_txt}}.\nAnteriormente o cliente pagou {{valor_pago_anterior}} ({{data_pago_anterior}}) sobre o valor da parcela.\n\nDia que ele vai pagar o restante: {{data_restante}}\nValor que ele vai pagar no dia: {{valor_restante}}',
+        texto: '*CAMPANHA DO FÔLEGO*\n\nCliente: {{nome}}\nCPF: {{cpf}}\nParcela(s) negociada(s): {{parcela_negociada}}\nValor Original da Parcela: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nCliente pagou parcialmente {{valor_pago_parcial}} ({{data_pagamento}}){{?quebra_acordo_txt}}.\nAnteriormente o cliente pagou {{valor_pago_anterior}} ({{data_pago_anterior}}) sobre o valor da parcela.\n\nValor total com juros: {{valor_total_juros}}\nDia que ele vai pagar o restante: {{data_restante}}\nValor que ele vai pagar no dia: {{valor_restante}}',
         frases: (v, verbo) => { const r = ' e o restante no valor de ' + v('valor_restante') + ' no dia ' + v('data_restante');
           return { pedido: 'Campanha do Fôlego: Cliente ' + (verbo === 'fechou' ? 'fechou acordo para pagar ' : 'solicitou pagar ') + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r, acordo: 'Prosseguimos com o acordo de ' + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r }; },
       },
@@ -4481,11 +4483,14 @@
       vis('valor_pago_anterior', !!ngValores.quebra_acordo);
       vis('data_pago_anterior', !!ngValores.quebra_acordo);
     }
-    // pagamento parcial: saldo = total devido − pago (atualiza a cada digitação; não aceita pagamento acima do total)
+    // pagamento parcial: saldo = total − pago (atualiza a cada digitação; não aceita pagamento acima do total)
+    // saldo: true = total em valor_total_devido; saldo: '<campo>' = total nesse campo (Campanha do Fôlego: valor_total_juros)
     function ngSaldoHook() {
-      if (!ngDef().saldo) return;
+      const sd = ngDef().saldo;
+      if (!sd) return;
+      const campoTot = typeof sd === 'string' ? sd : 'valor_total_devido', nomeTot = campoTot === 'valor_total_juros' ? 'total com juros' : 'total devido';
       const g = c => painel.querySelector('#mf-ng-campos [data-campo="' + c + '"]');
-      const tot = g('valor_total_devido'), pago = g('valor_pago_parcial'), rest = g('valor_restante');
+      const tot = g(campoTot), pago = g('valor_pago_parcial'), rest = g('valor_restante');
       if (!tot || !pago || !rest) return;
       const box = document.createElement('div');
       box.className = 'mf-ng-saldo mf-cheia';
@@ -4495,10 +4500,10 @@
         ngValores._saldoErro = '';
         box.classList.remove('erro');
         if (t != null && p != null) {
-          if (p > t) { ngValores._saldoErro = 'O valor pago (' + ngReais(p) + ') é maior que o total devido (' + ngReais(t) + ').'; box.textContent = ngValores._saldoErro; box.classList.add('erro'); rest.readOnly = false; return; }
+          if (p > t) { ngValores._saldoErro = 'O valor pago (' + ngReais(p) + ') é maior que o ' + nomeTot + ' (' + ngReais(t) + ').'; box.textContent = ngValores._saldoErro; box.classList.add('erro'); rest.readOnly = false; return; }
           rest.value = ((t - p) / 100).toFixed(2).replace('.', ','); rest.readOnly = true; ngValores.valor_restante = rest.value;
           box.textContent = 'Saldo restante: ' + ngReais(t - p);
-        } else { rest.readOnly = false; box.textContent = tot.value.trim() ? 'Informe o valor pago para calcular o saldo.' : 'Informe o total devido para calcular o saldo (ou digite o restante).'; }
+        } else { rest.readOnly = false; box.textContent = tot.value.trim() ? 'Informe o valor pago para calcular o saldo.' : 'Informe o ' + nomeTot + ' para calcular o saldo (ou digite o restante).'; }
       };
       [tot, pago].forEach(i => i.addEventListener('input', calc));
       calc();
