@@ -179,7 +179,8 @@ Só aparência e retorno visual: os campos, ids, botões, textos gerados e linha
 O fluxo tem duas etapas e cada uma fica num lugar só:
 
 1. **Grupo + planilha — Negociação / Renegociação.** O botão **"Mensagem p/ grupo"** gera a mensagem da modalidade atual (`NG_MODALIDADES`, chave `acordo:<modalidade>`; a modalidade "Condições gerais" usa `NG_ACORDO_GERAL`, chave `acordo`). Os mesmos dados geram a linha da planilha e os textos "Pedido do cliente" / "Acordo Realizado".
-2. **Cliente — aba Mensagens** ("Mensagens para o cliente"). Só os retornos ao cliente, enviados **depois** de validar no grupo (`NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento (PIX/TED), Antecipação de parcela.
+2. **Cliente — aba Mensagens** ("Mensagens para o cliente"). Só os retornos ao cliente, enviados **depois** de validar no grupo (`NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento (PIX/TED), Retorno ao cliente — Campanha do Fôlego, Antecipação de parcela.
+- Cada modelo tem os próprios campos (`campos`, `obrig`); trocar o modelo redesenha o formulário. **Retorno ao cliente — Campanha do Fôlego** (`retornoFolego`): nome, CPF, entrada, valor das parcelas, vencimento e validade do acordo, todos obrigatórios; chave PIX obrigatória e conta para TED opcional (`incluir_ted`), ambas vindas de Configurações > Gerador de negociações. Nome e CPF são preenchidos por "Aplicar cliente atual".
 
 - Os modelos Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba Mensagens (eram cópias do que o Atendimento já gera para o grupo). Textos personalizados deles que existam em `negModelos` ficam guardados, sem uso; nada é apagado.
 - Se o modelo salvo em `negModeloAtual` não existe mais, a aba abre em "Retorno do setor".
