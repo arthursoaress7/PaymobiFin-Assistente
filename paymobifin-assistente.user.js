@@ -4346,7 +4346,9 @@
       }
       if (k === 'quebra_acordo_txt') return ngValores.quebra_acordo ? ', após quebra de acordo' : '';
       if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
-      if (k === 'parcela_negociada') {   // "3" -> "3° parcela"; "8, 9 e 10" -> "8°, 9° e 10° parcelas"; texto livre fica como digitado
+      // Renegociação: vazio = usa a "Parcela(s) negociada(s)" do acordo (mesmo formato)
+      if (k === 'parcela_renegociada' && String(v == null ? '' : v).trim() === '') return ngValores.parcela_negociada ? ngValor('parcela_negociada') : '';
+      if (k === 'parcela_negociada' || k === 'parcela_renegociada') {   // "3" -> "3° parcela"; "8, 9 e 10" ou "3 4 5" -> "8°, 9° e 10° parcelas"; texto livre fica como digitado
         const t = String(v == null ? '' : v).trim(), ns = t.match(/\d+/g);
         if (!ns || t.replace(/\d+|[°ºª,;/]|\be\b|\s|parcelas?/gi, '')) return t.replace(/\s+/g, ' ');
         const ord = ns.map(ngOrdinal);
@@ -5572,7 +5574,7 @@
       recebeu_boletos: { rot: 'Recebeu boletos?', tipo: 'select', opcoes: [['', '(em branco)'], ['SIM', 'SIM'], ['NÃO', 'NÃO'], ['N/A', 'N/A'], ['Pix Automático', 'Pix Automático']] },
       concluida: { rot: 'Negociação concluída?', tipo: 'select', opcoes: [['', '(em branco)'], ['SIM', 'SIM'], ['NÃO', 'NÃO'], ['N/A', 'N/A']] },
       responsavel: { rot: 'Responsável pela negociação', tipo: 'texto' },
-      parcela_renegociada: { rot: 'Número da parcela renegociada', tipo: 'texto', dica: 'Parcela(s) do contrato original que foram renegociadas (ex.: 3 ou 8, 9 e 10). Vai igual em todas as linhas.' },
+      parcela_renegociada: { rot: 'Número da parcela renegociada', tipo: 'texto', dica: 'Digite só os números (ex.: 3 ou 3 4 5): vai como "3° parcela" / "3°, 4° e 5° parcelas", igual em todas as linhas. Vazio = usa a Parcela(s) negociada(s) do acordo.' },
       formalizou: { rot: 'Formalizou o acordo?', tipo: 'select', opcoes: [['SIM', 'SIM'], ['NÃO', 'NÃO']] },
       obs_reneg: { rot: 'Observação (todas as linhas)', tipo: 'texto', dica: 'Ex.: Boletos no App' },
       // ---- Desbloqueios ----
