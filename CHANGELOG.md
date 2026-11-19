@@ -1,5 +1,16 @@
 # Changelog
 
+## [v13.31.0] — 2026-11-19
+
+### ✨ Novas funcionalidades
+
+- feat: Fôlego solicitado diz "Cliente solicita pagar parcialmente" na mensagem do grupo (#75) (35c5178)
+- feat: operação (solicitado/realizado/finalizado) no título da mensagem do grupo (#74) (2217684)
+- feat: Campanha do Fôlego com valor total com juros e restante calculado (#73) (5a73cde)
+- feat: Número da Parcela Renegociada no formato "3° parcela" e preenchido pela parcela negociada (#72) (939c39e)
+- feat: coluna Número da Parcela Renegociada na planilha de Renegociação (#71) (c223f12)
+- feat: modelo de mensagem Retorno ao cliente - Campanha do Fôlego (#70) (85c8ef2)
+
 ## [v13.30.0] — 2026-11-17
 
 ### ✨ Novas funcionalidades
