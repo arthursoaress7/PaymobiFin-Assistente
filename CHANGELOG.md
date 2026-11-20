@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.34.0] — 2026-11-20
+
+### ✨ Novas funcionalidades
+
+- feat: Entrada + parcelas vira Renegociação no padrão do Fôlego; remove Pagamento parcial + restante; docs atualizadas (#96) (014eb4f)
+
 ## [v13.33.0] — 2026-11-20
 
 ### ✨ Novas funcionalidades
