@@ -186,15 +186,14 @@ O módulo de lembretes (`lb*`) já possui:
 O módulo de mensagens (`ng*` e `at*`) já possui:
 
 - **Mensagens para o grupo** (Negociação/Renegociação, botão "Mensagem p/ grupo"): uma por modalidade (`NG_MODALIDADES`); "Condições gerais" usa `NG_ACORDO_GERAL`.
-- **3 modelos de mensagem para o cliente** (aba Mensagens, `NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento, Antecipação de parcela. Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba em 17/11/2026 (eram cópias do que o Atendimento gera para o grupo).
-- **5 modalidades de acordo** (`NG_MODALIDADES`): Entrada + parcelas (padrão), Pagamento parcial + restante, Campanha do Fôlego, PIX semanal/Automático, Condições gerais. (Novo valor mensal, Parcelamento, Alteração de vencimento, Antecipação/quitação, Regularização e Sem acordo removidas em 19/11/2026.)
+- **4 modelos de mensagem para o cliente** (aba Mensagens, `NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento, Retorno ao cliente — Campanha do Fôlego, Antecipação de parcela. Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba em 17/11/2026 (eram cópias do que o Atendimento gera para o grupo).
+- **4 modalidades de acordo** (`NG_MODALIDADES`): Renegociação (entrada + parcelas; padrão; chave `entrada`), Campanha do Fôlego, PIX semanal/Automático, Condições gerais. Renegociação e Fôlego usam o mesmo padrão de título: `*RENEGOCIAÇÃO — <OPERAÇÃO>*` / `*CAMPANHA DO FÔLEGO — <OPERAÇÃO>*`. (Removidas em 19/11/2026: Novo valor mensal, Parcelamento, Alteração de vencimento, Antecipação/quitação, Regularização, Sem acordo e Pagamento parcial + restante — este porque a Campanha do Fôlego faz o mesmo.)
 - **Preenchimento automático existente:**
   - `data_contato` = hoje (padrão)
   - `responsavel` = nome da equipe ou apelido da conta ativa
-  - `com_juros` = true (padrão; só na modalidade Pagamento parcial)
   - `abrangencia` = calculada a partir de `abrangencia_tipo` + `parcela_inicial`/`parcelas_especificas`
   - `antecipacao_descr` = calculada a partir de `tipo_antecipacao` + `qtd_antecipadas`
-  - `valor_restante` = `total_devido` − `valor_pago_parcial` (auto-calculado na modalidade Pagamento parcial, bloqueia pagar acima do total; na Campanha do Fôlego o restante é digitado)
+  - `valor_restante` = `valor_total_juros` − `valor_pago_parcial` (Campanha do Fôlego) e `valor_total_juros` − `valor_entrada` (retorno do Fôlego, aba Mensagens): auto-calculado, bloqueia pagar acima do total
   - `parcela_negociada` (Campanha do Fôlego): o número digitado sai por extenso ("3" → "3° parcela")
   - Dados de pagamento (`chave_pix`, `banco`, `agência`, `conta`) vindos de Configurações
   - `atSugerir()`: copia data 1° pagamento, quantidade de parcelas e "Todo Contrato" dos campos do acordo (só se estiverem vazios)
@@ -208,7 +207,7 @@ O módulo de mensagens (`ng*` e `at*`) já possui:
 - [ ] **P2.1 — Revisar os modelos de mensagens existentes**
 
   **Status:** Pendente  
-  **Objetivo:** avaliar se os modelos (3 para o cliente) e as 11 modalidades atuais atendem às necessidades da equipe.  
+  **Objetivo:** avaliar se os modelos (4 para o cliente) e as 4 modalidades atuais atendem às necessidades da equipe.  
   **Comportamento esperado:** modelos cobrem todos os cenários do dia a dia sem precisar edição manual excessiva.  
   **Critérios de aceite:** lista de modelos que precisam ajuste, novos modelos necessários ou modelos obsoletos.  
   **Dependências:** feedback da equipe sobre o uso real.  
@@ -266,7 +265,7 @@ O módulo de geração de acordos (`at*`) já possui:
   - Rótulos de ação: "Pagamento Parcela 01/24" (mensal) ou "Pagamentos 01/88" (PIX semanal)
   - Situação padrão: "Efetivado (Entrada)" na 1ª linha, "Em Aberto" nas demais, "Efetivado (Quitação)" na quitação
   - Valor pago: valor da 1ª linha, "N/A" nas demais
-  - Saldo restante no pagamento parcial: total − pago (bloqueia pagar acima do total)
+  - Saldo restante na Campanha do Fôlego: total com juros − pago (bloqueia pagar acima do total)
 - **Edição manual preservada:** tudo no plano é editável. Campos que o usuário já preencheu não são sobrescritos pela sugestão.
 - **Cópia para planilha:** `atLinhas()` monta as linhas tabuladas — Negociação (1 linha, 30 colunas) ou Renegociação (1 linha por parcela, 27 colunas).
 - **Manual:** quantidades, valores, data da entrada, 1º vencimento (embora sugerido), observações, procedimento na régua, recebeu boletos, negociação concluída.

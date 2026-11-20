@@ -49,13 +49,12 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 
 | Chave | Modalidade |
 |---|---|
-| `entrada` | Entrada + parcelas |
-| `parcial` | Pagamento parcial + restante |
+| `entrada` | Renegociação (entrada + parcelas) — padrão |
 | `folego` | Campanha do Fôlego |
 | `pix` | PIX semanal / Automático |
 | `geral` | Condições gerais (modelo anterior) |
 
-**Removidas em 19/11/2026** (mensagens excessivas): `mensal` (Novo valor mensal), `parcelamento`, `vencimento` (Alteração da data de vencimento), `antecipacao` (Antecipação / quitação), `regularizacao` e `semacordo` (Sem acordo). Modalidade padrão passa a ser `entrada`. Registros antigos do histórico com essas modalidades continuam mostrando o nome (`NG_MOD_REMOVIDAS` / `ngModNome`); "Abrir no Atendimento" num deles abre em Entrada + parcelas, com os valores do registro. Textos personalizados delas salvos em `negModelos` ficam guardados, sem uso.
+**Removidas em 19/11/2026** (mensagens excessivas): `mensal` (Novo valor mensal), `parcelamento`, `vencimento` (Alteração da data de vencimento), `antecipacao` (Antecipação / quitação), `regularizacao`, `semacordo` (Sem acordo) e `parcial` (Pagamento parcial + restante: a Campanha do Fôlego faz o mesmo). Modalidade padrão: `entrada` (Renegociação). Registros antigos do histórico com essas modalidades continuam mostrando o nome (`NG_MOD_REMOVIDAS` / `ngModNome`); "Abrir no Atendimento" num deles abre em Renegociação, com os valores do registro. Textos personalizados delas salvos em `negModelos` ficam guardados, sem uso.
 
 **Campanha do Fôlego — formato da mensagem (aprovado pela gestora, 17/11/2026):** título `*CAMPANHA DO FÔLEGO*` (negrito no WhatsApp); Cliente, CPF, Parcela(s) negociada(s), Valor Original da Parcela, Vencimento; "Cliente pagou parcialmente R$ X (data)."; "Valor total com juros"; dia e valor do restante. Campos da modalidade: `parcela_negociada` (digita-se o número: "3" sai "3° parcela", "8, 9 e 10" sai "8°, 9° e 10° parcelas"), `vencimento` ("Vencimento da parcela negociada"), valor/data do pagamento parcial e valor/dia do restante; Cliente, CPF e Valor original vêm dos blocos fixos (na Renegociação, que esconde o bloco Cobrança, o "Valor original da parcela" aparece na própria modalidade). Campo `valor_total_juros` ("Valor total com juros", obrigatório): o **valor do restante é calculado** = total com juros − valor pago parcialmente (`saldo: 'valor_total_juros'` em `ngSaldoHook`; fica só leitura enquanto os dois estão preenchidos; pagamento maior que o total dá erro). (Atualizado em 19/11/2026.)
 
@@ -80,7 +79,7 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 
 A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada com 14 casos).
 
-**Operação na mensagem do grupo (19/11/2026):** o título da mensagem diz a operação escolhida em Resultado, nas duas telas (Negociação e Renegociação). Variáveis calculadas `{{operacao}}` ("Acordo solicitado" / "Acordo realizado" / "Acordo finalizado" / "Negociação não concluída") e `{{operacao_maiusc}}` (o mesmo em maiúsculas). Modalidades: `NG_CAB` = `{{operacao}} — <modalidade>`; acordo geral: `{{operacao}}`; Campanha do Fôlego: `*CAMPANHA DO FÔLEGO — {{operacao_maiusc}}*`. Na Campanha do Fôlego, `{{acao_parcial}}` troca "Cliente pagou parcialmente" por "Cliente solicita pagar parcialmente" quando o Resultado é solicitou ou não concluída. Fora do Atendimento (aba Mensagens) as variáveis ficam vazias. Textos personalizados salvos em `negModelos` antes dessa mudança não têm a variável: restaurar o padrão em Configurações. Status no histórico: fechou → `realizado`, pagou tudo → `finalizado`, solicitou → `pendente`, não concluída → `nao_concluido`.
+**Operação na mensagem do grupo (19/11/2026):** o título da mensagem diz a operação escolhida em Resultado, nas duas telas (Negociação e Renegociação). Variáveis calculadas `{{operacao}}` ("Acordo solicitado" / "Acordo realizado" / "Acordo finalizado" / "Negociação não concluída") e `{{operacao_maiusc}}` (o mesmo em maiúsculas). Títulos: Renegociação `*RENEGOCIAÇÃO — {{operacao_maiusc}}*` e Campanha do Fôlego `*CAMPANHA DO FÔLEGO — {{operacao_maiusc}}*` (mesmo padrão); PIX semanal usa `NG_CAB` = `{{operacao}} — <forma>`; acordo geral: `{{operacao}}`. Na Campanha do Fôlego, `{{acao_parcial}}` troca "Cliente pagou parcialmente" por "Cliente solicita pagar parcialmente" quando o Resultado é solicitou ou não concluída. Fora do Atendimento (aba Mensagens) as variáveis ficam vazias. Textos personalizados salvos em `negModelos` antes dessa mudança não têm a variável: restaurar o padrão em Configurações. Status no histórico: fechou → `realizado`, pagou tudo → `finalizado`, solicitou → `pendente`, não concluída → `nao_concluido`.
 
 ---
 
@@ -102,9 +101,9 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 
 | Modalidade | Linhas sugeridas |
 |---|---|
-| Entrada + parcelas | Mensagem do grupo no formato da equipe (19/11/2026): título `{{operacao}} — Renegociação`, cliente/CPF, parcela atual e abrangência, o pedido do cliente ("Cliente solicitou pagamento todo dia X e parcelas de R$ Y" — campos `dia_solicitado` e `valor_solicitado`), a entrada (opcional: some se vazia; data entre parênteses via `data_entrada_txt`), "Foram simuladas N parcelas de R$ Z." e "Vencimento: todo dia D". Obrigatórios: nome, quantidade e valor da parcela simulada |
+| Renegociação (`entrada`) | Mensagem do grupo no formato da equipe (19/11/2026): título no padrão do Fôlego, `*RENEGOCIAÇÃO — {{operacao_maiusc}}*` (ex.: `*RENEGOCIAÇÃO — ACORDO SOLICITADO*`), cliente/CPF, parcela atual e abrangência, o pedido do cliente ("Cliente solicitou pagamento todo dia X e parcelas de R$ Y" — campos `dia_solicitado` e `valor_solicitado`), a entrada (opcional: some se vazia; data entre parênteses via `data_entrada_txt`), "Foram simuladas N parcelas de R$ Z." e "Vencimento: todo dia D". Obrigatórios: nome, quantidade e valor da parcela simulada |
 | PIX semanal / Automático | N pagamentos semanais (+ entrada se informada) |
-| Pagamento parcial / Fôlego | 2 linhas: valor agora + saldo restante |
+| Campanha do Fôlego | 2 linhas: valor agora + saldo restante |
 
 > **Dia 31 em mês curto:** cai no último dia do mês (ex.: 28/02).
 
@@ -213,5 +212,5 @@ O fluxo tem duas etapas e cada uma fica num lugar só:
 | `ngCampoEl(c, rot, obrig)` | Cria o elemento HTML de um campo |
 | `ngBlocosNova(grade, m)` | Organiza campos em blocos na Nova UI |
 | `ngMostrarDependentes()` | Mostra/oculta campos dependentes da modalidade |
-| `ngSaldoHook()` | Atualiza o saldo (total − pago) no pagamento parcial (`valor_total_devido`), na Campanha do Fôlego (`valor_total_juros`) e no retorno do Fôlego (`valor_total_juros` − `valor_entrada`, via `saldoPago`) |
+| `ngSaldoHook()` | Atualiza o saldo (total − pago) na Campanha do Fôlego (`valor_total_juros`) e no retorno do Fôlego (`valor_total_juros` − `valor_entrada`, via `saldoPago`) |
 | `ngFaltando()` | Lista campos obrigatórios não preenchidos |
