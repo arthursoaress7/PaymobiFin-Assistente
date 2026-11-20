@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.32.1] — 2026-11-19
+
+### 🐛 Correções
+
+- fix: seletores do painel não viram botão do bootstrap-select do ER (#90) (61402c8)
+
 ## [v13.32.0] — 2026-11-19
 
 ### ✨ Novas funcionalidades
