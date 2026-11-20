@@ -4236,20 +4236,6 @@
     const NG_ABR = ['abrangencia_tipo', 'parcela_inicial', 'parcelas_especificas'];
     const NG_MODALIDADES = {
       geral: { nome: 'Condições gerais (modelo anterior)' },
-      mensal: {
-        nome: 'Novo valor mensal', campos: ['nome', 'proposta', 'parcela_atual', ...NG_ABR, 'valor_parcela_acordo', 'dia_vencimento', 'quantidade_parcelas', 'observacoes'],
-        obrig: ['nome', 'valor_parcela_acordo', 'dia_vencimento'], rotulos: { valor_parcela_acordo: 'Novo valor da parcela' },
-        texto: NG_CAB('Novo valor mensal') + 'Prosseguimos com o acordo de {{valor_parcela_acordo}} com pagamento todo dia {{dia_vencimento}}.\nQuantidade de parcelas: {{quantidade_parcelas}}\n\nObservações: {{observacoes}}',
-        frases: (v, verbo) => ({ pedido: 'Cliente ' + verbo + ' renegociar as parcelas para ' + v('valor_parcela_acordo') + ' com pagamento todo dia ' + v('dia_vencimento') + (v('quantidade_parcelas') ? ', ' + v('quantidade_parcelas') + ' parcelas' : ''),
-          acordo: 'Prosseguimos com o acordo de ' + v('valor_parcela_acordo') + ' com pagamento todo dia ' + v('dia_vencimento') + (v('quantidade_parcelas') ? ', ' + v('quantidade_parcelas') + ' parcelas' : '') }),
-      },
-      parcelamento: {
-        nome: 'Parcelamento (quantidade × valor)', campos: ['nome', 'proposta', 'parcela_atual', ...NG_ABR, 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
-        obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
-        texto: NG_CAB('Parcelamento') + 'Prosseguimos com o acordo de {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nVencimento: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
-        frases: (v, verbo) => { const d = v('dia_vencimento') ? ', com vencimento para todo dia ' + v('dia_vencimento') : '';
-          return { pedido: 'Cliente ' + verbo + ' renegociar as parcelas para ' + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + d, acordo: 'Prosseguimos com o acordo de ' + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + d }; },
-      },
       entrada: {   // formato da equipe (19/11/2026): pedido do cliente + simulação; entrada opcional (some se vazia)
         nome: 'Entrada + parcelas', campos: ['nome', 'proposta', 'cpf', 'parcela_atual', ...NG_ABR, 'dia_solicitado', 'valor_solicitado', 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
         obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
@@ -4287,47 +4273,14 @@
           return { pedido: 'Cliente ' + verbo + ' ' + base + resto, acordo: 'Prosseguimos com ' + base + resto };
         },
       },
-      vencimento: {
-        nome: 'Alteração da data de vencimento', campos: ['nome', 'proposta', 'parcela_atual', 'dia_anterior', 'novo_dia', 'parcelas_afetadas', 'valor_parcela_acordo', 'autorizacao', 'observacoes'],
-        obrig: ['nome', 'novo_dia'], rotulos: { valor_parcela_acordo: 'Novo valor das parcelas (se mudou)' },
-        texto: NG_CAB('Alteração da data de vencimento') + 'Prosseguimos com a alteração da data de vencimento para todo dia {{novo_dia}}.\nVencimento anterior: dia {{dia_anterior}}\nParcelas afetadas: {{parcelas_afetadas}}\nNovo valor das parcelas: {{valor_parcela_acordo}}\nAutorização: {{autorizacao}}\n\nObservações: {{observacoes}}',
-        frases: (v, verbo) => { const x = (v('parcelas_afetadas') ? ' de suas ' + v('parcelas_afetadas') + ' parcelas' : '') + (v('valor_parcela_acordo') ? ', valor das parcelas para ' + v('valor_parcela_acordo') : '') + (v('autorizacao') ? ', formalizado via ' + v('autorizacao') : '');
-          return { pedido: 'Cliente ' + verbo + (verbo === 'fechou' ? ' a' : '') + ' alteração da data de vencimento' + (v('dia_anterior') ? ' de dia ' + v('dia_anterior') : '') + ' para dia ' + v('novo_dia') + x,
-            acordo: 'Prosseguimos com a alteração da data de vencimento' + (v('dia_anterior') ? ' de dia ' + v('dia_anterior') : '') + ' para todo dia ' + v('novo_dia') + x }; },
-      },
-      antecipacao: {
-        nome: 'Antecipação / quitação', campos: ['nome', 'proposta', 'parcela_atual', 'tipo_antecipacao', 'qtd_antecipadas', 'referencia', 'valor_antecipacao', 'data_pagamento', 'observacoes'],
-        obrig: ['nome', 'tipo_antecipacao', 'valor_antecipacao'],
-        texto: NG_CAB('Antecipação / quitação') + 'Prosseguimos com {{antecipacao_descr}} no valor de {{valor_antecipacao}}.\nReferência: {{referencia}}\nData de pagamento: {{data_pagamento}}\n\nObservações: {{observacoes}}',
-        frases: (v, verbo) => {
-          if (v('tipo_antecipacao') === 'quitacao') return { pedido: 'Cliente ' + verbo + ' ' + v('valor_antecipacao') + ' para quitar todo o contrato' + (v('data_pagamento') ? ' com pagamento em ' + v('data_pagamento') : ''), acordo: 'Prosseguimos com a quitação de todo o contrato no valor de ' + v('valor_antecipacao') + (v('data_pagamento') ? ' com pagamento em ' + v('data_pagamento') : '') };
-          const q = v('qtd_antecipadas') + (v('qtd_antecipadas') === '1' ? ' parcela' : ' parcelas') + (v('referencia') ? ' (' + v('referencia') + ')' : '');
-          return { pedido: 'Cliente ' + (verbo === 'fechou' ? 'fechou a antecipação de ' : 'solicitou antecipar ') + q + ' no valor de ' + v('valor_antecipacao') + (v('data_pagamento') ? ' com pagamento em ' + v('data_pagamento') : ''), acordo: 'Prosseguimos com a antecipação de ' + q + ' no valor de ' + v('valor_antecipacao') + (v('data_pagamento') ? ' com pagamento em ' + v('data_pagamento') : '') };
-        },
-      },
-      regularizacao: {
-        nome: 'Regularização de parcela(s) em atraso', campos: ['nome', 'proposta', 'parcela_atual', 'qtd_regularizar', 'referencia', 'valor_regularizar', 'data_pagamento', 'dividir_qtd', 'dividir_valor', 'observacoes'],
-        obrig: ['nome', 'qtd_regularizar'], umDe: [['valor_regularizar', 'dividir_valor']],
-        texto: NG_CAB('Regularização de parcela(s) em atraso') + 'Prosseguimos com a regularização de {{qtd_regularizar}} parcela(s) em atraso.\nReferência: {{referencia}}\nValor: {{valor_regularizar}}\nData de pagamento: {{data_pagamento}}\nDividido em {{dividir_qtd}} parcelas de {{dividir_valor}}\n\nObservações: {{observacoes}}',
-        frases: (v, verbo) => {
-          if (v('dividir_qtd') && v('dividir_valor')) { const t = v('dividir_qtd') + ' parcelas de ' + v('dividir_valor') + ' referentes ' + (v('referencia') ? 'a ' + v('referencia') : 'à(s) parcela(s) em atraso'); return { pedido: 'Cliente ' + verbo + ' ' + t, acordo: 'Prosseguimos com ' + t }; }
-          const um = v('qtd_regularizar') === '1';
-          const resto = (v('referencia') ? ' (' + v('referencia') + ')' : '') + ' no valor de ' + v('valor_regularizar') + (v('data_pagamento') ? ' no dia ' + v('data_pagamento') : '');
-          const de = (um ? 'da parcela em atraso' : 'das ' + v('qtd_regularizar') + ' parcelas em atraso') + resto;
-          return { pedido: verbo === 'fechou' ? 'Cliente fechou o pagamento ' + de : 'Cliente solicitou pagar ' + (um ? 'a parcela em atraso' : 'as ' + v('qtd_regularizar') + ' parcelas em atraso') + resto,
-            acordo: 'Prosseguimos com o pagamento ' + de };
-        },
-      },
-      semacordo: {
-        nome: 'Sem acordo / pagamento normal', campos: ['nome', 'proposta', 'parcela_atual', 'condicoes', 'valor_parcela_acordo', 'observacoes'],
-        obrig: ['nome', 'condicoes'], rotulos: { condicoes: 'O que aconteceu (ex.: optou por pagar normalmente)', valor_parcela_acordo: 'Valor da parcela (mantido)' },
-        texto: 'Sem acordo\n\nCliente: {{nome}}\nProposta: {{proposta}}\n\n{{condicoes}}\nValor da parcela mantido: {{valor_parcela_acordo}}\n\nObservações: {{observacoes}}',
-        frases: v => ({ pedido: v('condicoes'), acordo: v('valor_parcela_acordo') ? 'Cliente optou por pagar as parcelas normalmente em ' + v('valor_parcela_acordo') : v('condicoes') }),
-      },
+
     };
     const NG_ALL = { ...NG_MODELOS, acordo: NG_ACORDO_GERAL };
     Object.entries(NG_MODALIDADES).forEach(([k, md]) => { if (k !== 'geral') NG_ALL['acordo:' + k] = { ...md, nome: 'Acordo realizado — ' + md.nome, desc: 'Acordo realizado: ' + md.nome + '. Registra só o que foi efetivamente combinado.' }; });
-    const ngModalidade = () => (GM_getValue('negModalidade', 'mensal') in NG_MODALIDADES ? GM_getValue('negModalidade', 'mensal') : 'mensal');
+    // modalidades removidas em 19/11/2026 (mensagens excessivas): só o nome, para o histórico antigo continuar legível
+    const NG_MOD_REMOVIDAS = { mensal: 'Novo valor mensal', parcelamento: 'Parcelamento (quantidade × valor)', vencimento: 'Alteração da data de vencimento', antecipacao: 'Antecipação / quitação', regularizacao: 'Regularização de parcela(s) em atraso', semacordo: 'Sem acordo / pagamento normal' };
+    const ngModNome = k => (NG_MODALIDADES[k] || {}).nome || NG_MOD_REMOVIDAS[k] || k || '';
+    const ngModalidade = () => (GM_getValue('negModalidade', 'entrada') in NG_MODALIDADES ? GM_getValue('negModalidade', 'entrada') : 'entrada');
     // contexto: 'negociacao' / 'renegociacao' (Atendimento: sempre o acordo da modalidade) ou 'mensagens' (modelos para o cliente)
     let ngCtx = GM_getValue('atModelo', 'negociacao');
     if (!['negociacao', 'renegociacao', 'mensagens', 'desbloqueios'].includes(ngCtx)) ngCtx = 'negociacao';
@@ -5739,14 +5692,9 @@
         if (c('valor_restante') != null) l.push({ valor: c('valor_restante'), venc: v('data_restante') || '' });
         return { especial: l };
       }
-      if (mod === 'antecipacao') return { especial: c('valor_antecipacao') != null ? [{ valor: c('valor_antecipacao'), venc: v('data_pagamento') || '', situacao: v('tipo_antecipacao') === 'quitacao' ? 'Efetivado (Quitação)' : '' }] : [] };
-      if (mod === 'regularizacao' && !(v('dividir_qtd') && c('dividir_valor') != null)) return { especial: c('valor_regularizar') != null ? [{ valor: c('valor_regularizar'), venc: v('data_pagamento') || '' }] : [] };
       const s = { periodo: 'mensal' };
       if (mod === 'entrada') Object.assign(s, { entradaValor: v('valor_entrada'), entradaData: v('data_entrada'), qtd: v('quantidade_parcelas'), valor: v('valor_parcela_acordo') });
-      if (mod === 'mensal' || mod === 'parcelamento') Object.assign(s, { qtd: v('quantidade_parcelas'), valor: v('valor_parcela_acordo') });
       if (mod === 'pix') Object.assign(s, { periodo: 'semanal', qtd: v('qtd_semanas'), valor: v('valor_semanal'), entradaValor: v('valor_entrada') });
-      if (mod === 'regularizacao') Object.assign(s, { qtd: v('dividir_qtd'), valor: v('dividir_valor'), inicio: v('data_pagamento') });
-      if (mod === 'vencimento') Object.assign(s, { qtd: /^\d+$/.test(String(v('parcelas_afetadas') || '').trim()) ? v('parcelas_afetadas') : '', valor: v('valor_parcela_acordo') });
       // Data renegociação (data do contrato novo / comprovante da entrada): base das datas quando o acordo não traz outra
       const iso = x => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : '';
       const reneg = iso(v('data_reneg'));
@@ -6919,7 +6867,7 @@
     function hsDiferencas(a, b) {
       const out = [], cmp = (rot, x, y) => { x = x == null ? '' : String(x); y = y == null ? '' : String(y); if (x !== y) out.push({ campo: rot, de: x.slice(0, 200), para: y.slice(0, 200) }); };
       cmp('Situação', HS_STATUS[a.status] || a.status, HS_STATUS[b.status] || b.status);
-      cmp('Modalidade', (NG_MODALIDADES[a.modalidade] || {}).nome || a.modalidade, (NG_MODALIDADES[b.modalidade] || {}).nome || b.modalidade);
+      cmp('Modalidade', ngModNome(a.modalidade), ngModNome(b.modalidade));
       cmp('Número de contato', a.cliente.contato, b.cliente.contato);
       cmp('Nome', a.cliente.nome, b.cliente.nome);
       ['pedido', 'acordo', 'parcela'].forEach(k => cmp({ pedido: 'Pedido do cliente', acordo: 'Acordo Realizado', parcela: 'A partir de qual parcela' }[k], (a.textos || {})[k], (b.textos || {})[k]));
@@ -7012,7 +6960,7 @@
       const l1 = document.createElement('div'); l1.className = 'mf-lb-l1';
       l1.textContent = 'Proposta ' + (r.cliente.proposta || '—') + (r.cliente.nome ? ' · ' + r.cliente.nome : '') + (r.cliente.contato ? ' · ' + r.cliente.contato : '');
       const l2 = document.createElement('div');
-      l2.textContent = (HS_STATUS[r.status] || r.status) + ' · ' + ((NG_MODALIDADES[r.modalidade] || {}).nome || r.modalidade) + (r.tipo === 'renegociacao' ? ' · Renegociação' : '') +
+      l2.textContent = (HS_STATUS[r.status] || r.status) + ' · ' + ngModNome(r.modalidade) + (r.tipo === 'renegociacao' ? ' · Renegociação' : '') +
         ' · ' + (r.criadoPorNome || '—') + ', ' + new Date(r.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ((r.revisoes || []).length ? ' · ' + r.revisoes.length + ' alteração(ões)' : '');
       el.append(l1, l2);
       el.onclick = () => { hsAberto = hsAberto === r.id ? null : r.id; hsCorrigindo = null; hsDesenhar(); };
@@ -7034,7 +6982,7 @@
       bt('Copiar pedido', 'cinza', () => hsCopiar(r.textos.pedido, '"Pedido do cliente"'));
       bt('Copiar acordo', 'cinza', () => hsCopiar(r.textos.acordo, '"Acordo Realizado"'));
       if (r.cliente.contato) bt('Copiar telefone', 'cinza', () => hsCopiar(r.cliente.contato, 'Telefone'));
-      bt('Copiar resumo', 'cinza', () => hsCopiar(['Proposta ' + r.cliente.proposta + ' · ' + r.cliente.nome + (r.cliente.contato ? ' · ' + r.cliente.contato : ''), HS_STATUS[r.status] + ' · ' + ((NG_MODALIDADES[r.modalidade] || {}).nome || ''), r.textos.pedido, r.textos.acordo].filter(Boolean).join('\n'), 'Resumo'));
+      bt('Copiar resumo', 'cinza', () => hsCopiar(['Proposta ' + r.cliente.proposta + ' · ' + r.cliente.nome + (r.cliente.contato ? ' · ' + r.cliente.contato : ''), HS_STATUS[r.status] + ' · ' + ngModNome(r.modalidade), r.textos.pedido, r.textos.acordo].filter(Boolean).join('\n'), 'Resumo'));
       bt('Abrir no Atendimento', 'azul', () => hsAbrirNoAtendimento(r));
       if (r.status !== 'anulado') { bt('Corrigir', 'cinza', () => { hsCorrigindo = r.id; hsDesenhar(); }); bt('Anular', 'vermelho', () => hsAnular(r.id)); }
       el.append(det, acoes);
@@ -7090,7 +7038,7 @@
       if ((ngTemDados() || atPlano.length) && !confirm('Substituir os dados que estão no Atendimento pelos deste registro?')) return;
       Object.keys(ngValores).forEach(k => delete ngValores[k]);
       Object.assign(ngValores, r.valores || {});
-      GM_setValue('negModalidade', r.modalidade); $('#mf-ng-modalidade').value = r.modalidade;
+      GM_setValue('negModalidade', r.modalidade); $('#mf-ng-modalidade').value = ngModalidade();   // modalidade removida: cai na padrão (Entrada + parcelas)
       atPlano = (r.plano || []).map(l => ({ ...l }));
       $('#mf-ng-f-pedido').value = r.textos.pedido || ''; $('#mf-ng-f-acordo').value = r.textos.acordo || ''; $('#mf-ng-f-parcela').value = r.textos.parcela || '';
       $('#mf-ng-frase-tipo').value = { realizado: 'fechou', finalizado: 'finalizou', pendente: 'solicitou', nao_concluido: 'nao' }[r.status] || 'fechou';
