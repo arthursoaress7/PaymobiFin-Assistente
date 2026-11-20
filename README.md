@@ -2,7 +2,7 @@
 
 Userscript Tampermonkey que adiciona um painel flutuante ao sistema ER da Paymobi, automatizando tarefas operacionais da equipe de cobrança e crédito.
 
-**Versão atual:** 13.33.0
+**Versão atual:** 13.34.0
 
 ---
 
@@ -24,7 +24,7 @@ Userscript Tampermonkey que adiciona um painel flutuante ao sistema ER da Paymob
 |---|---|
 | Tipo | Tampermonkey Userscript (JavaScript, sem build) |
 | Sites alvo | `paymobi-app.ercard.com.br` (ER; o antigo `paymobi.ercard.com.br` também é aceito) · `enviamotor.mobfacil.com.br` |
-| Arquivo principal | `paymobifin-assistente.user.js` (~8.300 linhas, monólito) |
+| Arquivo principal | `paymobifin-assistente.user.js` (~8.800 linhas, monólito) |
 | Dependências externas | Pusher Channels 8.4.0 (via `@require`) |
 | APIs do browser | Web Crypto (AES-GCM 256), Web Workers, Web Locks |
 | APIs Tampermonkey | `GM_setValue/getValue/deleteValue`, `GM_setClipboard`, `GM_xmlhttpRequest`, `unsafeWindow` |

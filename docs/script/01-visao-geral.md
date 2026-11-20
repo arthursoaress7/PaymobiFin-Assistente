@@ -1,7 +1,7 @@
 # Visão Geral do Script — paymobifin-assistente.user.js
 
 **Arquivo:** `paymobifin-assistente.user.js` (até a v13.27.1 se chamava `automacaomobfacil.user.js`; esse nome ficou como ponte para migrar as instalações antigas e foi removido em 19/11/2026)  
-**Versão atual:** 13.33.0  
+**Versão atual:** 13.34.0  
 **Tipo:** Tampermonkey Userscript  
 **Sites alvo:**
 - `https://paymobi-app.ercard.com.br/*` — painel principal (ER). O endereço antigo `https://paymobi.ercard.com.br/*` continua aceito (`@include` com `paymobi(-app)?`)
@@ -38,22 +38,24 @@ O script é dividido em dois pontos de entrada principais:
 
 | Seção no código | Módulo | Linha aprox. |
 |---|---|---|
-| Leitura da árvore | Motor de coleta React | 152 |
-| Iframe do motor | Navegação da árvore MobFacil | 451 |
-| Interface base | Painel, abas, arrastar, redimensionar | 973 |
-| CCBs | Download de certificados | 3608 |
-| Contas | Troca rápida de conta | 3800 |
-| Gerador de Negociações | Modelos (grupo e cliente), campos e montagem dos textos | 4092 |
+| Leitura da árvore | Motor de coleta React | 153 |
+| Iframe do motor | Navegação da árvore MobFacil | 452 |
+| Interface base | Painel, abas, arrastar, redimensionar | 974 |
+| CCBs | Download de certificados | 3624 |
+| Contas | Troca rápida de conta | 3816 |
+| Gerador de Negociações | Modelos (grupo e cliente), campos e montagem dos textos | 4108 |
 | Lembretes | Pagamentos parciais (v2) | 4591 |
 | Consulta CAC | Central de Atendimento | 4984 |
 | Relatório de Pendências | Pendências do ER (somente leitura) | 5330 |
 | Atendimento | Negociação, Renegociação, Desbloqueios e Mensagens | 5537 |
-| Timers | Agendamentos de expediente | 5901 |
-| Navegação/Aparência | Nova UI / UI Antiga | 6237 |
-| Equipe | Compartilhamento via Pusher | 6355 |
-| Histórico | Acordos registrados pela equipe | 6822 |
-| Busca de cliente | Central de busca somente leitura | 7051 |
-| Navegação automática | Troca de tela automática no ER | 7357 |
+| Timers | Agendamentos de expediente | 5907 |
+| Navegação/Aparência | Nova UI / UI Antiga | 6243 |
+| Equipe | Compartilhamento via Pusher | 6361 |
+| Histórico | Acordos registrados pela equipe | 6828 |
+| Busca de cliente | Central de busca somente leitura | 7057 |
+| Navegação automática | Troca de tela automática no ER | 7363 |
+| Mesa de crédito | Datas do dia | 7371 |
+| RD Atendimento | Encerramento com IA (app.tallos.com.br) | 7427 |
 
 ---
 
