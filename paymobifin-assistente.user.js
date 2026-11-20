@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.34.0
+// @version      13.35.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -30,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.34.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.35.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -2117,7 +2117,7 @@
               <button id="mf-ng-cfg-restaurar" class="cinza">Restaurar original</button>
             </div>
             <div id="mf-ng-cfg-vars" class="mf-info" style="margin-top:6px;white-space:pre-wrap"></div>
-            <div class="mf-info" style="margin:10px 0 4px">Dados para pagamento (só neste navegador; usados nos modelos "Retorno do setor — Instruções de pagamento" e "Retorno ao cliente — Campanha do Fôlego")</div>
+            <div class="mf-info" style="margin:10px 0 4px">Dados para pagamento (só neste navegador; usados no modelo "Retorno do setor — Instruções de pagamento")</div>
             <div class="mf-grade">
               <input id="mf-ng-pix" type="text" placeholder="Chave PIX" autocomplete="off" class="mf-cheia">
               <input id="mf-ng-banco" type="text" placeholder="Banco" autocomplete="off">
@@ -4168,12 +4168,12 @@
         rotulos: { valor_parcela: 'Valor da parcela' },
         texto: 'Segue retorno do setor responsável pela negociação:\n\nParcelas: {{quantidade_parcelas}}\nValor: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nPara confirmação desta negociação, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
       },
-      retornoFolego: {
-        nome: 'Retorno ao cliente — Campanha do Fôlego', desc: 'Fôlego não é parcelamento: é uma entrada (pagamento parcial) + data para pagar o restante, e só vale depois que o cliente paga a entrada. Usa a chave PIX e a conta cadastradas em Configurações > Gerador de negociações.',
-        campos: ['valor_entrada', 'valor_total_juros', 'valor_restante', 'parcela_negociada', 'prazo_dias_uteis', 'proximo_vencimento', 'incluir_ted'],
-        obrig: ['valor_entrada', 'valor_restante', 'parcela_negociada', 'prazo_dias_uteis', 'proximo_vencimento', 'chave_pix'], saldo: 'valor_total_juros', saldoPago: 'valor_entrada',
-        rotulos: { valor_entrada: 'Valor da entrada', valor_total_juros: 'Valor total com juros (opcional: calcula o restante)', valor_restante: 'Valor restante', parcela_negociada: 'Parcela referente ao acordo (nº: 1 ou 3 4 5)', proximo_vencimento: 'Vencimento do restante' },
-        texto: 'Segue retorno do setor responsável pela negociação:\n\nEntrada\nValor: {{valor_entrada}}\nValor restante: {{valor_restante}}\nParcela referente ao acordo: {{parcela_negociada}}\n\nPara confirmação desta negociação, peço que realize o pagamento da entrada via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
+      retornoFolego: {   // confirmação das condições com o cliente (formato da equipe, 20/11/2026)
+        nome: 'Retorno ao cliente — Campanha do Fôlego', desc: 'Confirma com o cliente as condições do acordo do Fôlego (entrada + data para pagar o restante). Fôlego não é parcelamento. "Aplicar cliente atual" preenche o nome; o restante é calculado se o total com juros for informado.',
+        campos: ['nome', 'tratamento', 'parcela_negociada', 'valor_total_juros', 'valor_entrada', 'data_entrada', 'valor_restante', 'proximo_vencimento'],
+        obrig: ['nome', 'tratamento', 'parcela_negociada', 'valor_total_juros', 'valor_entrada', 'data_entrada', 'valor_restante', 'proximo_vencimento'], saldo: 'valor_total_juros', saldoPago: 'valor_entrada',
+        rotulos: { parcela_negociada: 'Parcela do contrato (nº: 1 ou 3 4 5)', valor_total_juros: 'Valor total atualizado com juros', valor_entrada: 'Primeiro pagamento (valor)', data_entrada: 'Data do primeiro pagamento', valor_restante: 'Valor restante', proximo_vencimento: 'Data do pagamento do restante' },
+        texto: '{{tratamento}} {{primeiro_nome}}, conforme sua solicitação, gostaríamos de confirmar as condições do acordo referente {{parcela_ref}} do seu contrato.\nO acordo ficou estabelecido da seguinte forma:\n\n* Valor total atualizado com juros: {{valor_total_juros}}\n* Primeiro pagamento: {{valor_entrada}}, em {{data_entrada}}.\n* Pagamento do valor restante: {{valor_restante}}, em {{proximo_vencimento}}.\n\nPor gentileza, confirme se está de acordo com os valores e as datas informadas para que possamos dar continuidade à formalização do acordo.',
       },
       antecipacao: {
         nome: 'Antecipação de parcela', desc: 'Dados da antecipação como informados; nenhum valor é calculado pelo script.',
@@ -4195,6 +4195,9 @@
        Chave do modelo editável: 'acordo:<modalidade>'. 'geral' usa o modelo "Acordo realizado" anterior (chave 'acordo'). */
     Object.assign(NG_CAMPOS, {
       parcela_atual: { rot: 'Parcela atual do contrato', tipo: 'num' },
+      tratamento: { rot: 'Tratamento', tipo: 'select', opcoes: [['Senhor', 'Senhor'], ['Senhora', 'Senhora']] },
+      primeiro_nome: { rot: 'Primeiro nome do cliente (do Nome)', tipo: 'calc' },
+      parcela_ref: { rot: '"à 1ª parcela" / "às 3ª, 4ª e 5ª parcelas" (da Parcela negociada)', tipo: 'calc' },
       abrangencia_tipo: { rot: 'Abrangência', tipo: 'select', opcoes: [['', '(não informar)'], ['inteiro', 'Contrato inteiro'], ['apartir', 'A partir de uma parcela'], ['especificas', 'Parcelas específicas']] },
       parcela_inicial: { rot: 'A partir da parcela', tipo: 'num' },
       parcelas_especificas: { rot: 'Parcelas negociadas (ex.: 8, 9 e 10)', tipo: 'texto' },
@@ -4329,6 +4332,16 @@
       if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
       // Renegociação: vazio = usa a "Parcela(s) negociada(s)" do acordo (mesmo formato)
       if (k === 'parcela_renegociada' && String(v == null ? '' : v).trim() === '') return ngValores.parcela_negociada ? ngValor('parcela_negociada') : '';
+      if (k === 'primeiro_nome') {   // "ADRIANO PEREIRA SILVA" -> "Adriano"
+        const w = String(ngValores.nome || '').trim().split(/\s+/)[0] || '';
+        return w ? w.charAt(0).toLocaleUpperCase('pt-BR') + w.slice(1).toLocaleLowerCase('pt-BR') : '';
+      }
+      if (k === 'parcela_ref') {   // ordinal feminino com o artigo: "à 1ª parcela" / "às 3ª, 4ª e 5ª parcelas"; texto livre: "à <texto>"
+        const t = ngValor('parcela_negociada');
+        if (!t) return '';
+        const f = t.replace(/°/g, 'ª');
+        return (/\bparcelas\b/.test(f) ? 'às ' : 'à ') + f;
+      }
       if (k === 'parcela_negociada' || k === 'parcela_renegociada') {   // "3" -> "3° parcela"; "8, 9 e 10" ou "3 4 5" -> "8°, 9° e 10° parcelas"; texto livre fica como digitado
         const t = String(v == null ? '' : v).trim(), ns = t.match(/\d+/g);
         if (!ns || t.replace(/\d+|[°ºª,;/]|\be\b|\s|parcelas?/gi, '')) return t.replace(/\s+/g, ' ');
