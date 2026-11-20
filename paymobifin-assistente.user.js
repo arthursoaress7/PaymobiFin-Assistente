@@ -4236,20 +4236,13 @@
     const NG_ABR = ['abrangencia_tipo', 'parcela_inicial', 'parcelas_especificas'];
     const NG_MODALIDADES = {
       geral: { nome: 'Condições gerais (modelo anterior)' },
-      entrada: {   // formato da equipe (19/11/2026): pedido do cliente + simulação; entrada opcional (some se vazia)
-        nome: 'Entrada + parcelas', campos: ['nome', 'proposta', 'cpf', 'parcela_atual', ...NG_ABR, 'dia_solicitado', 'valor_solicitado', 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
+      entrada: {   // "Renegociação" (chave 'entrada' mantida pelo histórico): pedido do cliente + simulação; entrada opcional (some se vazia). Título no modelo do Fôlego
+        nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', 'parcela_atual', ...NG_ABR, 'dia_solicitado', 'valor_solicitado', 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
         obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
         rotulos: { valor_solicitado: 'Valor de parcela solicitado pelo cliente', valor_entrada: 'Valor da entrada (se houver)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas simuladas', valor_parcela_acordo: 'Valor da parcela simulada' },
-        texto: '{{operacao}} — Renegociação\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\nCliente solicitou pagamento todo dia {{dia_solicitado}} e parcelas de {{valor_solicitado}}\nEntrada: {{valor_entrada}}{{?data_entrada_txt}}\nForam simuladas {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nVencimento: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
+        texto: '*RENEGOCIAÇÃO — {{operacao_maiusc}}*\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\nCliente solicitou pagamento todo dia {{dia_solicitado}} e parcelas de {{valor_solicitado}}\nEntrada: {{valor_entrada}}{{?data_entrada_txt}}\nForam simuladas {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nVencimento: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
         frases: (v, verbo) => { const e = (v('valor_entrada') ? '1 parcela de ' + v('valor_entrada') + ' como entrada' + (v('data_entrada') ? ' no dia ' + v('data_entrada') : '') + ', e ' : '') + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + (v('dia_vencimento') ? ', vencendo todo dia ' + v('dia_vencimento') : '');
           return { pedido: 'Cliente ' + verbo + ' ' + e, acordo: 'Prosseguimos com ' + e }; },
-      },
-      parcial: {
-        nome: 'Pagamento parcial + restante', campos: ['nome', 'proposta', 'parcela_atual', 'valor_total_devido', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante', 'com_juros', 'observacoes'],
-        obrig: ['nome', 'valor_pago_parcial', 'data_pagamento', 'valor_restante', 'data_restante'], saldo: true, rotulos: { data_pagamento: 'Data do pagamento parcial', valor_restante: 'Saldo restante' },
-        texto: NG_CAB('Pagamento parcial') + 'Prosseguimos com o pagamento parcial de {{valor_pago_parcial}} no dia {{data_pagamento}}.\nValor total devido: {{valor_total_devido}}\nSaldo restante: {{valor_restante}}\nPagamento do restante: {{data_restante}}\nRestante com juros: {{com_juros}}\n\nObservações: {{observacoes}}',
-        frases: (v, verbo) => { const r = ' e o restante (' + v('valor_restante') + ')' + (v('com_juros') ? ' com juros' : '') + ' no dia ' + v('data_restante');
-          return { pedido: 'Cliente ' + (verbo === 'fechou' ? 'fechou o pagamento parcial de ' : 'solicitou pagar parcialmente ') + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r, acordo: 'Prosseguimos com o pagamento parcial de ' + v('valor_pago_parcial') + ' no dia ' + v('data_pagamento') + r }; },
       },
       folego: {
         nome: 'Campanha do Fôlego (pagamento parcial)', campos: ['nome', 'proposta', 'cpf', 'parcela_negociada', 'valor_parcela', 'vencimento', 'valor_pago_parcial', 'data_pagamento', 'valor_total_juros', 'valor_restante', 'data_restante', 'quebra_acordo', 'valor_pago_anterior', 'data_pago_anterior'],
@@ -4277,8 +4270,8 @@
     };
     const NG_ALL = { ...NG_MODELOS, acordo: NG_ACORDO_GERAL };
     Object.entries(NG_MODALIDADES).forEach(([k, md]) => { if (k !== 'geral') NG_ALL['acordo:' + k] = { ...md, nome: 'Acordo realizado — ' + md.nome, desc: 'Acordo realizado: ' + md.nome + '. Registra só o que foi efetivamente combinado.' }; });
-    // modalidades removidas em 19/11/2026 (mensagens excessivas): só o nome, para o histórico antigo continuar legível
-    const NG_MOD_REMOVIDAS = { mensal: 'Novo valor mensal', parcelamento: 'Parcelamento (quantidade × valor)', vencimento: 'Alteração da data de vencimento', antecipacao: 'Antecipação / quitação', regularizacao: 'Regularização de parcela(s) em atraso', semacordo: 'Sem acordo / pagamento normal' };
+    // modalidades removidas em 19/11/2026 (mensagens excessivas; parcial: a Campanha do Fôlego faz o mesmo): só o nome, para o histórico antigo continuar legível
+    const NG_MOD_REMOVIDAS = { mensal: 'Novo valor mensal', parcelamento: 'Parcelamento (quantidade × valor)', vencimento: 'Alteração da data de vencimento', antecipacao: 'Antecipação / quitação', regularizacao: 'Regularização de parcela(s) em atraso', semacordo: 'Sem acordo / pagamento normal', parcial: 'Pagamento parcial + restante' };
     const ngModNome = k => (NG_MODALIDADES[k] || {}).nome || NG_MOD_REMOVIDAS[k] || k || '';
     const ngModalidade = () => (GM_getValue('negModalidade', 'entrada') in NG_MODALIDADES ? GM_getValue('negModalidade', 'entrada') : 'entrada');
     // contexto: 'negociacao' / 'renegociacao' (Atendimento: sempre o acordo da modalidade) ou 'mensagens' (modelos para o cliente)
@@ -4472,7 +4465,7 @@
       vis('data_pago_anterior', !!ngValores.quebra_acordo);
     }
     // pagamento parcial: saldo = total − pago (atualiza a cada digitação; não aceita pagamento acima do total)
-    // saldo: true = total em valor_total_devido; saldo: '<campo>' = total nesse campo (Campanha do Fôlego: valor_total_juros)
+    // saldo: true = total em valor_total_devido (sem modalidade usando desde 19/11/2026); saldo: '<campo>' = total nesse campo (Campanha do Fôlego e retorno do Fôlego: valor_total_juros)
     // saldoPago: '<campo>' = campo do valor pago (padrão valor_pago_parcial; retorno do Fôlego: valor_entrada)
     function ngSaldoHook() {
       const sd = ngDef().saldo;
@@ -5686,7 +5679,7 @@
     // o que a modalidade já informa vira o plano sugerido; linhas "especiais" quando o acordo não é parcelado
     function atSugestao() {
       const mod = ngModalidade(), v = k => ngValores[k], c = k => ngCentavos(v(k));
-      if (mod === 'parcial' || mod === 'folego') {
+      if (mod === 'folego') {
         const l = [];
         if (c('valor_pago_parcial') != null) l.push({ valor: c('valor_pago_parcial'), venc: v('data_pagamento') || '' });
         if (c('valor_restante') != null) l.push({ valor: c('valor_restante'), venc: v('data_restante') || '' });
@@ -7038,7 +7031,7 @@
       if ((ngTemDados() || atPlano.length) && !confirm('Substituir os dados que estão no Atendimento pelos deste registro?')) return;
       Object.keys(ngValores).forEach(k => delete ngValores[k]);
       Object.assign(ngValores, r.valores || {});
-      GM_setValue('negModalidade', r.modalidade); $('#mf-ng-modalidade').value = ngModalidade();   // modalidade removida: cai na padrão (Entrada + parcelas)
+      GM_setValue('negModalidade', r.modalidade); $('#mf-ng-modalidade').value = ngModalidade();   // modalidade removida: cai na padrão (Renegociação)
       atPlano = (r.plano || []).map(l => ({ ...l }));
       $('#mf-ng-f-pedido').value = r.textos.pedido || ''; $('#mf-ng-f-acordo').value = r.textos.acordo || ''; $('#mf-ng-f-parcela').value = r.textos.parcela || '';
       $('#mf-ng-frase-tipo').value = { realizado: 'fechou', finalizado: 'finalizou', pendente: 'solicitou', nao_concluido: 'nao' }[r.status] || 'fechou';
