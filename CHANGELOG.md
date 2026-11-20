@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.33.0] — 2026-11-20
+
+### ✨ Novas funcionalidades
+
+- feat: remove modalidades de acordo pouco usadas (mensal, parcelamento, vencimento, antecipação, regularização, sem acordo) (#93) (e1f3444)
+
 ## [v13.32.1] — 2026-11-19
 
 ### 🐛 Correções
