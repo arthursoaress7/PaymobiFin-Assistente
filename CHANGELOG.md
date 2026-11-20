@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.35.1] — 2026-11-20
+
+### 🐛 Correções
+
+- fix: A partir da parcela = última parcela vencida; retorno do setor das renegociações no formato novo (#102) (fbe4c53)
+
 ## [v13.35.0] — 2026-11-20
 
 ### ✨ Novas funcionalidades

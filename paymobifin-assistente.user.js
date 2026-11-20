@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.35.0
+// @version      13.35.1
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -30,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.35.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.35.1');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -4164,9 +4164,9 @@
       retornoPix: {
         nome: 'Retorno do setor — Instruções de pagamento', desc: 'Usa a chave PIX e a conta cadastradas em Configurações > Gerador de negociações.',
         campos: ['quantidade_parcelas', 'valor_parcela', 'vencimento', 'prazo_dias_uteis', 'proximo_vencimento', 'incluir_ted'],
-        obrig: ['quantidade_parcelas', 'valor_parcela', 'vencimento', 'prazo_dias_uteis', 'proximo_vencimento', 'chave_pix'],
-        rotulos: { valor_parcela: 'Valor da parcela' },
-        texto: 'Segue retorno do setor responsável pela negociação:\n\nParcelas: {{quantidade_parcelas}}\nValor: {{valor_parcela}}\nVencimento: {{vencimento}}\n\nPara confirmação desta negociação, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
+        obrig: ['quantidade_parcelas', 'valor_parcela', 'vencimento', 'prazo_dias_uteis', 'chave_pix'],
+        rotulos: { quantidade_parcelas: 'Quantidade de parcelas', valor_parcela: 'Valor da parcela', vencimento: 'Data do primeiro vencimento após a entrada', proximo_vencimento: 'Próximo vencimento (vazio = data do primeiro vencimento)' },
+        texto: 'Segue retorno do setor responsável pela negociação:\n\nQuantidade de parcelas: {{quantidade_parcelas}}\nValor: {{valor_parcela}}\nData do primeiro vencimento após a entrada: {{vencimento}}\n\nPara confirmação desta negociação, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
       },
       retornoFolego: {   // confirmação das condições com o cliente (formato da equipe, 20/11/2026)
         nome: 'Retorno ao cliente — Campanha do Fôlego', desc: 'Confirma com o cliente as condições do acordo do Fôlego (entrada + data para pagar o restante). Fôlego não é parcelamento. "Aplicar cliente atual" preenche o nome; o restante é calculado se o total com juros for informado.',
@@ -4332,6 +4332,8 @@
       if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
       // Renegociação: vazio = usa a "Parcela(s) negociada(s)" do acordo (mesmo formato)
       if (k === 'parcela_renegociada' && String(v == null ? '' : v).trim() === '') return ngValores.parcela_negociada ? ngValor('parcela_negociada') : '';
+      // retorno do setor (PIX): "próximo vencimento" vazio = a data do primeiro vencimento após a entrada
+      if (k === 'proximo_vencimento' && !String(v == null ? '' : v).trim() && ngCtx === 'mensagens' && ngModeloAtual() === 'retornoPix' && ngValores.vencimento) return ngValor('vencimento');
       if (k === 'primeiro_nome') {   // "ADRIANO PEREIRA SILVA" -> "Adriano"
         const w = String(ngValores.nome || '').trim().split(/\s+/)[0] || '';
         return w ? w.charAt(0).toLocaleUpperCase('pt-BR') + w.slice(1).toLocaleLowerCase('pt-BR') : '';
@@ -5105,6 +5107,8 @@
         // parcela atual = a de menor número ainda em aberto (saldo > 0); total = Prazo do contrato
         const aberta = parcelas.filter(p => p.saldo == null ? !/liquid/i.test(p.situacao) : p.saldo > 0).sort((a, b) => a.num - b.num)[0];
         if (aberta) put('parcelaAtual', String(aberta.num), 'Parcelas (1ª parcela com saldo em aberto)');
+        // última parcela vencida = a de MAIOR número já vencida e não paga (dias de atraso > 0 e saldo em aberto); vai para "A partir da parcela"
+        if (atraso.length) put('ultimaVencida', String(Math.max(...atraso.map(p => p.num))), 'Parcelas (maior número com dias de atraso > 0 e saldo em aberto)');
         // FPD: a 1ª parcela venceu e não foi paga integralmente
         if (p1.num === 1 && p1.venc) {
           const naoPaga = p1.saldo == null ? !/liquid/i.test(p1.situacao) : p1.saldo > 0;
@@ -5310,6 +5314,7 @@
       add('Situação', res.situacao);
       CAC_EXIBIR.forEach(([rot, k]) => add(rot, res.campos[k], res.origem[k]));
       add('Parcela atual', res.campos.parcelaAtual, res.origem.parcelaAtual);
+      add('Última parcela vencida', res.campos.ultimaVencida, res.origem.ultimaVencida);
       add('Total de parcelas', res.campos.totalParcelas, res.origem.totalParcelas);
       const info = document.createElement('div'); info.className = 'mf-info'; info.style.marginTop = '4px';
       info.textContent = 'Consultado em ' + res.consultadoEm + (res.conta ? ' com a conta ' + res.conta : '') + (res.posicaoGeral ? ' · Posição Geral aberta (protocolo ' + (res.protocolo || 'do sistema') + ')' : ' · sem Posição Geral') + '. Passe o mouse no valor para ver a origem.';
@@ -5865,7 +5870,9 @@
         valor_parcela: c.valorParcela ? bsReais(c.valorParcela) : '', fpd: c.fpd, parcelas_atraso: num(c.parcelasAtraso), dias_atraso: num(c.diasAtraso),
         vencimento_antigo: atIso(c.vencMaisAntigo), parcela_atual: num(c.parcelaAtual),
       };
-      if (c.parcelaAtual && !String(ngValores.parcela_inicial || '').trim()) novos.parcela_inicial = num(c.parcelaAtual);
+      // "A partir da parcela" = última parcela vencida do contrato (sem parcela vencida: a 1ª em aberto)
+      const pIni = c.ultimaVencida || c.parcelaAtual;
+      if (pIni && !String(ngValores.parcela_inicial || '').trim()) novos.parcela_inicial = num(pIni);
       // Mensagens: campo que o modelo usa com outro sentido (ex.: "Valor da parcela" do retorno PIX = parcela do acordo) não é preenchido pela proposta
       const outroSentido = ngCtx === 'mensagens' ? (ngDef().rotulos || {}) : {};
       Object.keys(novos).forEach(k => { if (k in outroSentido) delete novos[k]; });
@@ -7189,7 +7196,7 @@
     }
 
     const BS_CAMPOS = [['nome', 'Nome'], ['cpf', 'CPF'], ['proposta', 'Proposta'], ['situacao', 'Situação da proposta'], ['telefone', 'Telefone do cadastro (proposta)'], ['email', 'E-mail'],
-      ['valorParcela', 'Valor da parcela'], ['parcelaAtual', 'Parcela atual'], ['totalParcelas', 'Total de parcelas'], ['entrada', 'Entrada'], ['valorCompra', 'Valor da compra'], ['vendedor', 'Vendedor'], ['imei', 'IMEI'], ['loja', 'Loja'],
+      ['valorParcela', 'Valor da parcela'], ['parcelaAtual', 'Parcela atual'], ['ultimaVencida', 'Última parcela vencida'], ['totalParcelas', 'Total de parcelas'], ['entrada', 'Entrada'], ['valorCompra', 'Valor da compra'], ['vendedor', 'Vendedor'], ['imei', 'IMEI'], ['loja', 'Loja'],
       ['dataProposta', 'Data da proposta'], ['filial', 'Filial (CAC)'], ['fpd', 'FPD'], ['parcelasAtraso', 'Parcelas em atraso'], ['diasAtraso', 'Dias de atraso'], ['vencMaisAntigo', 'Vencimento mais antigo']];
     function bsMostrar() {
       const st = bsGet(), caixa = $('#mf-bs-res');

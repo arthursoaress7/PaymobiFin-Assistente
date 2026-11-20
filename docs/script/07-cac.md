@@ -35,7 +35,7 @@ A consulta retorna:
 |---|---|
 | `cacReq(caminho, params, metodo)` | Requisição autenticada à API do ER |
 | `cacParcelas(doc)` | Extrai as parcelas do documento retornado |
-| `cacCalcular(row, posicao, det, parcelas)` | Calcula valores e situações das parcelas |
+| `cacCalcular(row, posicao, det, parcelas)` | Calcula valores e situações das parcelas: parcela atual (1ª em aberto), **última parcela vencida** (`ultimaVencida`, maior número com dias de atraso > 0 e saldo em aberto; vai para "A partir da parcela" no Atendimento), parcelas e dias em atraso, vencimento mais antigo, FPD |
 | `cacConsultar(termo, extra)` | Executa a consulta pelo CPF ou número de proposta |
 | `cacAbrir(row, termo, extra, dentro)` | Abre os detalhes de um contrato específico |
 | `cacFim(texto, extra)` | Finaliza a consulta e exibe o resultado |
