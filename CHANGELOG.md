@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.35.0] — 2026-11-20
+
+### ✨ Novas funcionalidades
+
+- feat: retorno ao cliente da Campanha do Fôlego confirma as condições do acordo (#99) (a6d16e4)
+
 ## [v13.34.0] — 2026-11-20
 
 ### ✨ Novas funcionalidades
