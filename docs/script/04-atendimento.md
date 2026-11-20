@@ -49,16 +49,13 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 
 | Chave | Modalidade |
 |---|---|
-| `mensal` | Novo valor mensal |
-| `parcelamento` | Parcelamento |
 | `entrada` | Entrada + parcelas |
 | `parcial` | Pagamento parcial + restante |
 | `folego` | Campanha do Fôlego |
 | `pix` | PIX semanal / Automático |
-| `vencimento` | Alteração da data de vencimento |
-| `antecipacao` | Antecipação / quitação |
-| `regularizacao` | Regularização de parcela(s) em atraso |
-| `semacordo` | Sem acordo / pagamento normal |
+| `geral` | Condições gerais (modelo anterior) |
+
+**Removidas em 19/11/2026** (mensagens excessivas): `mensal` (Novo valor mensal), `parcelamento`, `vencimento` (Alteração da data de vencimento), `antecipacao` (Antecipação / quitação), `regularizacao` e `semacordo` (Sem acordo). Modalidade padrão passa a ser `entrada`. Registros antigos do histórico com essas modalidades continuam mostrando o nome (`NG_MOD_REMOVIDAS` / `ngModNome`); "Abrir no Atendimento" num deles abre em Entrada + parcelas, com os valores do registro. Textos personalizados delas salvos em `negModelos` ficam guardados, sem uso.
 
 **Campanha do Fôlego — formato da mensagem (aprovado pela gestora, 17/11/2026):** título `*CAMPANHA DO FÔLEGO*` (negrito no WhatsApp); Cliente, CPF, Parcela(s) negociada(s), Valor Original da Parcela, Vencimento; "Cliente pagou parcialmente R$ X (data)."; "Valor total com juros"; dia e valor do restante. Campos da modalidade: `parcela_negociada` (digita-se o número: "3" sai "3° parcela", "8, 9 e 10" sai "8°, 9° e 10° parcelas"), `vencimento` ("Vencimento da parcela negociada"), valor/data do pagamento parcial e valor/dia do restante; Cliente, CPF e Valor original vêm dos blocos fixos (na Renegociação, que esconde o bloco Cobrança, o "Valor original da parcela" aparece na própria modalidade). Campo `valor_total_juros` ("Valor total com juros", obrigatório): o **valor do restante é calculado** = total com juros − valor pago parcialmente (`saldo: 'valor_total_juros'` em `ngSaldoHook`; fica só leitura enquanto os dois estão preenchidos; pagamento maior que o total dá erro). (Atualizado em 19/11/2026.)
 
@@ -106,12 +103,8 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 | Modalidade | Linhas sugeridas |
 |---|---|
 | Entrada + parcelas | Mensagem do grupo no formato da equipe (19/11/2026): título `{{operacao}} — Renegociação`, cliente/CPF, parcela atual e abrangência, o pedido do cliente ("Cliente solicitou pagamento todo dia X e parcelas de R$ Y" — campos `dia_solicitado` e `valor_solicitado`), a entrada (opcional: some se vazia; data entre parênteses via `data_entrada_txt`), "Foram simuladas N parcelas de R$ Z." e "Vencimento: todo dia D". Obrigatórios: nome, quantidade e valor da parcela simulada |
-| Novo valor mensal / Parcelamento | N parcelas mensais a partir do 1º vencimento |
 | PIX semanal / Automático | N pagamentos semanais (+ entrada se informada) |
 | Pagamento parcial / Fôlego | 2 linhas: valor agora + saldo restante |
-| Antecipação / quitação | 1 linha com o valor |
-| Regularização | N × valor ou 1 linha |
-| Alteração de vencimento | N parcelas afetadas × novo valor |
 
 > **Dia 31 em mês curto:** cai no último dia do mês (ex.: 28/02).
 

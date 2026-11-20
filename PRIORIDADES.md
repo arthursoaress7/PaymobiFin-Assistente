@@ -187,7 +187,7 @@ O módulo de mensagens (`ng*` e `at*`) já possui:
 
 - **Mensagens para o grupo** (Negociação/Renegociação, botão "Mensagem p/ grupo"): uma por modalidade (`NG_MODALIDADES`); "Condições gerais" usa `NG_ACORDO_GERAL`.
 - **3 modelos de mensagem para o cliente** (aba Mensagens, `NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento, Antecipação de parcela. Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba em 17/11/2026 (eram cópias do que o Atendimento gera para o grupo).
-- **11 modalidades de acordo** (`NG_MODALIDADES`): Novo valor mensal, Parcelamento, Entrada + parcelas, Pagamento parcial + restante, Campanha do Fôlego, PIX semanal/Automático, Alteração de vencimento, Antecipação/quitação, Regularização, Sem acordo, Condições gerais.
+- **5 modalidades de acordo** (`NG_MODALIDADES`): Entrada + parcelas (padrão), Pagamento parcial + restante, Campanha do Fôlego, PIX semanal/Automático, Condições gerais. (Novo valor mensal, Parcelamento, Alteração de vencimento, Antecipação/quitação, Regularização e Sem acordo removidas em 19/11/2026.)
 - **Preenchimento automático existente:**
   - `data_contato` = hoje (padrão)
   - `responsavel` = nome da equipe ou apelido da conta ativa
