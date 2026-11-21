@@ -1158,11 +1158,11 @@
         #mf-p[data-ui=nova] .vermelho{color:#dc2626;border-color:#fecaca}
         #mf-p[data-ui=nova] .laranja{color:#c2410c;border-color:#fed7aa}
         #mf-p[data-ui=nova] #mf-ini,#mf-p[data-ui=nova] #mf-ng-gerar,#mf-p[data-ui=nova] #mf-cac-buscar,#mf-p[data-ui=nova] #mf-tm-criar,#mf-p[data-ui=nova] #mf-lb-salvar,
-        #mf-p[data-ui=nova] #mf-ccb-baixar,#mf-p[data-ui=nova] #mf-conta-trocar,#mf-p[data-ui=nova] #mf-ng-frases,#mf-p[data-ui=nova] #mf-at-registrar,#mf-p[data-ui=nova] #mf-at-plano-gerar,#mf-p[data-ui=nova] #mf-eq-salvar,#mf-p[data-ui=nova] #mf-bs-buscar,#mf-p[data-ui=nova] #mf-pd-gerar{background:#2563eb;color:#fff;border-color:#2563eb}
-        #mf-p[data-ui=nova] #mf-cop,#mf-p[data-ui=nova] #mf-ng-copiar,#mf-p[data-ui=nova] #mf-at-copiar,#mf-p[data-ui=nova] #mf-at-msg-copiar,#mf-p[data-ui=nova] #mf-dval,#mf-p[data-ui=nova] #mf-dlin,#mf-p[data-ui=nova] #mf-pd-copiar{background:#16a34a;color:#fff;border-color:#16a34a}
+        #mf-p[data-ui=nova] #mf-ccb-baixar,#mf-p[data-ui=nova] #mf-conta-trocar,#mf-p[data-ui=nova] #mf-ng-frases,#mf-p[data-ui=nova] #mf-at-registrar,#mf-p[data-ui=nova] #mf-at-plano-gerar,#mf-p[data-ui=nova] #mf-eq-salvar,#mf-p[data-ui=nova] #mf-bs-buscar,#mf-p[data-ui=nova] #mf-pd-gerar,#mf-p[data-ui=nova] #mf-ib-gerar{background:#2563eb;color:#fff;border-color:#2563eb}
+        #mf-p[data-ui=nova] #mf-cop,#mf-p[data-ui=nova] #mf-ng-copiar,#mf-p[data-ui=nova] #mf-at-copiar,#mf-p[data-ui=nova] #mf-at-msg-copiar,#mf-p[data-ui=nova] #mf-dval,#mf-p[data-ui=nova] #mf-dlin,#mf-p[data-ui=nova] #mf-pd-copiar,#mf-p[data-ui=nova] #mf-ib-copiar{background:#16a34a;color:#fff;border-color:#16a34a}
         #mf-p[data-ui=nova] #mf-ini:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ng-gerar:hover,#mf-p[data-ui=nova] #mf-cac-buscar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-tm-criar:hover,
-        #mf-p[data-ui=nova] #mf-lb-salvar:hover,#mf-p[data-ui=nova] #mf-ccb-baixar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-conta-trocar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ng-frases:hover,#mf-p[data-ui=nova] #mf-bs-buscar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-pd-gerar:hover:not(:disabled){background:#1d4ed8}
-        #mf-p[data-ui=nova] #mf-cop:hover,#mf-p[data-ui=nova] #mf-ng-copiar:hover,#mf-p[data-ui=nova] #mf-at-copiar:hover,#mf-p[data-ui=nova] #mf-at-msg-copiar:hover,#mf-p[data-ui=nova] #mf-dval:hover,#mf-p[data-ui=nova] #mf-dlin:hover,#mf-p[data-ui=nova] #mf-pd-copiar:hover{background:#15803d}
+        #mf-p[data-ui=nova] #mf-lb-salvar:hover,#mf-p[data-ui=nova] #mf-ccb-baixar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-conta-trocar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ng-frases:hover,#mf-p[data-ui=nova] #mf-bs-buscar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-pd-gerar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ib-gerar:hover:not(:disabled){background:#1d4ed8}
+        #mf-p[data-ui=nova] #mf-cop:hover,#mf-p[data-ui=nova] #mf-ng-copiar:hover,#mf-p[data-ui=nova] #mf-at-copiar:hover,#mf-p[data-ui=nova] #mf-at-msg-copiar:hover,#mf-p[data-ui=nova] #mf-dval:hover,#mf-p[data-ui=nova] #mf-dlin:hover,#mf-p[data-ui=nova] #mf-pd-copiar:hover,#mf-p[data-ui=nova] #mf-ib-copiar:hover{background:#15803d}
         #mf-p[data-ui=nova] .mf-mini{border:0;background:transparent;color:#fff;padding:2px 8px;font-size:18px}
         #mf-p[data-ui=nova] #mf-tam{margin-left:0;font-size:15px}
         #mf-p[data-ui=nova] .mf-top{border-radius:13px 13px 0 0}
@@ -1566,16 +1566,16 @@
         #mf-p[data-ui=nova] button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--mf-anel)}
         #mf-p[data-ui=nova] button:disabled{opacity:1;cursor:not-allowed;background:var(--mf-sup2);color:var(--mf-apagado);border-color:var(--mf-borda);box-shadow:none}
         #mf-p[data-ui=nova] #mf-ini,#mf-p[data-ui=nova] #mf-ng-gerar,#mf-p[data-ui=nova] #mf-cac-buscar,#mf-p[data-ui=nova] #mf-tm-criar,#mf-p[data-ui=nova] #mf-lb-salvar,#mf-p[data-ui=nova] #mf-ccb-baixar,
-        #mf-p[data-ui=nova] #mf-conta-trocar,#mf-p[data-ui=nova] #mf-ng-frases,#mf-p[data-ui=nova] #mf-at-registrar,#mf-p[data-ui=nova] #mf-at-plano-gerar,#mf-p[data-ui=nova] #mf-eq-salvar,#mf-p[data-ui=nova] #mf-bs-buscar,#mf-p[data-ui=nova] #mf-pd-gerar{
+        #mf-p[data-ui=nova] #mf-conta-trocar,#mf-p[data-ui=nova] #mf-ng-frases,#mf-p[data-ui=nova] #mf-at-registrar,#mf-p[data-ui=nova] #mf-at-plano-gerar,#mf-p[data-ui=nova] #mf-eq-salvar,#mf-p[data-ui=nova] #mf-bs-buscar,#mf-p[data-ui=nova] #mf-pd-gerar,#mf-p[data-ui=nova] #mf-ib-gerar{
           background:var(--mf-pri);color:#fff;border-color:var(--mf-pri);box-shadow:0 1px 2px rgba(37,99,235,.25),inset 0 1px 0 rgba(255,255,255,.12)}
-        #mf-p[data-ui=nova] #mf-cop,#mf-p[data-ui=nova] #mf-ng-copiar,#mf-p[data-ui=nova] #mf-at-copiar,#mf-p[data-ui=nova] #mf-at-msg-copiar,#mf-p[data-ui=nova] #mf-dval,#mf-p[data-ui=nova] #mf-dlin,#mf-p[data-ui=nova] #mf-pd-copiar{
+        #mf-p[data-ui=nova] #mf-cop,#mf-p[data-ui=nova] #mf-ng-copiar,#mf-p[data-ui=nova] #mf-at-copiar,#mf-p[data-ui=nova] #mf-at-msg-copiar,#mf-p[data-ui=nova] #mf-dval,#mf-p[data-ui=nova] #mf-dlin,#mf-p[data-ui=nova] #mf-pd-copiar,#mf-p[data-ui=nova] #mf-ib-copiar{
           background:var(--mf-ok);color:#fff;border-color:var(--mf-ok);box-shadow:0 1px 2px rgba(22,163,74,.25),inset 0 1px 0 rgba(255,255,255,.12)}
         #mf-p[data-ui=nova] #mf-ini:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ng-gerar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-cac-buscar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-tm-criar:hover:not(:disabled),
         #mf-p[data-ui=nova] #mf-lb-salvar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ccb-baixar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-conta-trocar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ng-frases:hover:not(:disabled),
-        #mf-p[data-ui=nova] #mf-at-registrar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-at-plano-gerar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-eq-salvar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-bs-buscar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-pd-gerar:hover:not(:disabled){background:var(--mf-pri-hover);border-color:var(--mf-pri-hover)}
+        #mf-p[data-ui=nova] #mf-at-registrar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-at-plano-gerar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-eq-salvar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-bs-buscar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-pd-gerar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ib-gerar:hover:not(:disabled){background:var(--mf-pri-hover);border-color:var(--mf-pri-hover)}
         #mf-p[data-ui=nova] #mf-cop:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ng-copiar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-at-copiar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-at-msg-copiar:hover:not(:disabled),
-        #mf-p[data-ui=nova] #mf-dval:hover:not(:disabled),#mf-p[data-ui=nova] #mf-dlin:hover:not(:disabled),#mf-p[data-ui=nova] #mf-pd-copiar:hover:not(:disabled){background:var(--mf-ok-hover);border-color:var(--mf-ok-hover)}
-        #mf-p[data-ui=nova] #mf-ini:disabled,#mf-p[data-ui=nova] #mf-cac-buscar:disabled,#mf-p[data-ui=nova] #mf-ccb-baixar:disabled,#mf-p[data-ui=nova] #mf-conta-trocar:disabled,#mf-p[data-ui=nova] #mf-bs-buscar:disabled,#mf-p[data-ui=nova] #mf-pd-gerar:disabled,
+        #mf-p[data-ui=nova] #mf-dval:hover:not(:disabled),#mf-p[data-ui=nova] #mf-dlin:hover:not(:disabled),#mf-p[data-ui=nova] #mf-pd-copiar:hover:not(:disabled),#mf-p[data-ui=nova] #mf-ib-copiar:hover:not(:disabled){background:var(--mf-ok-hover);border-color:var(--mf-ok-hover)}
+        #mf-p[data-ui=nova] #mf-ini:disabled,#mf-p[data-ui=nova] #mf-cac-buscar:disabled,#mf-p[data-ui=nova] #mf-ccb-baixar:disabled,#mf-p[data-ui=nova] #mf-conta-trocar:disabled,#mf-p[data-ui=nova] #mf-bs-buscar:disabled,#mf-p[data-ui=nova] #mf-pd-gerar:disabled,#mf-p[data-ui=nova] #mf-ib-gerar:disabled,
         #mf-p[data-ui=nova] #mf-cop:disabled,#mf-p[data-ui=nova] #mf-dval:disabled,#mf-p[data-ui=nova] #mf-dlin:disabled{background:var(--mf-sup2);color:var(--mf-apagado);border-color:var(--mf-borda);box-shadow:none}
         #mf-p[data-ui=nova] .vermelho{color:var(--mf-perigo);border-color:var(--mf-perigo-borda)}
         #mf-p[data-ui=nova] .vermelho:hover:not(:disabled){background:var(--mf-perigo-suave);border-color:var(--mf-perigo-borda)}
@@ -1814,6 +1814,23 @@
               </div>
               <div id="mf-pd-st" class="mf-info" style="margin-top:8px"></div>
               <textarea id="mf-pd-res" readonly wrap="off" placeholder="O relatório das pendências aparece aqui" style="display:none;margin-top:8px;height:240px;white-space:pre;overflow-x:auto;font-size:12px"></textarea>
+            </div>
+          </div>
+          <div class="mf-sec">
+            <div class="mf-tit mf-dobra" id="mf-ib-tit" title="Mostrar / esconder os impeditivos BMP">Impeditivos BMP <span id="mf-ib-qtd" style="text-transform:none;letter-spacing:0;font-weight:400"></span></div>
+            <div id="mf-ib-corpo" style="display:none">
+              <div class="mf-info" style="margin-bottom:8px">Propostas com o ícone 🚫 (impedimento do KYC da BMP) na <b>Fila de Propostas</b>, no período escolhido. A data é a da efetivação no Histórico da Mesa. Os encontrados ficam guardados neste navegador, porque o ícone some da Fila depois de um tempo. Só leitura.</div>
+              <div class="mf-grade">
+                <label class="mf-lb-rot">De<input type="date" id="mf-ib-ini"></label>
+                <label class="mf-lb-rot">Até<input type="date" id="mf-ib-fim"></label>
+              </div>
+              <div class="mf-grade" style="margin-top:8px">
+                <button id="mf-ib-gerar" class="verde">Gerar relatório</button>
+                <button id="mf-ib-copiar">Copiar</button>
+                <button id="mf-ib-limpar" class="vermelho" title="Apaga a lista de impeditivos guardada neste navegador (não mexe em nada no ER)">Limpar lista</button>
+              </div>
+              <div id="mf-ib-st" class="mf-info" style="margin-top:8px"></div>
+              <textarea id="mf-ib-res" readonly wrap="off" placeholder="O relatório de impeditivos aparece aqui" style="display:none;margin-top:8px;height:240px;white-space:pre;overflow-x:auto;font-size:12px"></textarea>
             </div>
           </div>
         </div>
@@ -5499,6 +5516,129 @@
       msg('Relatório de pendências copiado (' + (pdSS() || {}).qtd + ' proposta(s)).');
     });
     pdRetomar();
+
+    /* ================= IMPEDITIVOS BMP (ib) — SOMENTE LEITURA =================
+       Propostas que a BMP impediu no KYC: na Fila de Propostas, ícone 🚫 (span com title + i.fa-ban) ao lado do número.
+       O title é o motivo ("Reprovado por Políticas Internas...", "...processo de KYC ainda não foi concluído...",
+       "Documento com Marcações de fraude...", "...incompatíveis com os bureaus..."). Todos entram.
+         1. GET /FilaPropostas/FilaPropostasLista (período escolhido, data de inclusão) -> linhas com o ícone
+         2. GET /MesaCredito/MesaAnaliseHistorico?lngProposta=N (aba Histórico da análise) -> data/hora da "EFETIVACAO"
+            (sem ela: só a data da proposta)
+       O ícone some da Fila depois de um tempo: o que foi encontrado fica guardado (GM 'ibImpeditivos', IB_DIAS dias)
+       e continua no relatório até "Limpar lista". Formato do relatório: o da equipe (*IMPEDITIVOS BMP* + NOME/CPF/DATA/MOTIVO). */
+    const IB_CHAVE = 'ibImpeditivos', IB_DIAS = 90;
+    let ibRodando = false;
+    const ibStatus = t => { $('#mf-ib-st').textContent = t || ''; };
+    const ibBase = () => { const b = GM_getValue(IB_CHAVE, null); return b && typeof b === 'object' && b.itens && typeof b.itens === 'object' ? b : { versao: 1, itens: {} }; };
+    const ibIsoBr = iso => (/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '') || []).slice(1).reverse().join('/');
+    const ibIsoDias = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    // "21/11/2026 12:06:04" -> epoch (para ordenar); só a data -> meia-noite
+    const ibTs = s => { const m = /(\d{2})\/(\d{2})\/(\d{4})(?:\D+(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(s || ''); return m ? +new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)) : 0; };
+    async function ibLista(ini, fim) {
+      const r = await cacReq('/FilaPropostas/FilaPropostasLista', { strDados: JSON.stringify({ strDataInicial: ini, strDataFinal: fim, strLojista: '', strLoja: '', strProduto: '',
+        strSituacao: '00', strPontoAtendimento: '', strPromotora: '', strPromotoraFilial: '', strVisualizacao: 'N', strNomePesquisa: '', strSituacaoDocumentos: '',
+        strPagamento: '', strConveniada: '', strStatusAssinatura: '', strParceiro: '', lstPlanos: [], strCodigoEmprestimo: '', strDataVencimentoLiberacaoInicial: '',
+        strDataVencimentoLiberacaoFinal: '', strTipoData: 'INCLUSAO', strAnalista: '' }) });
+      if (r.erro) return { erro: 'o ER não respondeu (' + r.erro + ')' };
+      if (ehLogin(r.texto)) return { erro: 'sessão do ER expirada: entre de novo' };
+      if (!r.ok) return { erro: 'o ER respondeu com erro (HTTP ' + r.status + ')' };
+      const doc = cacDoc(r.texto), t = doc.querySelector('#tabPropostasLista');
+      if (!t) return /n[ãa]o foi localizada/i.test(doc.body.textContent) ? { linhas: [] } : { erro: 'a resposta não trouxe a Fila de Propostas (a conta tem acesso a ela?)' };
+      const ths = [...t.querySelectorAll('thead th')].map(th => limpoTxt(th.textContent).toLowerCase());
+      const col = (n, padrao) => { const i = ths.findIndex(x => x.startsWith(n)); return i >= 0 ? i : padrao; };
+      const ci = { cli: col('cliente', 3), cpf: col('cpf', 8) };
+      const linhas = [...t.querySelectorAll('tbody tr')].map(tr => {
+        const ban = tr.querySelector('.fa-ban');
+        if (!ban) return null;
+        const alvo = tr.querySelector('[onclick*="MostraDetalheProposta"]');
+        const proposta = ((alvo && alvo.getAttribute('onclick') || '').match(/MostraDetalheProposta\(\s*['"]?(\d+)/) || [])[1] || '';
+        const c = [...tr.cells];
+        const motivo = limpoTxt((ban.closest('[title]') || { getAttribute: () => '' }).getAttribute('title'));
+        const dataProp = (((tr.querySelector('[title^="Data da Proposta"]') || { getAttribute: () => '' }).getAttribute('title')).match(/\d{2}\/\d{2}\/\d{4}/) || [''])[0];
+        return proposta ? { proposta, nome: limpoTxt(c[ci.cli] && c[ci.cli].textContent), cpf: ((c[ci.cpf] && c[ci.cpf].textContent) || '').replace(/\D/g, '').slice(0, 11), motivo, dataProp } : null;
+      }).filter(Boolean);
+      return { linhas };
+    }
+    // data e hora da efetivação (aba Histórico da análise na Mesa de Crédito)
+    async function ibEfetivacao(proposta) {
+      const r = await cacReq('/MesaCredito/MesaAnaliseHistorico', { lngProposta: proposta });
+      if (r.erro || !r.ok || ehLogin(r.texto)) return '';
+      const efet = [...cacDoc(r.texto).querySelectorAll('table tbody tr')].map(tr => [...tr.children].map(td => limpoTxt(td.textContent)))
+        .filter(c => /^EFETIVA/i.test(c[0] || '') && /\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}/.test(c[1] || ''));
+      return efet.length ? efet[efet.length - 1][1].match(/\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(:\d{2})?/)[0] : '';
+    }
+    function ibTexto(itens) {
+      return ['*IMPEDITIVOS BMP*'].concat(itens.map(x => ['NOME: ' + (x.nome || 'N/A'), 'CPF: ' + (cacCpfFmt(x.cpf) || 'N/A'),
+        'DATA: ' + (x.data ? x.data.replace(/^(\d{2}\/\d{2}\/\d{4})\s+/, '$1 às ') : 'N/A'), 'MOTIVO: ' + (x.motivo || 'N/A')].join('\n'))).join('\n\n');
+    }
+    function ibMostrar() {
+      const lim = Date.now() - IB_DIAS * 864e5;
+      const b = ibBase();
+      const itens = Object.values(b.itens).filter(x => (x.ts || x.vistoEm || 0) >= lim).sort((a, c) => (a.ts || 0) - (c.ts || 0) || Number(a.proposta) - Number(c.proposta));
+      $('#mf-ib-res').style.display = itens.length ? '' : 'none';
+      $('#mf-ib-res').value = itens.length ? ibTexto(itens) : '';
+      $('#mf-ib-qtd').textContent = itens.length ? '(' + itens.length + ')' : '';
+      return itens.length;
+    }
+    async function ibGerar() {
+      if (ibRodando) return;
+      const ini = ibIsoBr($('#mf-ib-ini').value), fim = ibIsoBr($('#mf-ib-fim').value);
+      if (!ini || !fim) return ibStatus('Escolha o período (De e Até).');
+      ibRodando = true; $('#mf-ib-gerar').disabled = true;
+      try {
+        ibStatus('Lendo a Fila de Propostas de ' + ini + ' a ' + fim + '...');
+        const lista = await ibLista(ini, fim);
+        if (lista.erro) return ibStatus('Não deu para gerar: ' + lista.erro + '.');
+        const b = ibBase();
+        let novos = 0, semHora = 0;
+        for (const [i, l] of lista.linhas.entries()) {
+          const ant = b.itens[l.proposta] || {};
+          let data = ant.data || '';
+          if (!/\d{2}:\d{2}/.test(data)) {   // ainda sem a hora: lê o Histórico
+            ibStatus('Lendo o Histórico ' + (i + 1) + ' de ' + lista.linhas.length + ' (proposta ' + l.proposta + ')...');
+            data = (await ibEfetivacao(l.proposta)) || data || l.dataProp;
+            if (i < lista.linhas.length - 1) await sleep(CONFIG.PD_PAUSA_MS);
+          }
+          if (!/\d{2}:\d{2}/.test(data)) semHora++;
+          if (!b.itens[l.proposta]) novos++;
+          b.itens[l.proposta] = { ...ant, proposta: l.proposta, nome: l.nome || ant.nome, cpf: l.cpf || ant.cpf, motivo: l.motivo || ant.motivo, data, ts: ibTs(data), vistoEm: Date.now() };
+        }
+        const lim = Date.now() - IB_DIAS * 864e5;
+        Object.keys(b.itens).forEach(k => { if ((b.itens[k].ts || b.itens[k].vistoEm || 0) < lim) delete b.itens[k]; });
+        GM_setValue(IB_CHAVE, b);
+        const total = ibMostrar();
+        ibStatus(lista.linhas.length + ' com o ícone na Fila no período (' + novos + ' novo(s)). ' + total + ' na lista guardada.' +
+          (semHora ? ' ' + semHora + ' sem a hora da efetivação (só a data da proposta).' : '') + ' Gerado às ' + new Date().toLocaleTimeString().slice(0, 5) + '.');
+      } catch (e) {
+        console.warn('[PaymobiFin] impeditivos BMP', e && e.message);
+        ibStatus('Não deu para gerar: ' + (e && e.message || 'erro inesperado') + '.');
+      } finally { ibRodando = false; $('#mf-ib-gerar').disabled = false; }
+    }
+    function ibDobra(aberta) {
+      if (aberta != null) GM_setValue('ibRecolhido', !aberta);
+      const ab = !GM_getValue('ibRecolhido', true);
+      $('#mf-ib-corpo').style.display = ab ? '' : 'none';
+      $('#mf-ib-tit').classList.toggle('aberta', ab);
+    }
+    $('#mf-ib-tit').addEventListener('click', () => ibDobra(GM_getValue('ibRecolhido', true)));
+    $('#mf-ib-ini').value = ibIsoDias(-7);
+    $('#mf-ib-fim').value = ibIsoDias(0);
+    $('#mf-ib-gerar').addEventListener('click', () => ibGerar());
+    $('#mf-ib-copiar').addEventListener('click', () => {
+      const t = $('#mf-ib-res').value;
+      if (!t) return msg('Gere o relatório de impeditivos primeiro.');
+      GM_setClipboard(t, 'text');
+      msg('Impeditivos BMP copiados (' + Object.keys(ibBase().itens).length + ' cliente(s)).');
+    });
+    $('#mf-ib-limpar').addEventListener('click', () => {
+      if (ibRodando) return msg('Aguarde o relatório de impeditivos terminar.');
+      if (!Object.keys(ibBase().itens).length) return;
+      if (!confirm('Apagar a lista de impeditivos BMP guardada neste navegador? Os que ainda tiverem o ícone na Fila voltam no próximo "Gerar relatório".')) return;
+      GM_deleteValue(IB_CHAVE); ibMostrar(); ibStatus('');
+      msg('Lista de impeditivos BMP apagada.');
+    });
+    ibDobra();
+    ibMostrar();
 
     /* ---- Gerador: frases de uma linha para a planilha (colunas "Pedido do cliente" e "Acordo Realizado") ----
        "fechou" = acordo fechado; "solicitou" = simulação para ver se é viável. Só usa o que foi digitado. */

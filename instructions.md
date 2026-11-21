@@ -403,6 +403,7 @@ else if (window.top === window) iniciarPainel();
 | → Busca de cliente (`bs`) | Central de busca (somente leitura) |
 | → Navegação automática | Troca de tela automática no ER |
 | → Relatório de Pendências (`pd`) | Fila de Pendências da conta master (somente leitura) |
+| → Impeditivos BMP (`ib`) | Fila de Propostas (ícone 🚫 do KYC da BMP) + Histórico da Mesa (somente leitura) |
 | → RD Atendimento (`rd`) | Análise com Gemini e encerramento do dia |
 
 ### Variáveis globais compartilhadas
@@ -430,6 +431,7 @@ else if (window.top === window) iniciarPainel();
 | `hs` | Histórico |
 | `bs` | Busca de cliente |
 | `pd` | Relatório de Pendências |
+| `ib` | Relatório de Impeditivos BMP |
 | `rd` | RD Atendimento |
 | `er` | Acesso ao ER (sessão, base, requisições; camada consolidada na P0) |
 
@@ -467,6 +469,8 @@ Documentar novas chaves aqui antes de usar. Renomear sem migração quebra dados
 | `rdAnalises/rdLinhas/erBase` | Dados do RD | RD |
 | `gruposCfg/buscaAberta/buscaComCac` | Config e busca | Config/Busca |
 | `pdRecolhido` | Seção Pendências recolhida (padrão: sim) | Relatório de Pendências |
+| `ibImpeditivos` | Impeditivos BMP já encontrados: `{ versao: 1, itens: { proposta: { nome, cpf, data, ts, motivo, vistoEm } } }` (90 dias; "Limpar lista" apaga) | Impeditivos BMP |
+| `ibRecolhido` | Seção Impeditivos BMP recolhida (padrão: sim) | Impeditivos BMP |
 
 ---
 
