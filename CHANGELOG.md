@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.36.3] — 2026-11-21
+
+### 🐛 Correções
+
+- fix: reprovação por faixa de risco nas mesmas categorias de restrições (#117) (f0004eb)
+
 ## [v13.36.2] — 2026-11-21
 
 ### 🐛 Correções
