@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.36.4] — 2026-11-21
+
+### 🐛 Correções
+
+- fix: passagens fora do motivo de reprovação por faixa (#119) (54f6c38)
+
 ## [v13.36.3] — 2026-11-21
 
 ### 🐛 Correções
