@@ -48,7 +48,7 @@ No fim do `<style>` do painel há um bloco só de CSS, todo escopado em `#mf-p[d
 
 ```
 ┌─────────────────────────────────────┐
-│ ■ PaymobiFin - Assistente  v13.36.2 │  ← barra de título (arrastar, minimizar)
+│ ■ PaymobiFin - Assistente  v13.36.3 │  ← barra de título (arrastar, minimizar)
 ├─────────────────────────────────────┤
 │ Atendimento | Histórico | Agenda | Relatórios | Mais ▾ │  ← abas
 ├─────────────────────────────────────┤
@@ -87,6 +87,8 @@ A fila é uma lista de IDs de propostas armazenada em `GM_getValue('fila')`. O f
 **Sessão do ER expirada no meio da fila:** com a sessão vencida, o ER responde toda leitura com a página de aviso (`/AvisoSessao/AvisoSessao`, HTTP 200; ver `erSemSessao`). O detalhe da proposta, a aba Cliente e o link do motor reconhecem esse aviso e devolvem `SESSAO_EXPIRADA`: a fila **pausa** na proposta atual, sem gravar nada dela (`extra` fica vazio e a proposta não entra em `feitas`), e avisa "A sessão do ER expirou (proposta N)... Entre no ER de novo e clique em Continuar". Antes da v13.29.0 o aviso era lido como uma página sem dados: no Diário as propostas saíam N/A e a fila terminava como concluída.
 
 **Reprovada antes do MobFacil (Auditoria e Reprovadas):** antes de abrir o motor, `itensAnalise` lê os itens da análise da proposta (`/FilaPropostas/DetalhePropostaAnalise`, o popover "Análise da Proposta" da Fila). Se algum item foi REPROVADO e não há item MOBFACIL (ex.: IDADE com o parecer "IDADE INDEFINIDA"), o MobFacil nem foi consultado e o motor não tem a árvore: o painel não espera o motor e grava qtd, valor, score e consultas vazios (saem **N/A**), o CPF da aba Cliente e o motivo no formato do MobFacil ("Reprovar: IDADE INDEFINIDA", que a coluna R mostra como "Idade"). Antes, a proposta esperava o tempo máximo do motor e ficava como "auditoria incompleta". Na linha completa, a coluna Q (Manual/Auto) sai N/A quando a proposta não tem os dados da Mesa.
+
+**Reprovação por faixa de risco (política nova do MobFacil):** o score define a faixa (A 816–1000, B 675–815, C 552–674, D 391–467, E 002–391, F 001), e cada faixa tem os seus limites de restritivos. A mensagem vem numa linha só, ex.: "(P1) Reprovar: faixa E acima do limite permitido (Restritivo=R$0, Qtde=0, Passagens=0) (atual: R$1360, 1, 0)". `motivosLista` compara o atual com os limites da própria mensagem e a transforma numa mensagem por limite estourado, no formato das antigas: valor de restrições, quantidade de restrições e passagens. Assim a coluna R ("Valor e quantidade de restrições acima do limite", "Passagens acima do limite") e o relatório de Reprovadas usam as mesmas categorias de antes. Se não der para comparar, a mensagem fica como veio.
 
 ### Modos de operação
 

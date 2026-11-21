@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.36.2
+// @version      13.36.3
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -30,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.36.2');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.36.3');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -2722,6 +2722,25 @@
     //  "(P1) Reprovar: renda inferior a mínima permitida (1621 reais) (atual=R$1300)"   -> Renda, R$1300
     //  "(P1) Reprovar: cliente abaixo do ponto de corte (score=351)"                    -> Score, 351
     //  "(P1) Reprovar: valor de restrições acima do limite permitido (R$4000) (atual=R$10223,77)" -> Restrições, R$10223,77
+    // Política por faixa de risco (score A–F, cada faixa com os seus limites de restritivos), mensagem única do MobFacil:
+    //  "(P1) Reprovar: faixa E acima do limite permitido (Restritivo=R$0, Qtde=0, Passagens=0) (atual: R$1360, 1, 0)"
+    // vira uma mensagem por limite estourado, no formato das antigas (valor / quantidade de restrições, passagens),
+    // para a coluna R e o relatório de Reprovadas usarem as mesmas categorias. Sem dar para comparar: fica como veio.
+    function motivosLista(reprov) {
+      const n = s => { const x = parseFloat(String(s || '').replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')); return isNaN(x) ? null : x; };
+      return String(reprov || '').split(' ¦ ').filter(Boolean).flatMap(msg => {
+        const f = msg.match(/faixa\s+(\S+)\s+acima\s+do\s+limite/i);
+        const at = msg.match(/atual\s*[:=]\s*R?\$?\s*([\d.,]+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+        if (!f || !at) return [msg];
+        const lim = { v: n((msg.match(/Restritivo\s*=\s*R?\$?\s*([\d.,]+)/i) || [])[1]), q: n((msg.match(/Qtde\s*=\s*(\d+)/i) || [])[1]), p: n((msg.match(/Passagens\s*=\s*(\d+)/i) || [])[1]) };
+        const v = n(at[1]), q = n(at[2]), p = n(at[3]), fx = 'faixa ' + f[1];
+        const out = [];
+        if (lim.v != null && v != null && v > lim.v) out.push('(P1) Reprovar: valor de restrições acima do limite permitido (' + fx + ': R$' + lim.v + ') (atual=R$' + at[1] + ')');
+        if (lim.q != null && q != null && q > lim.q) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (' + fx + ': ' + lim.q + ') (atual=' + q + ')');
+        if (lim.p != null && p != null && p > lim.p) out.push('(P1) Reprovar: passagens acima do limite (' + fx + ': ' + lim.p + ') (atual=' + p + ')');
+        return out.length ? out : [msg];
+      });
+    }
     function motivoDoMobFacil(reprov) {
       const primeira = String(reprov || '').split(' ¦ ')[0];
       const m = primeira.match(/Reprovar\s*:\s*(.*)$/i);
@@ -2750,7 +2769,7 @@
       if (d.reprov) {
         const reais = [];
         let posRestr = -1, temValor = false, temQtd = false;
-        String(d.reprov).split(' ¦ ').map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
+        motivosLista(d.reprov).map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
           if (/restri|pend|negativ/i.test(mf.descr) && /quantidade|qtd|valor/i.test(mf.descr)) {
             if (/quantidade|qtd/i.test(mf.descr)) temQtd = true; else temValor = true;
             if (posRestr < 0) { posRestr = reais.length; reais.push(null); }
@@ -2846,7 +2865,7 @@
       if (m === 'reprovadas') {
         const tipo = x.ana && !/master/i.test(x.ana) ? 'Manual' : 'Automática';
         // uma mensagem por motivo de reprovação (o MobFacil lista TODOS os que falharam, ex.: valor E quantidade)
-        const msgs = d && d.reprov ? String(d.reprov).split(' ¦ ').map(motivoDoMobFacil).filter(Boolean) : [];
+        const msgs = d && d.reprov ? motivosLista(d.reprov).map(motivoDoMobFacil).filter(Boolean) : [];
         const motivo = [...new Set(msgs.map(x => x.label))].join(' / ');
         const partes = [];
         msgs.forEach(mf => {
