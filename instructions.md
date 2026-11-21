@@ -18,7 +18,7 @@ O **PaymobiFin - Assistente** é um userscript Tampermonkey que roda em dois sit
 
 **Nome antigo:** até a v13.27.1 o script se chamava `automacaomobfacil.user.js`. Esse arquivo ficou como ponte (congelado na 13.27.2) para migrar as instalações antigas e foi removido em 19/11/2026 (P4.8). Instalações que ainda apontem para o nome antigo não recebem mais atualizações: reinstalar pelo endereço de `paymobifin-assistente.user.js`.
 
-**Versão atual:** 13.35.1 (fonte de verdade: campo `@version` no cabeçalho do script — ver item 12)
+**Versão atual:** 13.36.0 (fonte de verdade: campo `@version` no cabeçalho do script — ver item 12)
 
 **Repositório:** `git@github.com:arthursoaress7/PaymobiFin-Assistente.git`  
 **Proprietário do repositório:** arthursoaress7 (pode ter permissões administrativas que o usuário atual não tem)
@@ -403,6 +403,7 @@ else if (window.top === window) iniciarPainel();
 | → Busca de cliente (`bs`) | Central de busca (somente leitura) |
 | → Navegação automática | Troca de tela automática no ER |
 | → Relatório de Pendências (`pd`) | Fila de Pendências da conta master (somente leitura) |
+| → Impeditivos BMP (`ib`) | Fila de Propostas (ícone 🚫 do KYC da BMP) + Histórico da Mesa (somente leitura) |
 | → RD Atendimento (`rd`) | Análise com Gemini e encerramento do dia |
 
 ### Variáveis globais compartilhadas
@@ -430,6 +431,7 @@ else if (window.top === window) iniciarPainel();
 | `hs` | Histórico |
 | `bs` | Busca de cliente |
 | `pd` | Relatório de Pendências |
+| `ib` | Relatório de Impeditivos BMP |
 | `rd` | RD Atendimento |
 | `er` | Acesso ao ER (sessão, base, requisições; camada consolidada na P0) |
 
@@ -467,6 +469,8 @@ Documentar novas chaves aqui antes de usar. Renomear sem migração quebra dados
 | `rdAnalises/rdLinhas/erBase` | Dados do RD | RD |
 | `gruposCfg/buscaAberta/buscaComCac` | Config e busca | Config/Busca |
 | `pdRecolhido` | Seção Pendências recolhida (padrão: sim) | Relatório de Pendências |
+| `ibImpeditivos` | Impeditivos BMP já encontrados: `{ versao: 1, itens: { proposta: { nome, cpf, data, ts, motivo, vistoEm } } }` (90 dias; "Limpar lista" apaga) | Impeditivos BMP |
+| `ibRecolhido` | Seção Impeditivos BMP recolhida (padrão: sim) | Impeditivos BMP |
 
 ---
 

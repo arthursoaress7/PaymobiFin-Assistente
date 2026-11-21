@@ -48,7 +48,7 @@ No fim do `<style>` do painel há um bloco só de CSS, todo escopado em `#mf-p[d
 
 ```
 ┌─────────────────────────────────────┐
-│ ■ PaymobiFin - Assistente  v13.35.1 │  ← barra de título (arrastar, minimizar)
+│ ■ PaymobiFin - Assistente  v13.36.0 │  ← barra de título (arrastar, minimizar)
 ├─────────────────────────────────────┤
 │ Atendimento | Histórico | Agenda | Relatórios | Mais ▾ │  ← abas
 ├─────────────────────────────────────┤
@@ -151,6 +151,24 @@ Seção **Pendências** na aba Relatórios: lista as propostas com pendência em
 5. **Copiar** — copia o texto (`GM_setClipboard`). O último relatório fica na caixa enquanto a aba estiver aberta (`sessionStorage`), inclusive depois da troca de conta.
 6. **Limpar** — o botão "Limpar" e o "Resetar" da coleta apagam o relatório da caixa e do `sessionStorage` (`pdLimpar`). Nada muda no ER.
 7. **Seção recolhível** — o título "Pendências" abre e fecha a seção (`pdDobra`). Vem **fechada** e lembra a última escolha (GM `pdRecolhido`). Fechada, o título continua mostrando a quantidade do último relatório. Gerar depois da troca para a master abre a seção.
+
+### Impeditivos BMP (`ib`, bloco "IMPEDITIVOS BMP")
+
+Clientes impedidos pelo KYC da BMP, no formato da equipe:
+
+```
+*IMPEDITIVOS BMP*
+
+NOME: YURI OLIVEIRA DA SILVA
+CPF: 508.549.908-52
+DATA: 21/11/2026 às 12:06:04
+MOTIVO: Reprovado por Políticas Internas. Esta informação é confidencial e não pode ser compartilhada por imposição regulatória.
+```
+
+1. **Período** — "De" e "Até" (padrão: últimos 7 dias). `ibLista` lê a Fila de Propostas (`/FilaPropostas/FilaPropostasLista`, data de inclusão, todas as situações) e pega as linhas com o ícone 🚫 (`.fa-ban`) ao lado do número. O `title` do ícone é o MOTIVO; entram todos ("Reprovado por Políticas Internas", "processo de KYC ainda não foi concluído", "Marcações de fraude", "incompatíveis com os bureaus"). Nome e CPF vêm das colunas Cliente e CPF/CNPJ.
+2. **DATA** — `ibEfetivacao`: data e hora da última linha "EFETIVACAO" do Histórico da análise na Mesa (`/MesaCredito/MesaAnaliseHistorico`). Sem ela, só a data da proposta.
+3. **Lista guardada** — o ícone some da Fila depois de um tempo, então o que foi encontrado fica em GM `ibImpeditivos` (90 dias) e continua no relatório, em ordem de data. Gerar de novo atualiza o motivo e não duplica. "Limpar lista" apaga.
+4. **Copiar** — copia o texto da caixa. Só leitura: nada muda no ER. Seção recolhível (GM `ibRecolhido`), como Pendências.
 
 ---
 

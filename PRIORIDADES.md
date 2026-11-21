@@ -476,6 +476,14 @@ O módulo de geração de acordos (`at*`) já possui:
   **Objetivo:** não depender do front do ER. Opções: API oficial do fornecedor (exige autorização da gestão e processos administrativos) e um site próprio do PayMobi.  
   **Observações:** a camada de P0 é a peça trocável: com a API oficial, muda só a fonte dos dados. Um site em outro domínio não consegue chamar as rotas internas do ER com a sessão do usuário (CORS e cookies), então precisaria da API oficial ou de uma ponte (userscript/extensão). Avaliar LGPD antes de guardar dados de clientes fora do navegador. Categoria B.
 
+- [x] **P4.14 — Relatório de Impeditivos BMP**
+
+  **Status:** Concluído (21/11/2026)  
+  **Objetivo:** gerar, sem copiar à mão, a lista de clientes impedidos pelo KYC da BMP no formato da equipe (`*IMPEDITIVOS BMP*` + NOME, CPF, DATA e MOTIVO).  
+  **Comportamento:** aba Relatórios > seção Impeditivos BMP. Lê a Fila de Propostas do período (ícone 🚫, todos os motivos) e a data/hora da efetivação no Histórico da Mesa. O que encontra fica guardado no navegador (o ícone some da Fila depois de um tempo) até "Limpar lista".  
+  **Critérios de aceite (atendidos no ER real):** a lista de 13/11 a 21/11 bate com a da equipe em nome, CPF e data (5475, 5440, 5452, 5188...); gerar de novo não duplica; Copiar e Limpar lista funcionam.  
+  **Limitação:** quem perdeu o ícone antes da primeira geração (ex.: 5211 e 5241) não aparece: a partir de agora, gerar com frequência guarda os casos.
+
 ---
 
 ## Decisões do responsável (12/11/2026)
