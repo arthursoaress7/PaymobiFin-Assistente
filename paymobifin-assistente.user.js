@@ -2724,7 +2724,7 @@
     //  "(P1) Reprovar: valor de restrições acima do limite permitido (R$4000) (atual=R$10223,77)" -> Restrições, R$10223,77
     // Política por faixa de risco (score A–F, cada faixa com os seus limites de restritivos), mensagem única do MobFacil:
     //  "(P1) Reprovar: faixa E acima do limite permitido (Restritivo=R$0, Qtde=0, Passagens=0) (atual: R$1360, 1, 0)"
-    // vira uma mensagem por limite estourado, no formato das antigas (valor / quantidade de restrições, passagens),
+    // vira uma mensagem por limite estourado, no formato das antigas (valor / quantidade de restrições; "Passagens" não entra: não é motivo de reprovação),
     // para a coluna R e o relatório de Reprovadas usarem as mesmas categorias. Sem dar para comparar: fica como veio.
     function motivosLista(reprov) {
       const n = s => { const x = parseFloat(String(s || '').replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')); return isNaN(x) ? null : x; };
@@ -2737,7 +2737,6 @@
         const out = [];
         if (lim.v != null && v != null && v > lim.v) out.push('(P1) Reprovar: valor de restrições acima do limite permitido (' + fx + ': R$' + lim.v + ') (atual=R$' + at[1] + ')');
         if (lim.q != null && q != null && q > lim.q) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (' + fx + ': ' + lim.q + ') (atual=' + q + ')');
-        if (lim.p != null && p != null && p > lim.p) out.push('(P1) Reprovar: passagens acima do limite (' + fx + ': ' + lim.p + ') (atual=' + p + ')');
         return out.length ? out : [msg];
       });
     }
