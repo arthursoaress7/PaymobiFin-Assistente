@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.36.5] — 2026-11-21
+
+### 🐛 Correções
+
+- fix: motivo de reprovação pela tabela de faixas da equipe (#122) (171b88a)
+
 ## [v13.36.4] — 2026-11-21
 
 ### 🐛 Correções
