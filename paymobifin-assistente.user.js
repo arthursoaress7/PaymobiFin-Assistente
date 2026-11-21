@@ -59,6 +59,16 @@
     CORTE_SCORE: 390,       // reprova se score < 390
     CORTE_VALOR: 4000,      // reprova se valor de restrições > 4000
     CORTE_QTD: 10,          // reprova se quantidade de restrições > 10
+    // Política por faixa de risco (score): limites de valor e quantidade de restritivos de cada faixa (tabela da equipe,
+    // 21/11/2026). E e F não têm limite de restritivos: o motivo é o score (Score Baixo).
+    FAIXAS: [
+      { faixa: 'A', de: 816, ate: 1000, valor: 4000, qtd: 10 },
+      { faixa: 'B', de: 675, ate: 815, valor: 4000, qtd: 10 },
+      { faixa: 'C', de: 552, ate: 674, valor: 2000, qtd: 10 },
+      { faixa: 'D', de: 392, ate: 551, valor: 1000, qtd: 10 },
+      { faixa: 'E', de: 2, ate: 391, valor: null, qtd: null },
+      { faixa: 'F', de: 1, ate: 1, valor: null, qtd: null },
+    ],
     VAZIAS_APOS_ID: 3,      // colunas entre a Proposta e a Qtd Restritivos (Nome, CPF, IMEI)
     TIMEOUT_CCB: 20,        // s máximos esperando cada resposta do sistema no download de CCB
     ER_BASE_RECONFERIR: 5,  // s depois de abrir o ER para gravar de novo o endereço do ER (usado pelo RD Atendimento)
@@ -2724,20 +2734,25 @@
     //  "(P1) Reprovar: valor de restrições acima do limite permitido (R$4000) (atual=R$10223,77)" -> Restrições, R$10223,77
     // Política por faixa de risco (score A–F, cada faixa com os seus limites de restritivos), mensagem única do MobFacil:
     //  "(P1) Reprovar: faixa E acima do limite permitido (Restritivo=R$0, Qtde=0, Passagens=0) (atual: R$1360, 1, 0)"
-    // vira uma mensagem por limite estourado, no formato das antigas (valor / quantidade de restrições; "Passagens" não entra: não é motivo de reprovação),
-    // para a coluna R e o relatório de Reprovadas usarem as mesmas categorias. Sem dar para comparar: fica como veio.
-    function motivosLista(reprov) {
+    // vira uma mensagem por motivo, no formato das antigas, com os limites da TABELA DA EQUIPE (CONFIG.FAIXAS), não os da
+    // mensagem (a faixa E veio com R$0/0, considerado erro do MobFacil): A–D = valor acima do limite da faixa e/ou
+    // quantidade acima de 10; E e F (sem limite de restritivos) = score baixo. "Passagens" não entra (não é motivo).
+    // Sem dar para decidir: fica como veio.
+    const faixaDe = (letra, score) => CONFIG.FAIXAS.find(x => letra ? x.faixa === String(letra).toUpperCase() : score != null && score >= x.de && score <= x.ate) || null;
+    function motivosLista(reprov, score) {
       const n = s => { const x = parseFloat(String(s || '').replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')); return isNaN(x) ? null : x; };
+      const sc = n(score);
       return String(reprov || '').split(' ¦ ').filter(Boolean).flatMap(msg => {
         const f = msg.match(/faixa\s+(\S+)\s+acima\s+do\s+limite/i);
-        const at = msg.match(/atual\s*[:=]\s*R?\$?\s*([\d.,]+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-        if (!f || !at) return [msg];
-        const lim = { v: n((msg.match(/Restritivo\s*=\s*R?\$?\s*([\d.,]+)/i) || [])[1]), q: n((msg.match(/Qtde\s*=\s*(\d+)/i) || [])[1]), p: n((msg.match(/Passagens\s*=\s*(\d+)/i) || [])[1]) };
-        const v = n(at[1]), q = n(at[2]), p = n(at[3]), fx = 'faixa ' + f[1];
-        const out = [];
-        if (lim.v != null && v != null && v > lim.v) out.push('(P1) Reprovar: valor de restrições acima do limite permitido (' + fx + ': R$' + lim.v + ') (atual=R$' + at[1] + ')');
-        // quantidade só é motivo acima do corte da equipe (CONFIG.CORTE_QTD = 10), mesmo que a faixa tenha limite menor (ex.: faixa E, 0)
-        if (lim.q != null && q != null && q > Math.max(lim.q, CONFIG.CORTE_QTD)) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (' + fx + ': ' + lim.q + ') (atual=' + q + ')');
+        if (!f) return [msg];
+        const fx = faixaDe(f[1], sc) || faixaDe(null, sc);
+        const at = msg.match(/atual\s*[:=]\s*R?\$?\s*([\d.,]+)\s*,\s*(\d+)/i);
+        if (!fx) return [msg];
+        if (fx.valor == null) return sc != null ? ['(P1) Reprovar: cliente abaixo do ponto de corte (score=' + sc + ')'] : [msg];
+        if (!at) return [msg];
+        const v = n(at[1]), q = n(at[2]), out = [];
+        if (v != null && v > fx.valor) out.push('(P1) Reprovar: valor de restrições acima do limite permitido (faixa ' + fx.faixa + ': R$' + fx.valor + ') (atual=R$' + at[1] + ')');
+        if (q != null && q > fx.qtd) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (faixa ' + fx.faixa + ': ' + fx.qtd + ') (atual=' + q + ')');
         return out.length ? out : [msg];
       });
     }
@@ -2769,7 +2784,7 @@
       if (d.reprov) {
         const reais = [];
         let posRestr = -1, temValor = false, temQtd = false;
-        motivosLista(d.reprov).map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
+        motivosLista(d.reprov, d.score).map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
           if (/restri|pend|negativ/i.test(mf.descr) && /quantidade|qtd|valor/i.test(mf.descr)) {
             if (/quantidade|qtd/i.test(mf.descr)) temQtd = true; else temValor = true;
             if (posRestr < 0) { posRestr = reais.length; reais.push(null); }
@@ -2791,13 +2806,16 @@
       const val = d.val != null ? aNum(d.val) : null;
       const qtd = d.qtd != null ? aNum(d.qtd) : null;
       const sc = d.score != null ? aNum(d.score) : null;
-      const v = val != null && val > CONFIG.CORTE_VALOR;
-      const q = qtd != null && qtd > CONFIG.CORTE_QTD;
+      // limites da faixa do score (CONFIG.FAIXAS); sem score, os cortes antigos
+      const fxS = sc != null && !isNaN(sc) ? faixaDe(null, sc) : null;
+      const limV = fxS ? fxS.valor : CONFIG.CORTE_VALOR, limQ = fxS ? fxS.qtd : CONFIG.CORTE_QTD;
+      const v = val != null && limV != null && val > limV;
+      const q = qtd != null && limQ != null && qtd > limQ;
       const motivos = [];
       if (v && q) motivos.push('Valor e quantidade de restrições acima do limite');
       else if (v) motivos.push('Valor de restrições acima do limite');
       else if (q) motivos.push('Quantidade de restrições acima do limite');
-      if (sc != null && sc < CONFIG.CORTE_SCORE) motivos.push('Score Baixo');
+      if (sc != null && (fxS ? fxS.valor == null : sc < CONFIG.CORTE_SCORE)) motivos.push('Score Baixo');
       return motivos.join(' / ');
     };
     const fmtAtual = a => (/^R\$/.test(a) && num(a) != null ? moeda(num(a)) : a);
@@ -2865,7 +2883,7 @@
       if (m === 'reprovadas') {
         const tipo = x.ana && !/master/i.test(x.ana) ? 'Manual' : 'Automática';
         // uma mensagem por motivo de reprovação (o MobFacil lista TODOS os que falharam, ex.: valor E quantidade)
-        const msgs = d && d.reprov ? motivosLista(d.reprov).map(motivoDoMobFacil).filter(Boolean) : [];
+        const msgs = d && d.reprov ? motivosLista(d.reprov, d.score).map(motivoDoMobFacil).filter(Boolean) : [];
         const motivo = [...new Set(msgs.map(x => x.label))].join(' / ');
         const partes = [];
         msgs.forEach(mf => {
