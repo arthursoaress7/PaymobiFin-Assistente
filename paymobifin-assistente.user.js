@@ -2736,7 +2736,8 @@
         const v = n(at[1]), q = n(at[2]), p = n(at[3]), fx = 'faixa ' + f[1];
         const out = [];
         if (lim.v != null && v != null && v > lim.v) out.push('(P1) Reprovar: valor de restrições acima do limite permitido (' + fx + ': R$' + lim.v + ') (atual=R$' + at[1] + ')');
-        if (lim.q != null && q != null && q > lim.q) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (' + fx + ': ' + lim.q + ') (atual=' + q + ')');
+        // quantidade só é motivo acima do corte da equipe (CONFIG.CORTE_QTD = 10), mesmo que a faixa tenha limite menor (ex.: faixa E, 0)
+        if (lim.q != null && q != null && q > Math.max(lim.q, CONFIG.CORTE_QTD)) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (' + fx + ': ' + lim.q + ') (atual=' + q + ')');
         return out.length ? out : [msg];
       });
     }
