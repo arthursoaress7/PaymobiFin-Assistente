@@ -28,7 +28,7 @@ Encerra os atendimentos com cadeado da lista "Meus atendimentos" (ícone com tí
 - na análise (`telefoneDaConversa`), o telefone só é aceito quando não é o da conversa anterior nem o de outra conversa já analisada (espera até `RD_ESPERA_TELEFONE` s; se não trocar, fica o do topo com aviso para conferir);
 - no encerramento, espera o telefone analisado aparecer no topo (até `RD_ESPERA`) antes de dizer que a conversa aberta não é a analisada. O erro mostra os 4 últimos dígitos dos dois.
 - Com mais de um topo montado na página, vale o visível que tem o botão Encerrar (`cabecalho`).
-4. **Copiar linhas da planilha** — copia (TSV) as linhas A–M dos encerrados do dia.
+4. **Copiar linhas da planilha** — copia (TSV) as linhas A–M dos encerrados do dia. Cada célula sai sem tab, quebra de linha e aspas duplas (`celulaTsv`): uma célula começando com `"` (ex.: nome de contato `" Abençoada`) fazia a planilha abrir um campo entre aspas e jogar todas as linhas seguintes numa coluna só.
 
 ## Categorias permitidas
 

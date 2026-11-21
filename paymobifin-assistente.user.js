@@ -8941,7 +8941,11 @@
       status('Encerrados: ' + ok + (falhas ? ' · com erro: ' + falhas : '') + '. Clique em "Copiar linhas da planilha" e cole com Ctrl+Shift+V na planilha de encerramento.');
     };
     btParar.onclick = () => { rdParar = true; status('Parando depois da conversa atual...'); };
-    const tsv = linhas => linhas.map(x => x.cols.map(v => String(v).replace(/[\t\n]+/g, ' ')).join('\t')).join('\n');
+    // célula segura para colar na planilha: sem tab/quebra de linha e sem aspas duplas. Uma célula que começa com " (ex.:
+    // nome do contato `" Abençoada`) abre um campo entre aspas no Google Sheets/Excel, que engole os tabs e as quebras de
+    // linha seguintes e joga o resto das linhas numa única coluna.
+    const celulaTsv = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ').replace(/["“”]/g, '').replace(/\s{2,}/g, ' ').trim() || 'N/A';
+    const tsv = linhas => linhas.map(x => x.cols.map(celulaTsv).join('\t')).join('\n');
     btCopiar.onclick = () => {
       const todas = linhasHoje();
       if (!todas.length) return status('Nenhum atendimento encerrado hoje por aqui.');
