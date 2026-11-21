@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.36.2] — 2026-11-21
+
+### 🐛 Correções
+
+- fix: linhas da planilha do RD sem aspas duplas (nome com " jogava tudo numa coluna) (#112) (690a9a4)
+
 ## [v13.36.1] — 2026-11-21
 
 ### 🐛 Correções
