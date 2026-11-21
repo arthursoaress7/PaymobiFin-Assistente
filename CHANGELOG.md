@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.36.1] — 2026-11-21
+
+### 🐛 Correções
+
+- fix: Auditoria inclui as reprovadas antes do MobFacil (ex.: idade) (#108) (0e04f58)
+
 ## [v13.36.0] — 2026-11-21
 
 ### ✨ Novas funcionalidades
