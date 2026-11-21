@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.36.0] — 2026-11-21
+
+### ✨ Novas funcionalidades
+
+- feat: relatório de Impeditivos BMP (#105) (152ef23)
+
 ## [v13.35.1] — 2026-11-20
 
 ### 🐛 Correções
