@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.36.0
+// @version      13.36.1
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -30,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.36.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.36.1');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -2831,7 +2831,7 @@
         v(m.loja),                       // N Loja
         v(e.vendedor),                   // O Vendedor
         v(situacaoLimpa(m.sit)),         // P Situação
-        manualAuto(mt),                  // Q Manual/Auto (vazio é regra do modelo, não falta de dado)
+        !mt && processada ? NA : manualAuto(mt),   // Q Manual/Auto (sem os dados da Mesa = N/A; vazio é regra do modelo)
         motivoColunaR(d, mt),            // R Motivo Reprovação (vazio = não reprovada)
       ];
     }
@@ -3270,6 +3270,32 @@
       GM_setValue('extraDbg', dbg);
       atualizarUI();
     };
+    /* Itens da análise da proposta (o popover "Análise da Proposta" da Fila: GET /FilaPropostas/DetalhePropostaAnalise):
+       <a class="item-analise-menu-option"> com o nome (IDADE, BIOMETRIAFACIALFORTFACE, MOBFACIL...) e a situação
+       (APROVADO / REPROVADO / PENDENTE), seguido de <div id="NOME"> com "USUÁRIO em data" e o parecer ("IDADE INDEFINIDA"). */
+    async function itensAnalise(base, id) {
+      const ctl = new AbortController();
+      const tm = setTimeout(() => ctl.abort(), CONFIG.TIMEOUT_REDE * 1000);
+      try {
+        const resp = await fetch(base.replace(/\/$/, '') + '/FilaPropostas/DetalhePropostaAnalise?lngProposta=' + encodeURIComponent(id),
+          { credentials: 'include', signal: ctl.signal, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!resp.ok) return { erro: 'HTTP ' + resp.status };
+        const html = await resp.text();
+        if (erSemSessao(html)) return { erro: SESSAO_EXPIRADA };
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const txt = n => String(n ? n.textContent : '').replace(/\s+/g, ' ').trim();
+        const itens = [...doc.querySelectorAll('a.item-analise-menu-option')].map(a => {
+          const sp = [...a.querySelectorAll('.menu-option--body span')];
+          const det = a.nextElementSibling;
+          const ps = det ? [...det.querySelectorAll('p')] : [];
+          const parecer = ps.slice(1).map(p => txt(new DOMParser().parseFromString(p.innerHTML.replace(/<br\s*\/?>/gi, ' / '), 'text/html').body)).filter(Boolean).join(' / ');
+          return { nome: txt(sp[0]), sit: txt(sp[1]), parecer };
+        }).filter(x => x.nome);
+        return { itens };
+      } catch (e) {
+        return { erro: ctl.signal.aborted ? 'tempo esgotado' : 'erro de rede' };
+      } finally { clearTimeout(tm); }
+    }
     async function coletar(id) {
       try { const r = await coletarEtapas(id); if (r) etapa(id, 'falha', r); return r; }
       catch (e) { etapa(id, 'erro', e && e.message); return 'erro no script: ' + (e && e.message); }
@@ -3315,6 +3341,27 @@
         if (m !== 'aprovadas') return null;
       }
       if (!GM_getValue('rodando', false)) return 'pausado';
+      // reprovada antes do MobFacil (ex.: IDADE "IDADE INDEFINIDA"): o motor não tem a árvore; o motivo vem da análise
+      if (m === 'coleta' || m === 'reprovadas') {
+        etapa(id, 'análise da proposta');
+        const an = await itensAnalise(base, id);
+        if (an.erro === SESSAO_EXPIRADA) return SESSAO_EXPIRADA;
+        const itens = an.itens || [];
+        const ehMob = x => /mob\s*f[aá]cil/i.test(x.nome);
+        const rep = itens.filter(x => /reprovad/i.test(x.sit) && !ehMob(x));
+        if (rep.length && !itens.some(ehMob)) {
+          etapa(id, 'análise da proposta', 'reprovada antes do MobFacil: ' + rep.map(x => x.nome + (x.parecer ? ' (' + x.parecer + ')' : '')).join(', '));
+          const ant = GM_getValue('dados', {})[id] || {};
+          let cpf = ant.cpf || (GM_getValue('extra', {})[id] || {}).cpfCliente || '';
+          if (!cpf) cpf = (await dadosCliente(base, id)).cpf || '';
+          const dados = GM_getValue('dados', {});
+          // crédito vazio = sem consulta ao birô (sai N/A na planilha); o motivo no formato do MobFacil ("Reprovar: ...")
+          dados[id] = { ...ant, qtd: '', val: '', score: '', consultas: '', cpf, reprov: rep.map(x => 'Reprovar: ' + (x.parecer || x.nome)).join(' ¦ '), fonte: 'análise da proposta' };
+          GM_setValue('dados', dados);
+          return null;
+        }
+        etapa(id, 'análise da proposta', an.erro ? 'não lida (' + an.erro + ')' : 'ok');
+      }
       etapa(id, 'motor MobFacil');
 
       const ctl = new AbortController();
