@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.37.0] — 2026-11-23
+
+### ✨ Novas funcionalidades
+
+- feat: motivo e observação do desbloqueio com opções fixas (#127) (6a3745c)
+
 ## [v13.36.6] — 2026-11-23
 
 ### 🐛 Correções
