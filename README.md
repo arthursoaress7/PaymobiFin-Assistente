@@ -11,6 +11,7 @@ Userscript Tampermonkey que adiciona um painel flutuante ao sistema ER da Paymob
 - Coleta automática de dados de análise de crédito (score, restritivos, consultas, CPF, motivo de reprovação)
 - Registro e compartilhamento de acordos entre a equipe
 - Geração de textos formatados para WhatsApp e linhas para planilhas Excel
+- Cálculo do débito atualizado das parcelas em atraso (encargos de mora e multa, mesma regra do ER)
 - Gerenciamento de lembretes de pagamentos parciais
 - Consulta CAC, download de CCBs, troca rápida de conta
 - Relatório das propostas com pendência em aberto (Fila de Pendências da conta master)

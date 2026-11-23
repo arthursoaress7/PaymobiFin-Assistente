@@ -271,6 +271,9 @@ O módulo de geração de acordos (`at*`) já possui:
   **Dependências:** análise do fluxo atual (P3.1).  
   **Observações:** o script já calcula vencimentos, situações, rótulos e saldo. Possíveis melhorias: cálculo de juros no restante, preenchimento automático de "procedimento na régua" e "recebeu boletos" baseado na modalidade.
 
+  **Avanço (23/11/2026):** primeira melhoria entregue: **calculadora de débito atualizado** no Atendimento (grupo "Débito atualizado (calculadora)", `atDeb*`; detalhes em `docs/script/04-atendimento.md`). Calcula encargos de mora e multa das parcelas em atraso com a regra do "Registro de Pagamento de Fatura" do ER e leva o total para "Valor total com juros".  
+  **Pendente na calculadora:** conferir as taxas (`AT_ENCARGOS`) em contratos de outros produtos/valores; tratar parcela com pagamento parcial; avaliar ler as parcelas direto da Consulta CAC (vencimento e saldo de cada uma) em vez de supor vencimentos mensais.
+
 ---
 
 - [ ] **P3.3 — Melhorar a consistência das informações geradas**
