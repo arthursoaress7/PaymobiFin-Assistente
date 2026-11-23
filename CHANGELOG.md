@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.36.6] — 2026-11-23
+
+### 🐛 Correções
+
+- fix: CCBs com mais de uma "CCB ASSINADA" são baixadas todas (sufixo _CCB1, _CCB2...) para conferência manual (hotfix)
+
 ## [v13.36.5] — 2026-11-21
 
 ### 🐛 Correções

@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.36.5
+// @version      13.36.6
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -30,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.36.5');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.36.6');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -1849,7 +1849,7 @@
           <div class="mf-sec">
             <div class="mf-tit">Download de CCBs</div>
             <div class="mf-info" style="margin-bottom:8px">Use na tela <b>Fila de Propostas</b>. Informe nomes de clientes ou números de proposta (um por linha).
-              Só baixa propostas <b>EFETIVADAS</b>, <b>assinadas digitalmente</b> e com exatamente uma "CCB ASSINADA". Arquivo: CPF_NOME.pdf.</div>
+              Só baixa propostas <b>EFETIVADAS</b> e <b>assinadas digitalmente</b>. Arquivo: CPF_NOME.pdf; com mais de uma "CCB ASSINADA", baixa todas como CPF_NOME_CCB1.pdf, _CCB2.pdf... para conferência.</div>
             <button id="mf-ccb-ler" class="cinza" style="width:100%;margin-bottom:8px">Ler propostas elegíveis da fila</button>
             <textarea id="mf-ccb-lista" placeholder="Nomes completos ou números das propostas (um por linha)"></textarea>
             <div class="mf-grade" style="margin-top:8px">
@@ -3835,33 +3835,42 @@
       }
       if (!/^\d{11}$/.test(cpf)) throw new ErroCCB('CPF ausente ou inválido no cadastro');
 
-      // 4. documentos: somente a CCB assinada
+      // 4. documentos: as CCBs assinadas (normalmente uma; com mais de uma, baixa todas para conferência manual)
       await aguardarResposta('/FilaPropostas/DetalhePropostaDocumentos', () => PAGINA.objFilaPropostas.DetalheProposta('D'));
       const docs = [...(document.querySelector('#divDetalhePropostaBody') || document).querySelectorAll('.product-info[documento][nome]')];
       const ccbs = docs.filter(el => /^CCB ASSINADA_.*\.PDF$/i.test(el.getAttribute('nome') || ''));
-      if (ccbs.length !== 1) throw new ErroCCB(ccbs.length ? 'mais de uma CCB assinada' : 'CCB assinada não encontrada nos documentos');
-      const idDoc = ccbs[0].getAttribute('documento');
-      if (!/^\d+$/.test(idDoc || '')) throw new ErroCCB('identificador do documento inválido');
+      if (!ccbs.length) throw new ErroCCB('CCB assinada não encontrada nos documentos');
+      if (ccbs.some(el => !/^\d+$/.test(el.getAttribute('documento') || ''))) throw new ErroCCB('identificador do documento inválido');
+      // ordem do documento no sistema (id crescente): CCB1 = a mais antiga
+      ccbs.sort((a, b) => Number(a.getAttribute('documento')) - Number(b.getAttribute('documento')));
 
-      // 5. nome do arquivo: CPF_NOME_COMPLETO.pdf
+      // 5. nome do arquivo: CPF_NOME_COMPLETO.pdf (com mais de uma: CPF_NOME_COMPLETO_CCB1.pdf, _CCB2.pdf...)
       const nomeSeguro = nomeCad.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
         .replace(/\s+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
-      const nomeArquivo = cpf + '_' + nomeSeguro + '.pdf';
+      const base = cpf + '_' + nomeSeguro;
+      const varias = ccbs.length > 1;
 
-      // 6. download pelo próprio sistema
+      // 6. download pelo próprio sistema (uma por vez, esperando a resposta de cada uma)
       const dl = funcaoDownload();
-      if (dl) {
-        await aguardarResposta('/Documentos/BaixaDocumento', () => dl.Download(Number(idDoc), nomeArquivo));
-      } else {
-        // reserva: o botão de download do próprio documento (o nome do arquivo fica o do sistema)
-        const btn = ccbs[0].matches('[onclick*="Download"]') ? ccbs[0] : ccbs[0].querySelector('[onclick*="Download"], a, button');
-        if (!btn) throw new ErroCCB('função de download do sistema não encontrada', true);
-        await aguardarResposta('/Documentos/BaixaDocumento', () => btn.click());
+      const arquivos = [];
+      for (let k = 0; k < ccbs.length; k++) {
+        const el = ccbs[k];
+        const nomeArquivo = base + (varias ? '_CCB' + (k + 1) : '') + '.pdf';
+        if (dl) {
+          await aguardarResposta('/Documentos/BaixaDocumento', () => dl.Download(Number(el.getAttribute('documento')), nomeArquivo));
+        } else {
+          // reserva: o botão de download do próprio documento (o nome do arquivo fica o do sistema)
+          const btn = el.matches('[onclick*="Download"]') ? el : el.querySelector('[onclick*="Download"], a, button');
+          if (!btn) throw new ErroCCB('função de download do sistema não encontrada', true);
+          await aguardarResposta('/Documentos/BaixaDocumento', () => btn.click());
+        }
+        arquivos.push(nomeArquivo);
+        if (varias && k < ccbs.length - 1) await sleep(700);
       }
       jaBaixadas.add(l.id);
       fecharDetalhe();
       await sleep(700);
-      return { proposta: l.numero || l.id, arquivo: nomeArquivo };
+      return { proposta: l.numero || l.id, arquivo: arquivos[0], arquivos };
     }
 
     const ccbStatus = t => ($('#mf-ccb-st').textContent = t);
@@ -3887,7 +3896,7 @@
       const ign = cfg('ignorarCanceladasTestes');
       ccb.rodando = true; ccb.parar = false;
       $('#mf-ccb-baixar').disabled = true; $('#mf-ccb-parar').disabled = false; $('#mf-ccb-ler').disabled = true;
-      const ok = [], erros = [], jaBaixadas = new Set();
+      const ok = [], erros = [], jaBaixadas = new Set(), variasCCB = [];
       let interrompido = '';
       fecharDetalhe();
       try {
@@ -3897,6 +3906,7 @@
           try {
             const r = await baixarUmaCCB(itens[i], ign, jaBaixadas);
             ok.push(r.proposta);
+            if (r.arquivos.length > 1) variasCCB.push(r.proposta + ' (' + r.arquivos.length + ' CCBs)');
           } catch (e) {
             fecharDetalhe();
             erros.push((i + 1) + '. ' + itens[i] + ': ' + e.message);
@@ -3910,6 +3920,7 @@
       }
       ccbStatus(ok.length + ' baixada(s), ' + erros.length + ' com problema' + (interrompido ? ' · ' + interrompido : '') + '.');
       msg('CCBs: ' + ok.length + ' de ' + itens.length + ' download(s) solicitado(s)' + (ok.length ? ' (propostas ' + ok.join(', ') + ')' : '') + '.' +
+        (variasCCB.length ? '\nCom mais de uma CCB assinada (baixadas como _CCB1, _CCB2...; confira e escolha uma):\n' + variasCCB.join('\n') : '') +
         (erros.length ? '\nNão baixadas:\n' + erros.join('\n') : '') + (interrompido ? '\nLote ' + interrompido + '.' : ''));
     };
 
