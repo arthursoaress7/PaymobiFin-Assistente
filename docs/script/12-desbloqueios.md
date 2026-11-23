@@ -47,12 +47,12 @@ Cumpriu Acordo? · Tipo de atendimento · Parcelas em atraso · Observação
 |---|---|
 | Tipo de desbloqueio | Texto |
 | Data do desbloqueio | Data |
-| Motivo | Texto livre |
+| Motivo | Seleção: Desbloqueio por Pagamento / Desbloqueio por confiança |
 | Adicionado à régua | Seleção: SIM / NÃO |
 | Cumpriu acordo? | Seleção: SIM / NÃO |
 | Tipo de atendimento | Seleção: RD / Paymobi / Recupere (padrão: RD) |
 | Parcelas em atraso | Número |
-| Observação | Texto livre |
+| Observação | Seleção (preenchida pelo motivo; pode ser trocada à parte) |
 
 ---
 
@@ -60,11 +60,27 @@ Cumpriu Acordo? · Tipo de atendimento · Parcelas em atraso · Observação
 
 | Função | Descrição |
 |---|---|
-| `atDesbBloco(campos)` | Renderiza os campos do desbloqueio no container `#mf-at-desb-campos` |
+| `atDesbBloco(campos)` | Renderiza os campos do desbloqueio no container `#mf-at-desb-campos` e liga o motivo à observação (`AT_DESB_OBS`) |
 | `atDesbAplicarCliente()` | Preenche os campos do cliente a partir da busca ativa (sem preencher campos de negociação) |
 | `atDesenhar()` (modificada) | Quando `ngCtx === 'desbloqueios'`, esconde `#mf-at-form` e `#mf-at-mensagens`, mostra `#mf-at-desbloqueio` e renderiza os campos |
 | `atValidar()` (modificada) | Para desbloqueios, valida apenas Proposta e Nome como obrigatórios |
 | `atLinhas()` (modificada) | Para desbloqueios, retorna 1 linha com `AT_COL_DESBLOQUEIO` |
+
+---
+
+## Motivo e Observação (opções fixas)
+
+Os dois campos são seleções. Cada motivo tem uma observação vinculada (constante `AT_DESB_OBS`):
+
+| Motivo | Observação preenchida |
+|---|---|
+| Desbloqueio por Pagamento | Cliente realizou o pagamento, compartilhou o comprovante |
+| Desbloqueio por confiança | Cliente precisava do desbloqueio para acessar comprovante |
+
+- Escolher o motivo preenche a observação vinculada (`atDesbBloco` liga o evento).
+- A observação pode ser trocada depois, sem alterar o motivo.
+- Voltar o motivo para "(em branco)" não apaga a observação.
+- A planilha recebe o texto da opção, como antes recebia o texto digitado.
 
 ---
 
@@ -90,9 +106,9 @@ Nenhuma chave nova. O contexto ativo é salvo em `atModelo` (existente), que ago
 |---|---|---|
 | `tipo_desbloqueio` | Tipo de desbloqueio | texto |
 | `data_desbloqueio` | Data do desbloqueio | data |
-| `motivo_desbloqueio` | Motivo | area |
+| `motivo_desbloqueio` | Motivo | select (em branco / Desbloqueio por Pagamento / Desbloqueio por confiança) |
 | `adicionado_regua` | Adicionado à régua | select (SIM/NÃO) |
 | `cumpriu_acordo` | Cumpriu acordo? | select (SIM/NÃO) |
 | `tipo_atendimento_desb` | Tipo de atendimento | select (RD/Paymobi/Recupere) |
 | `desb_parcelas_atraso` | Parcelas em atraso | num |
-| `obs_desbloqueio` | Observação | area |
+| `obs_desbloqueio` | Observação | select (em branco / as duas observações de `AT_DESB_OBS`) |
