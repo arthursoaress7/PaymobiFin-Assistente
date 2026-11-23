@@ -37,7 +37,9 @@
 - **Timeouts apenas em `CONFIG`** — nunca valores hard-coded fora dele
 - **Use o prefixo correto** para novas funções (`ng`, `at`, `lb`, `tm`, `cac`, `eq`, `hs`, `bs`, `pd`, `rd`, `er`)
 - **Alterações críticas (arquitetura, armazenamento, segurança, workflows) exigem autorização explícita**
-- **Prioridade atual (P0): consolidar o acesso ao ER** — trabalho na branch `feature/api-er`; leia `docs/PLANO-API-ER.md` e o item 23 do `instructions.md`
+- **Prioridades atuais (P0, 23/11/2026):** otimizar as funções existentes, manter a documentação sempre igual ao estado do projeto e registrar logs temporários de cada ação — ver `PRIORIDADES.md` e o item 23 do `instructions.md`
+- **Fora do escopo:** API/camada de acesso ao ER, API oficial do fornecedor e site próprio. Não propor nem retomar sem nova decisão do responsável
+- **Documentação acompanha o código:** todo PR que muda comportamento atualiza no mesmo PR o `docs/script/<módulo>.md` (e `instructions.md`/`PRIORIDADES.md` quando aplicável)
 
 ---
 
@@ -86,9 +88,8 @@ docs/script/09-equipe.md
 docs/script/10-navegacao-busca.md
 docs/script/11-rd-encerramento.md
 docs/script/12-desbloqueios.md
-docs/script/13-api-er.md           ← rotas do ER e do motor (P0)
-docs/PLANO-API-ER.md               ← plano da P0 (acesso ao ER)
-docs/PROPOSTA-CAMADA-ER.md         ← desenho da camada er (P0.2)
+docs/script/13-rotas-er.md         ← rotas do ER e do motor usadas pelo script
+PRIORIDADES.md                      ← prioridades funcionais
 README.md
 .github/SETUP.md                    ← configurações para o proprietário
 ```
