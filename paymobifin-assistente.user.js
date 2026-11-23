@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.37.0
+// @version      13.37.1
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -30,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.37.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.37.1');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -5821,15 +5821,15 @@
       formalizou: { rot: 'Formalizou o acordo?', tipo: 'select', opcoes: [['SIM', 'SIM'], ['NÃO', 'NÃO']] },
       obs_reneg: { rot: 'Observação (todas as linhas)', tipo: 'texto', dica: 'Ex.: Boletos no App' },
       // ---- Desbloqueios ----
-      tipo_desbloqueio: { rot: 'Tipo de desbloqueio', tipo: 'texto' },
+      // Tipo de desbloqueio e Motivo: opções fixas (escolher o tipo preenche o motivo vinculado; ver AT_DESB_MOTIVO). Observação: texto livre
+      tipo_desbloqueio: { rot: 'Tipo de desbloqueio', tipo: 'select', opcoes: [['', '(em branco)'], ['Desbloqueio por pagamento', 'Desbloqueio por pagamento'], ['Desbloqueio por confiança', 'Desbloqueio por confiança']] },
       data_desbloqueio: { rot: 'Data do desbloqueio', tipo: 'data' },
-      // Motivo e Observação: opções fixas (escolher o motivo preenche a observação vinculada; ver AT_DESB_OBS)
-      motivo_desbloqueio: { rot: 'Motivo', tipo: 'select', opcoes: [['', '(em branco)'], ['Desbloqueio por Pagamento', 'Desbloqueio por Pagamento'], ['Desbloqueio por confiança', 'Desbloqueio por confiança']] },
+      motivo_desbloqueio: { rot: 'Motivo', tipo: 'select', opcoes: [['', '(em branco)'], ['Cliente realizou o pagamento, compartilhou o comprovante', 'Cliente realizou o pagamento, compartilhou o comprovante'], ['Cliente precisava do desbloqueio para acessar comprovante', 'Cliente precisava do desbloqueio para acessar comprovante']] },
       adicionado_regua: { rot: 'Adicionado à régua', tipo: 'select', opcoes: [['', '(em branco)'], ['SIM', 'SIM'], ['NÃO', 'NÃO']] },
       cumpriu_acordo: { rot: 'Cumpriu acordo?', tipo: 'select', opcoes: [['', '(em branco)'], ['SIM', 'SIM'], ['NÃO', 'NÃO']] },
       tipo_atendimento_desb: { rot: 'Tipo de atendimento', tipo: 'select', opcoes: [['RD', 'RD'], ['Paymobi', 'Paymobi'], ['Recupere', 'Recupere']], padrao: 'RD' },
       desb_parcelas_atraso: { rot: 'Parcelas em atraso', tipo: 'num' },
-      obs_desbloqueio: { rot: 'Observação', tipo: 'select', opcoes: [['', '(em branco)'], ['Cliente realizou o pagamento, compartilhou o comprovante', 'Cliente realizou o pagamento, compartilhou o comprovante'], ['Cliente precisava do desbloqueio para acessar comprovante', 'Cliente precisava do desbloqueio para acessar comprovante']] },
+      obs_desbloqueio: { rot: 'Observação', tipo: 'area' },
       plano_entrada_valor: { rot: 'Entrada (linha 1)', tipo: 'moeda' },
       plano_entrada_data: { rot: 'Data da entrada', tipo: 'data' },
       plano_qtd: { rot: 'Nº de parcelas', tipo: 'num' },
@@ -5863,9 +5863,9 @@
       ['IMEI', 'imei'], ['Data da proposta', 'data_proposta'], ['Data do desbloqueio', 'data_desbloqueio'], ['Loja', 'filial'], ['Vendedor', 'atendente'],
       ['Motivo', 'motivo_desbloqueio'], ['Adicionado à régua', 'adicionado_regua'], ['Cumpriu Acordo?', 'cumpriu_acordo'],
       ['Tipo de atendimento', 'tipo_atendimento_desb'], ['Parcelas em atraso', 'desb_parcelas_atraso'], ['Observação', 'obs_desbloqueio']];
-    // observação que acompanha cada motivo (a observação pode ser trocada depois, sem mudar o motivo)
-    const AT_DESB_OBS = {
-      'Desbloqueio por Pagamento': 'Cliente realizou o pagamento, compartilhou o comprovante',
+    // motivo que acompanha cada tipo de desbloqueio (o motivo pode ser trocado depois, sem mudar o tipo)
+    const AT_DESB_MOTIVO = {
+      'Desbloqueio por pagamento': 'Cliente realizou o pagamento, compartilhou o comprovante',
       'Desbloqueio por confiança': 'Cliente precisava do desbloqueio para acessar comprovante',
     };
     let atPlano = [];   // linhas da Renegociação (em memória, como o resto da ficha)
@@ -6134,11 +6134,11 @@
       const g = $('#mf-at-desb-campos'); g.innerHTML = '';
       const obrig = ['proposta', 'nome'];
       campos.forEach(c => g.appendChild(ngCampoEl(c, NG_CAMPOS[c].rot, obrig.includes(c))));
-      // escolher o motivo preenche a observação vinculada (motivo em branco não apaga a observação)
-      const mot = g.querySelector('[data-campo="motivo_desbloqueio"]'), obs = g.querySelector('[data-campo="obs_desbloqueio"]');
-      if (mot && obs) mot.addEventListener('change', () => {
-        const o = AT_DESB_OBS[mot.value];
-        if (o) { obs.value = o; ngValores.obs_desbloqueio = o; }
+      // escolher o tipo de desbloqueio preenche o motivo vinculado (tipo em branco não apaga o motivo)
+      const tipo = g.querySelector('[data-campo="tipo_desbloqueio"]'), mot = g.querySelector('[data-campo="motivo_desbloqueio"]');
+      if (tipo && mot) tipo.addEventListener('change', () => {
+        const m = AT_DESB_MOTIVO[tipo.value];
+        if (m) { mot.value = m; ngValores.motivo_desbloqueio = m; }
       });
     }
     function atDesbAplicarCliente() {
