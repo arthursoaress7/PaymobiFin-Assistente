@@ -37,7 +37,7 @@ O Claude deve respeitar integralmente o `instructions.md` e as regras de governa
 2. **Documentação com fluxo automático de atualização:** a documentação sempre acompanha o estado atual do projeto.
 3. **Logs temporários:** o script registra como se comportou e o que aconteceu em cada ação, para revisar quando quiser otimizar algo.
 
-**Fora do escopo:** o plano de implementar uma API, que era a P0 de 11/11/2026 (camada única de acesso ao ER, branch `feature/api-er`), e a antiga P4.11 (API oficial do fornecedor e site próprio). Nada disso chegou ao script em produção (`erBuscar` nunca foi implementado). `docs/PLANO-API-ER.md` e `docs/PROPOSTA-CAMADA-ER.md` foram removidos (histórico no Git); o mapeamento das rotas que o script usa hoje continua em [`docs/script/13-rotas-er.md`](./docs/script/13-rotas-er.md). Não retomar sem nova decisão do responsável.
+**Fora do escopo:** o plano de implementar uma API, que era a P0 de 11/11/2026 (camada única de acesso ao ER, branch `feature/api-er`), e a antiga P4.11 (API oficial do fornecedor e site próprio). Nada disso chegou ao script em produção (`erBuscar` nunca foi implementado). `docs/PLANO-API-ER.md` e `docs/PROPOSTA-CAMADA-ER.md` foram removidos (histórico no Git); o mapeamento das rotas que o script usa hoje continua em [`docs/script/13-rotas-er.md`](./docs/script/13-rotas-er.md). As branches com o código já feito desse plano ficam guardadas como possíveis implementações em [`docs/BRANCHES-IMPLEMENTACOES-POSSIVEIS.md`](./docs/BRANCHES-IMPLEMENTACOES-POSSIVEIS.md). Não retomar sem nova decisão do responsável.
 
 ---
 
