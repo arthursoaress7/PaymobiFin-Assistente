@@ -29,71 +29,48 @@ O Claude deve respeitar integralmente o `instructions.md` e as regras de governa
 
 ---
 
-## Mudança de plano (11/11/2026)
+## Mudança de plano (23/11/2026)
 
-**Decisão do responsável:** a prioridade máxima passa a ser **consolidar o acesso aos dados do ER** em uma camada única, que funcione como uma API para o resto do script, e eliminar a dependência da tela ao vivo (árvore DOM/React).
+**Decisão do responsável:** as prioridades atuais passam a ser:
 
-**Contexto (analisado no código, v13.29.0):**
-- O ER é um sistema ASP.NET MVC que monta o HTML no servidor. O script **já** busca a maior parte dos dados direto nas rotas do ER, com a sessão (cookie) do usuário, e lê o HTML devolvido com `DOMParser`. Só uma rota usada devolve JSON (`/CentralAtendimento/BuscaCartao`).
-- Essas requisições estão espalhadas em pelo menos seis formas diferentes (`cacReq`, `erReq`, `bsFila`, `dadosCliente`, `buscarDetalhe`, coleta do Diário), cada uma com seu tratamento de erro, tempo e sessão.
-- Ainda dependem da tela ao vivo: o motor MobFacil (árvore React no iframe, com cliques), login, navegação automática, "Ler da tela" e `PAGINA.eval()` nos CCBs.
-- A atualização visual do ER de 05/11/2026 (P4.9) só quebrou a detecção de sessão expirada; a leitura via rotas continuou funcionando.
+1. **Otimização das funções existentes.**
+2. **Documentação com fluxo automático de atualização:** a documentação sempre acompanha o estado atual do projeto.
+3. **Logs temporários:** o script registra como se comportou e o que aconteceu em cada ação, para revisar quando quiser otimizar algo.
 
-**Objetivo:** cada módulo pede dados à camada (`erBuscar('cliente', { proposta })`) e recebe um objeto pronto, sem saber se veio de HTML, JSON ou, no futuro, da API oficial. Uma mudança no ER passa a ser corrigida em um ponto só e detectada com aviso.
-
-Plano detalhado: [`docs/PLANO-API-ER.md`](./docs/PLANO-API-ER.md). A API oficial do fornecedor e um site próprio ficam como evolução futura (P4.11).
-
-**Renumeração:** as prioridades anteriores desceram um nível (P0→P1 lembretes, P1→P2 mensagens, P2→P3 acordos, P3→P4 geral), com os subitens acompanhando (ex.: o antigo P3.8 agora é P4.8).
+**Fora do escopo:** o plano de implementar uma API, que era a P0 de 11/11/2026 (camada única de acesso ao ER, branch `feature/api-er`), e a antiga P4.11 (API oficial do fornecedor e site próprio). Nada disso chegou ao script em produção (`erBuscar` nunca foi implementado). `docs/PLANO-API-ER.md` e `docs/PROPOSTA-CAMADA-ER.md` foram removidos (histórico no Git); o mapeamento das rotas que o script usa hoje continua em [`docs/script/13-rotas-er.md`](./docs/script/13-rotas-er.md). Não retomar sem nova decisão do responsável.
 
 ---
 
-## P0 — Consolidação do acesso aos dados do ER
+## P0 — Prioridades atuais
 
-**Status geral:** Em andamento (branch `feature/api-er`)  
-**Objetivo:** uma camada única de acesso ao ER, com leitores por rota que devolvem dados estruturados, e fim da dependência da tela ao vivo.
-
-### Princípios
-
-- **Somente leitura:** nenhuma requisição que altere dados no ER sem decisão explícita do responsável.
-- **Comportamento idêntico:** cada módulo migrado gera exatamente o mesmo resultado de antes (comparar com casos reais).
-- **Plano B:** o caminho atual continua disponível até a migração ser validada em uso real.
-- **Mudança detectada, não silenciosa:** se a resposta do ER não tiver a estrutura esperada, o painel avisa qual rota mudou, em vez de gravar dados errados.
-- **Sessão:** a autenticação é o cookie do ER (sem token). Nada de sessão é armazenado ou registrado em log.
-- **Dentro do monólito:** a camada fica em `paymobifin-assistente.user.js`, numa seção própria, consolidando as funções `er*` que já existem.
-- **Um módulo por vez:** cada migração em uma sub-branch com PR para `feature/api-er`.
+**Status geral:** Pendente  
+**Objetivo:** melhorar o que já existe, com documentação sempre fiel ao código e registro do comportamento do script para orientar as otimizações.
 
 ### Tarefas
 
-- [x] **P0.1 — Inventário e mapeamento das rotas do ER**  
-  **Status:** Concluído para o desenho (12/11/2026). Pendências menores (CAC por nome, detalhe de autorização, rotas de detalhe dos CCBs) ficam para a migração de cada módulo. Histórico: (11/11/2026: inventário preliminar das rotas do ER em `docs/PLANO-API-ER.md`; motor MobFacil mapeado em `docs/script/13-api-er.md`: `/api/visualizador` devolve em JSON todos os campos da coleta)  
-  **Objetivo:** listar todas as rotas e leituras de tela usadas pelo script e, no DevTools, verificar quais telas do ER carregam dados por JSON (inclusive o motor MobFacil).  
-  **Critérios de aceite:** `docs/script/13-api-er.md` com, para cada rota: método, parâmetros, formato da resposta (HTML/JSON), funções que a usam e dados extraídos.
+- [ ] **P0.1 — Otimização das funções existentes**  
+  **Status:** Pendente  
+  **Objetivo:** tornar mais rápidas, confiáveis e simples as funções já em uso, sem criar funcionalidades novas sem necessidade confirmada.  
+  **Como:** as frentes P1 (lembretes), P2 (mensagens), P3 (acordos) e P4 (geral) abaixo são o backlog desta tarefa. Os logs da P0.3 indicam onde atacar primeiro (ações lentas, com erro ou repetidas).  
+  **Critérios de aceite:** cada otimização com antes/depois descrito no PR e status atualizado neste arquivo.
 
-- [x] **P0.2 — Desenho da camada** (Categoria B)  
-  **Status:** **Aprovado pelo responsável em 12/11/2026** (as 8 decisões da seção 12 de [`docs/PROPOSTA-CAMADA-ER.md`](./docs/PROPOSTA-CAMADA-ER.md)), dentro do monólito  
-  **Objetivo:** definir `erBuscar`, o registro de rotas, os leitores por rota, o tratamento padrão de erros e sessão e os avisos de mudança.  
-  **Dependências:** P0.1. Exige autorização explícita antes de P0.3.
+- [ ] **P0.2 — Documentação com atualização automática**  
+  **Status:** Pendente  
+  **Objetivo:** a documentação nunca fica atrás do código.  
+  **Como (em etapas):**
+  1. Regra (Categoria A, aplicada em 23/11/2026): todo PR que muda comportamento atualiza no mesmo PR os documentos do item 18 do `instructions.md`; PR que altera o script sem tocar em documento explica o porquê (item 23 do `instructions.md`).
+  2. Verificação automática no `validate-pr.yml`: avisar ou bloquear PR que altera `paymobifin-assistente.user.js` sem alterar nenhum arquivo em `docs/`, `instructions.md` ou `README.md` (Categoria B: workflow, exige autorização).
+  3. Inclui o item já registrado em P4.5: conferir se a versão da documentação bate com o `@version` (a validação já confere `instructions.md`, `CLAUDE.md`, `01-visao-geral.md` e `03-painel-interface.md`).  
+  **Critérios de aceite:** etapa 2 aprovada e ativa; nenhum PR integrado com documentação desatualizada.  
+  **Decisão pendente:** a verificação da etapa 2 só avisa ou bloqueia o merge?
 
-- [ ] **P0.3 — Implementar a camada base** (Categoria B)  
-  **Objetivo:** camada funcionando sem nenhum módulo migrado; nenhum comportamento existente muda.
-
-- [ ] **P0.4 — Piloto: Relatório de Pendências**  
-  **Objetivo:** `pd` passa a usar a camada. Texto gerado idêntico ao atual (propostas 5017 e 4959 e fila de um dia real).
-
-- [ ] **P0.5 — Migrar as demais rotas HTML**  
-  **Objetivo:** busca de cliente, `dadosCliente`/aba Cliente, CAC, Fila de Propostas, CCBs (download), RD (`erReq`). Um PR por módulo.
-
-- [ ] **P0.6 — Motor MobFacil sem cliques** (Categoria B)  
-  **Objetivo:** ler o JSON de `/api/visualizador` (confirmado em 11/11/2026) em vez de navegar e clicar na árvore, mantendo a árvore como plano B.
-
-- [ ] **P0.7 — Demais dependências da tela ao vivo**  
-  **Objetivo:** avaliar caso a caso CCBs (`PAGINA.eval()`), login e troca de conta (Categoria B), navegação automática e "Ler da tela".
-
-- [ ] **P0.8 — Remover caminhos duplicados**  
-  **Objetivo:** depois de validado em uso real, remover as funções de requisição antigas substituídas pela camada.
-
-- [ ] **P0.9 — Integrar `feature/api-er` em `development`**  
-  **Objetivo:** PR único da branch de funcionalidade para `development`, depois de todas as tarefas acima validadas.
+- [ ] **P0.3 — Logs temporários de comportamento** (Categoria B: nova chave de armazenamento)  
+  **Status:** Pendente — aguardando desenho  
+  **Objetivo:** registrar, em cada ação do script, o que aconteceu e como ele se comportou, para revisão quando for preciso otimizar.  
+  **Comportamento esperado:** cada ação (coleta, CAC, relatórios, mensagens, acordos, lembretes, troca de conta etc.) grava data/hora, módulo, ação, resultado (ok/erro/aviso), duração e motivo do erro. Os registros são temporários (limite de entradas e de dias, descarte automático) e podem ser vistos, copiados/exportados e limpos no painel.  
+  **Regras:** sem dados pessoais de clientes, senhas, segredos da equipe, cookies, tokens ou respostas do ER (item 23 do `instructions.md`).  
+  **Critérios de aceite:** desenho aprovado pelo responsável (chave, limites, onde visualizar); logs gravados nas ações dos módulos; nenhum dado sensível nos registros; script sem lentidão perceptível.  
+  **Decisões pendentes:** por quantos dias guardar e quantas entradas no máximo; se o número da proposta pode aparecer no log; onde ver os logs (aba do painel ou Configurações).
 
 ---
 
@@ -461,20 +438,16 @@ O módulo de geração de acordos (`at*`) já possui:
   **Status:** Ideia registrada (12/11/2026)  
   **Objetivo:** bloquear o merge quando algum teste falhar e, depois, exigir cobertura mínima (ex.: 80%) nas partes testáveis do script.  
   **Como (em etapas):**
-  1. Estrutura de testes em Node (sem build) e exemplos de resposta do ER/motor tirados dos HARs da P0, com dados pessoais trocados por fictícios.
-  2. Testes dos leitores da camada `er` (P0) e de cálculos puros já existentes (vencimentos, conversão de valores).
+  1. Estrutura de testes em Node (sem build) e exemplos de resposta do ER/motor tirados dos HARs de 11 e 12/11/2026, com dados pessoais trocados por fictícios.
+  2. Testes de cálculos puros já existentes (vencimentos, conversão de valores) e das funções que leem as respostas do ER.
   3. `validate-pr.yml` rodando os testes também em PRs para `development` (Categoria B: workflow).
-  4. Cobertura mínima aplicada só à seção da camada `er` e ao que for extraído para ela (80% do arquivo inteiro não é realista: boa parte é interface e cliques no ER).  
-  **Dependências:** P0.3 (camada `er` no nível de cima do script, testável); proteção de branch com o teste como verificação obrigatória (configuração do proprietário, ver `.github/SETUP.md`).  
-  **Observações:** o script precisa de um gancho mínimo que exponha a camada só quando roda nos testes (nunca no navegador).
+  4. Cobertura mínima aplicada só às funções testáveis (80% do arquivo inteiro não é realista: boa parte é interface e cliques no ER).  
+  **Dependências:** funções testáveis no nível de cima do script; proteção de branch com o teste como verificação obrigatória (configuração do proprietário, ver `.github/SETUP.md`).  
+  **Observações:** o script precisa de um gancho mínimo que exponha essas funções só quando roda nos testes (nunca no navegador).
 
 ---
 
-- [ ] **P4.11 — API oficial do ER e site próprio (evolução futura)**
-
-  **Status:** Ideia registrada (11/11/2026) — não iniciar antes de P0 concluída  
-  **Objetivo:** não depender do front do ER. Opções: API oficial do fornecedor (exige autorização da gestão e processos administrativos) e um site próprio do PayMobi.  
-  **Observações:** a camada de P0 é a peça trocável: com a API oficial, muda só a fonte dos dados. Um site em outro domínio não consegue chamar as rotas internas do ER com a sessão do usuário (CORS e cookies), então precisaria da API oficial ou de uma ponte (userscript/extensão). Avaliar LGPD antes de guardar dados de clientes fora do navegador. Categoria B.
+- ~~**P4.11 — API oficial do ER e site próprio**~~ — **Fora do escopo** (decisão de 23/11/2026).
 
 - [x] **P4.14 — Relatório de Impeditivos BMP**
 
@@ -490,13 +463,12 @@ O módulo de geração de acordos (`at*`) já possui:
 
 | # | Tema | Decisão |
 |---|---|---|
-| A | Proposta da camada `er` (P0.2) | **Aprovada** (8 itens da seção 12 da proposta) |
-| B | Arquitetura (módulos com build, gerenciamento de estado) | **Decidir depois de mapear todo o projeto.** Até lá a camada é escrita dentro do monólito (decisão 1 da proposta) |
+| A | Proposta da camada `er` (antiga P0.2) | **Cancelada em 23/11/2026:** plano de API fora do escopo |
+| B | Arquitetura (módulos com build, gerenciamento de estado) | **Decidir depois de mapear todo o projeto.** Até lá, tudo dentro do monólito |
 | C | Tratamento dos protocolos abertos pelo CAC (P4.12) | **Em revisão:** rever as opções antes de decidir |
-| D | Quem testa a `feature/api-er` no ER real | **O responsável** (por enquanto) |
 | E | Configurações do proprietário (`.github/SETUP.md`) | **Aprovado:** aplicar quando o proprietário estiver disponível. Até lá, o fluxo de merges funciona em modo parcial |
 | F | Uso das rotas internas × contrato com o fornecedor (dúvida 9) | **Em estudo** pelo responsável |
-| G | Dúvidas de P1 a P3 (tabela abaixo) | **Depois da P0** |
+| G | Dúvidas de P1 a P3 (tabela abaixo) | Retomadas com a P0.1 (otimização das funções existentes) |
 
 ---
 
@@ -511,5 +483,5 @@ O módulo de geração de acordos (`at*`) já possui:
 | 5 | Devemos impedir que alguém exclua um lembrete compartilhado que não criou? | P1.2 — hoje qualquer um pode excluir |
 | 6 | Os modelos personalizados (`negModelos`) devem ser compartilhados entre a equipe? | P2.3 — hoje são por navegador |
 | 7 | Há campos do acordo que poderiam ser preenchidos automaticamente a partir do ER? | P3.2 — hoje muitos campos são manuais |
-| 8 | ~~O ER autentica por cookie ou por token?~~ **Respondido no código (11/11/2026): cookie de sessão.** | P0 — as rotas são chamadas com `credentials: 'include'` |
-| 9 | O uso das rotas internas do ER é compatível com o contrato e os termos de uso? | P0 / P4.11 — em estudo pelo responsável (decisão F de 12/11/2026) |
+| 8 | ~~O ER autentica por cookie ou por token?~~ **Respondido no código (11/11/2026): cookie de sessão.** | As rotas são chamadas com `credentials: 'include'` |
+| 9 | O uso das rotas internas do ER é compatível com o contrato e os termos de uso? | Uso atual do script — em estudo pelo responsável (decisão F de 12/11/2026) |

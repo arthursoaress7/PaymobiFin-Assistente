@@ -1,6 +1,7 @@
-# Rotas do ER e do motor MobFacil (mapeamento da P0)
+# Rotas do ER e do motor MobFacil
 
-> Mapeamento das rotas usadas pelo script, para a camada `er` (P0 do `PRIORIDADES.md`, plano em `docs/PLANO-API-ER.md`).
+> Referência técnica das rotas que o script usa hoje no ER e no motor MobFacil (levantada em 11 e 12/11/2026 a partir do código e de HARs).
+> O plano de uma camada/API de acesso ao ER saiu do escopo em 23/11/2026: este documento só descreve o que existe.
 > Exemplos com valores fictícios. Nunca registrar aqui cookies, tokens ou dados de clientes reais.
 
 ---
@@ -26,9 +27,9 @@ Respostas de "conta errada" já tratadas pelo script:
 - Mesa de Crédito com a master: `Aprovador CONTA não cadastrado.`
 - CAC por nome com a Mesa: `Usuário sem direito de pesquisa por nome de cliente`.
 
-**Identificar a conta sem abrir telas:** `POST /MesaCredito/PreencheMesasUsuario` devolve JSON. Na conta Mesa vem a lista de mesas (`[{ "strMesa": "1", "strDescricao": "PADRÃO" }]`); na master vem `[]`, e a `MesaCreditoLista` responde `Aprovador <USUÁRIO> não cadastrado.` (HAR de 12/11/2026). É uma consulta leve que a camada pode usar para saber se a conta atual é aprovadora da Mesa.
+**Identificar a conta sem abrir telas:** `POST /MesaCredito/PreencheMesasUsuario` devolve JSON. Na conta Mesa vem a lista de mesas (`[{ "strMesa": "1", "strDescricao": "PADRÃO" }]`); na master vem `[]`, e a `MesaCreditoLista` responde `Aprovador <USUÁRIO> não cadastrado.` (HAR de 12/11/2026). É uma consulta leve que identifica se a conta atual é aprovadora da Mesa.
 
-Hoje cada módulo resolve a conta sozinho (`cacTrocaAuto`/`cacRetomar`, `pdRetomar`, aviso do RD). A camada `er` deve saber qual conta cada rota exige e devolver um motivo padronizado (`conta errada: precisa da master`) para o módulo decidir se troca.
+Cada módulo resolve a conta sozinho (`cacTrocaAuto`/`cacRetomar`, `pdRetomar`, aviso do RD).
 
 Observações:
 - O servidor do ER é IIS 10 + ASP.NET MVC 5.2. As rotas devolvem principalmente HTML montado no servidor.
@@ -156,20 +157,48 @@ Também disponível em `calculaRisco`: `Status`, `Regra`, `Idade`, `QuantidadePa
 3. ~~Proposta reprovada~~ **Resolvido** (seção acima).
 4. **Mais de uma execução por fluxo:** confirmar a ordem da lista e o efeito de `flagUltimos: true`.
 
-### Como usar (proposta para P0.6)
+### Possível otimização da coleta (não iniciada)
 
 O script já roda dentro do iframe do motor (`iniciarMotor`, mesmo domínio de `/api/visualizador`). Duas opções, a decidir com as pendências acima:
 
 - **Escutar a resposta** que o próprio motor recebe (interceptar `fetch`/`XMLHttpRequest` no iframe). Não precisa saber como o token é enviado e não gera requisição extra.
 - **Chamar a rota direto** do iframe, com os mesmos parâmetros. Mais controle, mas depende da forma de envio do token.
 
-Nos dois casos não há requisição entre domínios, então não é preciso `@connect`. A leitura atual pela árvore continua como plano B. Mudança no motor = Categoria B (P0.6).
+Nos dois casos não há requisição entre domínios, então não é preciso `@connect`. A leitura atual pela árvore continuaria como plano B. Mudança no motor = Categoria B. Registrar em `PRIORIDADES.md` antes de iniciar.
 
 ---
 
 ## Rotas do ER
 
-Inventário preliminar em `docs/PLANO-API-ER.md`, seção 3. Detalhar aqui por rota (método, parâmetros, formato, leitor) à medida que cada módulo for migrado.
+### Onde cada rota é usada (código v13.29.0)
+
+Função = onde a rota aparece (pode ser uma função interna).
+
+| Rota do ER | Resposta | Funções | Módulo |
+|---|---|---|---|
+| `/MesaCredito/MesaCreditoLista` | HTML | `erGuardarBase`, `erMesa`, busca (`pg`) | Base / RD / Busca |
+| `/MesaCredito/MesaAnaliseCliente` | HTML | `buscarDetalhe`, `dadosCliente`, `erCadastro` | Diário / Aba Cliente / RD |
+| `/MesaCredito/MesaAnaliseProposta` | HTML | `telExtrair` (`DETALHES`), `erVendedor` | Diário / RD |
+| `/MesaCredito/DetalheProposta` | HTML | `telExtrair` (`DETALHES`), `erVendedor` | Diário / RD |
+| `/MesaCredito/MesaAnaliseMobFacil` | HTML (iframe do motor) | `coletarEtapas` | Coleta |
+| `/FilaPendencias/FilaPendenciasLista` | HTML | `pdLista` | Pendências |
+| `/FilaPendencias/DetalheCompra` | HTML | `pdDetalhe` | Pendências |
+| `/FilaPropostas/FilaPropostasLista` | HTML | CCBs | CCBs |
+| `/FilaPropostas/DetalhePropostaCadastro` | HTML | CCBs | CCBs |
+| `/FilaPropostas/DetalhePropostaDocumentos` | HTML | CCBs | CCBs |
+| `/Documentos/BaixaDocumento` | Arquivo | CCBs | CCBs |
+| `/CentralAtendimento/CentralPesquisaCliente` | HTML | `cacConsultar` | CAC |
+| `/CentralAtendimento/BuscaCartao` | **JSON** | `cacAbrir` | CAC |
+| `/CentralAtendimento/CentralInicio` | HTML | `cacAbrir` | CAC |
+| `/CentralAtendimento/CentralCompras` | HTML | `cacAbrir` | CAC |
+| `/CentralAtendimento/DetalheCompra` | HTML | `cacAbrir` | CAC |
+| Fila (modelo aprendido, `filaReqModelo`) | HTML | `bsFila` | Busca |
+
+**Dependências da tela ao vivo:** árvore React do motor MobFacil (`arvoreReact`, `listaReact`, cliques), `PAGINA.eval` nos CCBs, login/troca de conta, navegação automática, "Ler da tela".
+
+**Funções `er*` existentes:** `erSemSessao`, `erGuardarBase`, `erReq`, `erDoc`, `erMesa`, `erCadastro`, `erVendedor`; chave `erBase`.
+
+**Dois meios de requisição:** no ER, `fetch` com `credentials: 'include'`; no RD (`app.tallos.com.br`), `GM_xmlhttpRequest` usando `erBase`.
 
 ### Mesa de Crédito (HAR de 11/11/2026)
 
@@ -218,8 +247,8 @@ Sequência da tela do ER ao abrir um cliente:
 
 **Protocolo de atendimento (atenção à regra "somente leitura"):**
 - **O número do protocolo nasce no `BuscaCartao`**: a resposta já traz `lngProtocoloAtendimento`, que a tela repassa ao `CentralInicio`. Nos HARs de 11/11 (01h53) e 12/11 (10h39) os números foram consecutivos (`…253` e `…254`), um por `BuscaCartao`. Em 12/11/2026, o mesmo cliente aberto duas vezes seguidas na tela gerou `…255` e `…256`. **Cada `BuscaCartao` abre um protocolo de atendimento**; a tela o encerra ao fechar a janela, o painel não (ver `PRIORIDADES.md`, P4.12, e `docs/script/07-cac.md`).
-- `CentralFinalizaProtocolo` **altera estado no ER** (encerra o protocolo). A camada `er` não pode chamá-la.
-- O script chama `BuscaCartao` em toda consulta CAC e `CentralInicio` só com `cacPosicaoGeral` ligado. Desligar a Posição Geral **não** evita o protocolo. A migração do CAC (P0.5) deve seguir o tratamento decidido no P4.12; o leitor `BuscaCartao` da camada `er` precisa ser marcado como "abre protocolo".
+- `CentralFinalizaProtocolo` **altera estado no ER** (encerra o protocolo). O script não pode chamá-la sem autorização explícita (P4.12).
+- O script chama `BuscaCartao` em toda consulta CAC e `CentralInicio` só com `cacPosicaoGeral` ligado. Desligar a Posição Geral **não** evita o protocolo. Qualquer mudança no CAC deve seguir o tratamento decidido no P4.12.
 
 `CentralCompras` (usada pelo script quando a Posição Geral está desligada) não apareceu neste HAR.
 
