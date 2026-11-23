@@ -1,5 +1,12 @@
 # Changelog
 
+## [v13.37.1] — 2026-11-23
+
+### 🐛 Correções
+
+- fix: motivo do desbloqueio acompanha o tipo e observação volta a texto livre (#133) (ebc5afd)
+- fix: opções fixas do desbloqueio no tipo de desbloqueio, motivo volta a texto livre (#131) (38b2aac)
+
 ## [v13.37.0] — 2026-11-23
 
 ### ✨ Novas funcionalidades
