@@ -17,6 +17,17 @@ Faz o download em lote das CCBs das propostas listadas na Fila de Propostas do E
 2. "Baixar CCBs" — para cada proposta, acessa o endpoint do ER e faz o download do documento
 3. Os arquivos são salvos localmente via link de download gerado pelo script
 
+### Mais de uma CCB assinada
+
+Quando os documentos da proposta têm mais de uma `CCB ASSINADA_*.PDF`, todas são baixadas (uma por vez), em ordem crescente do identificador do documento no sistema (`CCB1` = a mais antiga):
+
+- uma CCB: `CPF_NOME.pdf` (sem mudança)
+- várias: `CPF_NOME_CCB1.pdf`, `CPF_NOME_CCB2.pdf`...
+
+O resumo final lista essas propostas para a conferência manual, em que a equipe escolhe uma. Antes da v13.36.6 a proposta era recusada com "mais de uma CCB assinada".
+
+A regra de **uma** proposta efetivada e assinada por nome/número continua igual (com mais de uma, a proposta não é baixada).
+
 ### Configuração de tempo
 
 | Parâmetro | Valor padrão | Descrição |
