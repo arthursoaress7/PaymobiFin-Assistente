@@ -5821,10 +5821,10 @@
       formalizou: { rot: 'Formalizou o acordo?', tipo: 'select', opcoes: [['SIM', 'SIM'], ['NÃO', 'NÃO']] },
       obs_reneg: { rot: 'Observação (todas as linhas)', tipo: 'texto', dica: 'Ex.: Boletos no App' },
       // ---- Desbloqueios ----
-      tipo_desbloqueio: { rot: 'Tipo de desbloqueio', tipo: 'texto' },
+      // Tipo de desbloqueio e Observação: opções fixas (escolher o tipo preenche a observação vinculada; ver AT_DESB_OBS)
+      tipo_desbloqueio: { rot: 'Tipo de desbloqueio', tipo: 'select', opcoes: [['', '(em branco)'], ['Desbloqueio por Pagamento', 'Desbloqueio por Pagamento'], ['Desbloqueio por confiança', 'Desbloqueio por confiança']] },
       data_desbloqueio: { rot: 'Data do desbloqueio', tipo: 'data' },
-      // Motivo e Observação: opções fixas (escolher o motivo preenche a observação vinculada; ver AT_DESB_OBS)
-      motivo_desbloqueio: { rot: 'Motivo', tipo: 'select', opcoes: [['', '(em branco)'], ['Desbloqueio por Pagamento', 'Desbloqueio por Pagamento'], ['Desbloqueio por confiança', 'Desbloqueio por confiança']] },
+      motivo_desbloqueio: { rot: 'Motivo', tipo: 'area' },
       adicionado_regua: { rot: 'Adicionado à régua', tipo: 'select', opcoes: [['', '(em branco)'], ['SIM', 'SIM'], ['NÃO', 'NÃO']] },
       cumpriu_acordo: { rot: 'Cumpriu acordo?', tipo: 'select', opcoes: [['', '(em branco)'], ['SIM', 'SIM'], ['NÃO', 'NÃO']] },
       tipo_atendimento_desb: { rot: 'Tipo de atendimento', tipo: 'select', opcoes: [['RD', 'RD'], ['Paymobi', 'Paymobi'], ['Recupere', 'Recupere']], padrao: 'RD' },
@@ -5863,7 +5863,7 @@
       ['IMEI', 'imei'], ['Data da proposta', 'data_proposta'], ['Data do desbloqueio', 'data_desbloqueio'], ['Loja', 'filial'], ['Vendedor', 'atendente'],
       ['Motivo', 'motivo_desbloqueio'], ['Adicionado à régua', 'adicionado_regua'], ['Cumpriu Acordo?', 'cumpriu_acordo'],
       ['Tipo de atendimento', 'tipo_atendimento_desb'], ['Parcelas em atraso', 'desb_parcelas_atraso'], ['Observação', 'obs_desbloqueio']];
-    // observação que acompanha cada motivo (a observação pode ser trocada depois, sem mudar o motivo)
+    // observação que acompanha cada tipo de desbloqueio (a observação pode ser trocada depois, sem mudar o tipo)
     const AT_DESB_OBS = {
       'Desbloqueio por Pagamento': 'Cliente realizou o pagamento, compartilhou o comprovante',
       'Desbloqueio por confiança': 'Cliente precisava do desbloqueio para acessar comprovante',
@@ -6134,10 +6134,10 @@
       const g = $('#mf-at-desb-campos'); g.innerHTML = '';
       const obrig = ['proposta', 'nome'];
       campos.forEach(c => g.appendChild(ngCampoEl(c, NG_CAMPOS[c].rot, obrig.includes(c))));
-      // escolher o motivo preenche a observação vinculada (motivo em branco não apaga a observação)
-      const mot = g.querySelector('[data-campo="motivo_desbloqueio"]'), obs = g.querySelector('[data-campo="obs_desbloqueio"]');
-      if (mot && obs) mot.addEventListener('change', () => {
-        const o = AT_DESB_OBS[mot.value];
+      // escolher o tipo de desbloqueio preenche a observação vinculada (tipo em branco não apaga a observação)
+      const tipo = g.querySelector('[data-campo="tipo_desbloqueio"]'), obs = g.querySelector('[data-campo="obs_desbloqueio"]');
+      if (tipo && obs) tipo.addEventListener('change', () => {
+        const o = AT_DESB_OBS[tipo.value];
         if (o) { obs.value = o; ngValores.obs_desbloqueio = o; }
       });
     }

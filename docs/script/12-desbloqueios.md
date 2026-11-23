@@ -45,14 +45,14 @@ Cumpriu Acordo? · Tipo de atendimento · Parcelas em atraso · Observação
 
 | Campo | Tipo |
 |---|---|
-| Tipo de desbloqueio | Texto |
+| Tipo de desbloqueio | Seleção: Desbloqueio por Pagamento / Desbloqueio por confiança |
 | Data do desbloqueio | Data |
-| Motivo | Seleção: Desbloqueio por Pagamento / Desbloqueio por confiança |
+| Motivo | Texto livre |
 | Adicionado à régua | Seleção: SIM / NÃO |
 | Cumpriu acordo? | Seleção: SIM / NÃO |
 | Tipo de atendimento | Seleção: RD / Paymobi / Recupere (padrão: RD) |
 | Parcelas em atraso | Número |
-| Observação | Seleção (preenchida pelo motivo; pode ser trocada à parte) |
+| Observação | Seleção (preenchida pelo tipo de desbloqueio; pode ser trocada à parte) |
 
 ---
 
@@ -60,7 +60,7 @@ Cumpriu Acordo? · Tipo de atendimento · Parcelas em atraso · Observação
 
 | Função | Descrição |
 |---|---|
-| `atDesbBloco(campos)` | Renderiza os campos do desbloqueio no container `#mf-at-desb-campos` e liga o motivo à observação (`AT_DESB_OBS`) |
+| `atDesbBloco(campos)` | Renderiza os campos do desbloqueio no container `#mf-at-desb-campos` e liga o tipo de desbloqueio à observação (`AT_DESB_OBS`) |
 | `atDesbAplicarCliente()` | Preenche os campos do cliente a partir da busca ativa (sem preencher campos de negociação) |
 | `atDesenhar()` (modificada) | Quando `ngCtx === 'desbloqueios'`, esconde `#mf-at-form` e `#mf-at-mensagens`, mostra `#mf-at-desbloqueio` e renderiza os campos |
 | `atValidar()` (modificada) | Para desbloqueios, valida apenas Proposta e Nome como obrigatórios |
@@ -68,18 +68,19 @@ Cumpriu Acordo? · Tipo de atendimento · Parcelas em atraso · Observação
 
 ---
 
-## Motivo e Observação (opções fixas)
+## Tipo de desbloqueio e Observação (opções fixas)
 
-Os dois campos são seleções. Cada motivo tem uma observação vinculada (constante `AT_DESB_OBS`):
+Os dois campos são seleções. Cada tipo de desbloqueio tem uma observação vinculada (constante `AT_DESB_OBS`):
 
-| Motivo | Observação preenchida |
+| Tipo de desbloqueio | Observação preenchida |
 |---|---|
 | Desbloqueio por Pagamento | Cliente realizou o pagamento, compartilhou o comprovante |
 | Desbloqueio por confiança | Cliente precisava do desbloqueio para acessar comprovante |
 
-- Escolher o motivo preenche a observação vinculada (`atDesbBloco` liga o evento).
-- A observação pode ser trocada depois, sem alterar o motivo.
-- Voltar o motivo para "(em branco)" não apaga a observação.
+- Escolher o tipo de desbloqueio preenche a observação vinculada (`atDesbBloco` liga o evento).
+- A observação pode ser trocada depois, sem alterar o tipo.
+- Voltar o tipo para "(em branco)" não apaga a observação.
+- O Motivo continua texto livre.
 - A planilha recebe o texto da opção, como antes recebia o texto digitado.
 
 ---
@@ -104,9 +105,9 @@ Nenhuma chave nova. O contexto ativo é salvo em `atModelo` (existente), que ago
 
 | Campo | Rótulo | Tipo |
 |---|---|---|
-| `tipo_desbloqueio` | Tipo de desbloqueio | texto |
+| `tipo_desbloqueio` | Tipo de desbloqueio | select (em branco / Desbloqueio por Pagamento / Desbloqueio por confiança) |
 | `data_desbloqueio` | Data do desbloqueio | data |
-| `motivo_desbloqueio` | Motivo | select (em branco / Desbloqueio por Pagamento / Desbloqueio por confiança) |
+| `motivo_desbloqueio` | Motivo | area |
 | `adicionado_regua` | Adicionado à régua | select (SIM/NÃO) |
 | `cumpriu_acordo` | Cumpriu acordo? | select (SIM/NÃO) |
 | `tipo_atendimento_desb` | Tipo de atendimento | select (RD/Paymobi/Recupere) |
