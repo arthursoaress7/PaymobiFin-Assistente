@@ -1,5 +1,17 @@
 # Changelog
 
+## [v13.36.6] — 2026-11-23
+
+### 🐛 Correções
+
+- fix: CCBs com mais de uma "CCB ASSINADA" são baixadas todas (sufixo _CCB1, _CCB2...) para conferência manual (hotfix)
+
+## [v13.36.5] — 2026-11-21
+
+### 🐛 Correções
+
+- fix: motivo de reprovação pela tabela de faixas da equipe (#122) (171b88a)
+
 ## [v13.36.4] — 2026-11-21
 
 ### 🐛 Correções
