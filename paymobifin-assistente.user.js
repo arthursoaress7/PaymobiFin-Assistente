@@ -2760,6 +2760,8 @@
     // vira uma mensagem por motivo, no formato das antigas, com os limites da TABELA DA EQUIPE (CONFIG.FAIXAS), não os da
     // mensagem (a faixa E veio com R$0/0, considerado erro do MobFacil): A–D = valor acima do limite da faixa e/ou
     // quantidade acima de 10; E e F (sem limite de restritivos) = score baixo. "Passagens" não entra (não é motivo).
+    // A faixa sai do SCORE pela tabela da equipe (o MobFacil põe, por exemplo, o 397 na faixa E; na tabela ele é D);
+    // a letra da mensagem só vale quando não há score.
     // Sem dar para decidir: fica como veio.
     const faixaDe = (letra, score) => CONFIG.FAIXAS.find(x => letra ? x.faixa === String(letra).toUpperCase() : score != null && score >= x.de && score <= x.ate) || null;
     function motivosLista(reprov, score) {
@@ -2768,7 +2770,7 @@
       return String(reprov || '').split(' ¦ ').filter(Boolean).flatMap(msg => {
         const f = msg.match(/faixa\s+(\S+)\s+acima\s+do\s+limite/i);
         if (!f) return [msg];
-        const fx = faixaDe(f[1], sc) || faixaDe(null, sc);
+        const fx = faixaDe(null, sc) || faixaDe(f[1], sc);
         const at = msg.match(/atual\s*[:=]\s*R?\$?\s*([\d.,]+)\s*,\s*(\d+)/i);
         if (!fx) return [msg];
         if (fx.valor == null) return sc != null ? ['(P1) Reprovar: cliente abaixo do ponto de corte (score=' + sc + ')'] : [msg];
@@ -2778,6 +2780,23 @@
         if (q != null && q > fx.qtd) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (faixa ' + fx.faixa + ': ' + fx.qtd + ') (atual=' + q + ')');
         return out.length ? out : [msg];
       });
+    }
+    // Motivos da reprovação: os "Reprovar" do MobFacil (motivosLista). Sem nenhum — reprovada à mão na Mesa depois de o
+    // MobFacil mandar para a mesa ("(P1) Derivar mesa: faixa D acima do limite permitido (...) (atual: R$10956,91, 12, 0)") —,
+    // monta pelas restrições e pelo score lidos do motor, com a mesma tabela de faixas. Dentro dos limites: nada (fica N/A).
+    function motivosReprov(d) {
+      if (!d) return [];
+      const msgs = motivosLista(d.reprov, d.score);
+      if (msgs.some(x => /Reprovar\s*:/i.test(x))) return msgs;
+      const n = x => (x != null && String(x).trim() !== '' && !isNaN(aNum(x)) ? aNum(x) : null);
+      const sc = n(d.score), v = n(d.val), q = n(d.qtd);
+      const fx = sc != null ? faixaDe(null, sc) : null;
+      if (!fx) return msgs;
+      if (fx.valor == null) return ['(P1) Reprovar: cliente abaixo do ponto de corte (score=' + sc + ')'];
+      const out = [];
+      if (v != null && v > fx.valor) out.push('(P1) Reprovar: valor de restrições acima do limite permitido (faixa ' + fx.faixa + ': R$' + fx.valor + ') (atual=R$' + d.val + ')');
+      if (q != null && q > fx.qtd) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (faixa ' + fx.faixa + ': ' + fx.qtd + ') (atual=' + q + ')');
+      return out.length ? out : msgs;
     }
     function motivoDoMobFacil(reprov) {
       const primeira = String(reprov || '').split(' ¦ ')[0];
@@ -2804,10 +2823,10 @@
       if (!d) return '';
       const sit = mt && mt.sit;
       if (sit && !ehReprovada(sit)) return '';
-      if (d.reprov) {
+      if (d.reprov || ehReprovada(sit)) {
         const reais = [];
         let posRestr = -1, temValor = false, temQtd = false;
-        motivosLista(d.reprov, d.score).map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
+        motivosReprov(d).map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
           if (/restri|pend|negativ/i.test(mf.descr) && /quantidade|qtd|valor/i.test(mf.descr)) {
             if (/quantidade|qtd/i.test(mf.descr)) temQtd = true; else temValor = true;
             if (posRestr < 0) { posRestr = reais.length; reais.push(null); }
@@ -2906,7 +2925,7 @@
       if (m === 'reprovadas') {
         const tipo = x.ana && !/master/i.test(x.ana) ? 'Manual' : 'Automática';
         // uma mensagem por motivo de reprovação (o MobFacil lista TODOS os que falharam, ex.: valor E quantidade)
-        const msgs = d && d.reprov ? motivosLista(d.reprov, d.score).map(motivoDoMobFacil).filter(Boolean) : [];
+        const msgs = motivosReprov(d).map(motivoDoMobFacil).filter(Boolean);
         const motivo = [...new Set(msgs.map(x => x.label))].join(' / ');
         const partes = [];
         msgs.forEach(mf => {
