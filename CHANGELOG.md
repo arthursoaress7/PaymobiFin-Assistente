@@ -1,5 +1,15 @@
 # Changelog
 
+## [v13.38.0] — 2026-11-24
+
+### ✨ Novas funcionalidades
+
+- feat: calculadora de débito atualizado no atendimento (#141) (0df2e20)
+
+### 🐛 Correções
+
+- fix: motivo das reprovadas manuais pelas restrições e faixa pelo score (#143) (c5bcc4f)
+
 ## [v13.37.1] — 2026-11-23
 
 ### 🐛 Correções
