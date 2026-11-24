@@ -6,6 +6,8 @@
 **Sites alvo:**
 - `https://paymobi-app.ercard.com.br/*` — painel principal (ER). O endereço antigo `https://paymobi.ercard.com.br/*` continua aceito (`@include` com `paymobi(-app)?`)
 - `https://enviamotor.mobfacil.com.br/*` — motor de análise de crédito
+- `https://app.tallos.com.br/*` — RD Atendimento (encerramento com IA)
+- `https://paymobi.com.br/*` — site da Paymobi: só responde ao ER o Acesso ao APP (Boleto+) das Efetivadas; não mostra nada no site
 
 ---
 
@@ -56,6 +58,7 @@ O script é dividido em dois pontos de entrada principais:
 | Navegação automática | Troca de tela automática no ER | 7363 |
 | Mesa de crédito | Datas do dia | 7371 |
 | RD Atendimento | Encerramento com IA (app.tallos.com.br) | 7427 |
+| Boleto+ (`iniciarBoletoPlus`) | Acesso ao APP das Efetivadas (paymobi.com.br, só responde ao ER) | fim do arquivo |
 
 ---
 

@@ -122,7 +122,7 @@ A função `relatorioCols(m, id, d, processada)` monta as colunas de resultado p
 | Auditoria | Proposta, Nome, CPF, IMEI, Qtd Restritivos, Valor Restritivos, Score, Consultas, Motivo Reprovação |
 | Diário | Propostas do dia com resultado |
 | Reprovadas | Apenas propostas reprovadas: situação com "REP", "REPR" ou "REPROV" (ex.: "17 - PRE PROP REP", "07 - REPR AUT"), a mesma regra de `ehReprovada` |
-| Efetivadas | Apenas propostas aprovadas e efetivadas |
+| Efetivadas | Apenas propostas aprovadas e efetivadas: Proposta, Cliente, Vendedor, Acesso ao APP, Hora, Loja |
 | Aprovadas | Propostas aprovadas (com CPF) |
 
 **Diário: visão geral do dia** (`diarioTudo`, padrão ligado; Configurações, ao lado de "Ignorar canceladas e testes"):
@@ -132,6 +132,12 @@ A função `relatorioCols(m, id, d, processada)` monta as colunas de resultado p
 - **Aviso ao lado de "Ler da tela"** (`#mf-filtro`): no Diário com a opção ligada mostra "Incluindo canceladas (sem testes)", e a dica do mouse cita as em digitação. Nos outros relatórios continua "Ignorando canceladas e testes". Com "Ignorar canceladas e testes" desligado, "Incluindo canceladas e testes" em qualquer relatório.
 
 **Valor de transação (Diário e Aprovadas):** `valorTransacao()` usa o "Valor da Compra" da Operação de Crédito (`extra.compra`). O "Valor" do bloco Garantias (`extra.valor`) é o valor cadastrado do aparelho e, nas aprovações automáticas, vem simbólico (R$ 0,01, R$ 1,00...); ele só entra quando a página não tem Valor da Compra. Sem nenhum dos dois, N/A. A escolha é feita na hora de montar o relatório, então vale também para propostas já coletadas.
+
+**Efetivadas: Acesso ao APP (Boleto+, prefixo `bp`):** a coluna diz se o cliente já fez o primeiro acesso no app do Boleto+, como o Relatório de usuários do Boleto+ no site da Paymobi (Boleto+ > Relatório de usuários). Antes era preenchida à mão.
+- **De onde vem:** o site `paymobi.com.br` só responde com o login do próprio site e um ticket anti-robô que ele mesmo resolve. Por isso o script também roda em `paymobi.com.br` (`@include`, autorizado em 24/11/2026), mas só para responder ao ER: `iniciarBoletoPlus` põe na página um módulo que usa o cliente do próprio site (`CustomersService.fetchBoletoPlusCustomers`, o mesmo da busca manual por CPF). Nenhum token sai do site, e nada aparece nem muda nele.
+- **Conversa entre as abas (GM):** o ER grava `bpPedido` `{ id, ts, cpfs }`; o site responde em `bpResposta` `{ id, ts, itens, erro }` e grava `bpVivo` a cada `CONFIG.BP_BATIDA` s. Sem batida há `CONFIG.BP_VIVO` s, o ER considera o site fechado e não espera; com o site aberto, espera até `CONFIG.BP_ESPERA` s por consulta.
+- **Na coleta (`bpEtapa`, modo Efetivadas):** depois do vendedor, lê o CPF na aba Cliente (`dadosCliente`, guardado em `extra.cpfCliente`) e consulta o Boleto+. O resultado fica em `extra.acessoApp` (e `extra.acessoAppEm`, a data do primeiro acesso). "Sim" não é consultado de novo; "Não" e N/A são, porque o cliente pode ter entrado no app. No fim da fila, `bpCompletar` consulta de uma vez as que ficaram sem resposta (ex.: o site foi aberto no meio).
+- **Texto:** "Sim" (já fez o primeiro acesso), "Não", N/A (o CPF não está no Boleto+). Vazio = não consultado; não é falha. O aviso do fim da fila lista essas propostas e diz para abrir `paymobi.com.br` logado em outra aba e gerar de novo, ou preencher à mão.
 
 ### Relatório de Pendências (`pd`, bloco "RELATÓRIO DE PENDÊNCIAS")
 

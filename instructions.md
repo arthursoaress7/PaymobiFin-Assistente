@@ -408,6 +408,7 @@ else if (window.top === window) iniciarPainel();
 | → Relatório de Pendências (`pd`) | Fila de Pendências da conta master (somente leitura) |
 | → Impeditivos BMP (`ib`) | Fila de Propostas (ícone 🚫 do KYC da BMP) + Histórico da Mesa (somente leitura) |
 | → RD Atendimento (`rd`) | Análise com Gemini e encerramento do dia |
+| Boleto+ (`bp`, `iniciarBoletoPlus`, em `paymobi.com.br`) | Responde ao ER o primeiro acesso no app do Boleto+ por CPF (Acesso ao APP das Efetivadas; somente leitura) |
 
 ### Variáveis globais compartilhadas
 
@@ -435,6 +436,7 @@ else if (window.top === window) iniciarPainel();
 | `bs` | Busca de cliente |
 | `pd` | Relatório de Pendências |
 | `ib` | Relatório de Impeditivos BMP |
+| `bp` | Boleto+ (Acesso ao APP das Efetivadas) |
 | `rd` | RD Atendimento |
 | `er` | Acesso ao ER (sessão, base, requisições) |
 
@@ -474,6 +476,9 @@ Documentar novas chaves aqui antes de usar. Renomear sem migração quebra dados
 | `pdRecolhido` | Seção Pendências recolhida (padrão: sim) | Relatório de Pendências |
 | `ibImpeditivos` | Impeditivos BMP já encontrados: `{ versao: 1, itens: { proposta: { nome, cpf, data, ts, motivo, vistoEm } } }` (90 dias; "Limpar lista" apaga) | Impeditivos BMP |
 | `ibRecolhido` | Seção Impeditivos BMP recolhida (padrão: sim) | Impeditivos BMP |
+| `bpPedido` / `bpResposta` | Consulta do ER ao site da Paymobi: `{ id, ts, cpfs }` e `{ id, ts, itens: { cpf: { acesso, em } \| { ausente } \| { erro } }, erro }` | Boleto+ |
+| `bpVivo` | Hora da última "batida" do site paymobi.com.br aberto (o ER só espera resposta com o site aberto) | Boleto+ |
+| `extra[id].cpfCliente / acessoApp / acessoAppEm` | CPF da aba Cliente e o Acesso ao APP do Boleto+ ("Sim"/"Não"/N/A, data do primeiro acesso) | Efetivadas |
 
 ---
 
