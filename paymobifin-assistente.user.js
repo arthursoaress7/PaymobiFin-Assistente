@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.37.1
+// @version      13.38.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -30,7 +30,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.37.1');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.38.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -1199,6 +1199,10 @@
         #mf-p .mf-ng-saldo{font-size:14px;font-weight:700;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 9px}
         #mf-p .mf-ng-saldo:empty{display:none}
         #mf-p .mf-ng-saldo.erro{color:#b91c1c;background:#fef2f2;border-color:#fecaca}
+        #mf-p .mf-deb-tab{width:100%;border-collapse:collapse;font-size:11px}
+        #mf-p .mf-deb-tab th,#mf-p .mf-deb-tab td{padding:3px 4px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap}
+        #mf-p .mf-deb-tab th:first-child,#mf-p .mf-deb-tab td:first-child{text-align:left}
+        #mf-p .mf-deb-tab tr.mf-deb-tot td{font-weight:700;border-top:2px solid #94a3b8}
         #mf-p .mf-ng-bloco>summary{cursor:pointer;font-size:12px;font-weight:600;color:#475569;padding:4px 0}
         #mf-p .mf-ui-prev.ativo{display:flex;gap:6px;align-items:center;padding:8px 14px;background:#fef9c3;font-size:12.5px;border-bottom:1px solid #fde68a}
         #mf-p .mf-bs{padding:8px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc}
@@ -1281,6 +1285,7 @@
         #mf-p[data-tema=escuro] input.mf-erro,#mf-p[data-tema=escuro] textarea.mf-erro,#mf-p[data-tema=escuro] select.mf-erro{background:#450a0a !important;border-color:#ef4444 !important}
         #mf-p[data-tema=escuro] .mf-ng-saldo{color:#4ade80;background:#052e16;border-color:#166534}
         #mf-p[data-tema=escuro] .mf-ng-saldo.erro{color:#fca5a5;background:#450a0a;border-color:#7f1d1d}
+        #mf-p[data-tema=escuro] .mf-deb-tab th,#mf-p[data-tema=escuro] .mf-deb-tab td{border-bottom-color:#334155}
         /* botões: antiga (cinza claro vira cinza escuro) e nova (neutros escuros; os principais azul/verde mantêm as cores) */
         #mf-p[data-tema=escuro][data-ui=antiga] .cinza{background:#334155 !important;color:#e2e8f0 !important}
         #mf-p[data-tema=escuro][data-ui=nova] button{background:#1e293b;color:#e2e8f0;border-color:#475569}
@@ -1923,6 +1928,24 @@
             </details>
             <details class="mf-grupo" id="mf-at-g-cobranca" data-grupo="at-cobranca"><summary>Cobrança</summary>
               <div id="mf-at-cobranca" class="mf-grade"></div>
+            </details>
+            <details class="mf-grupo" id="mf-at-g-debito" data-grupo="at-debito"><summary>Débito atualizado (calculadora)</summary>
+              <div class="mf-linha" style="flex-wrap:wrap;gap:6px;margin:2px 0 6px">
+                <button id="mf-at-deb-trazer" class="cinza mf-bs-mini" title="Preenche com Valor da parcela, Parcelas em atraso e Vencimento mais antigo da ficha (Cobrança).">Trazer da Cobrança</button>
+              </div>
+              <div class="mf-grade">
+                <label class="mf-lb-rot"><span>Valor da parcela</span><input id="mf-at-deb-valor" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+                <label class="mf-lb-rot"><span>Parcelas em atraso</span><input id="mf-at-deb-qtd" type="text" inputmode="numeric" autocomplete="off"></label>
+                <label class="mf-lb-rot"><span>Vencimento mais antigo</span><input id="mf-at-deb-venc" type="date"></label>
+                <label class="mf-lb-rot"><span>Data do pagamento</span><input id="mf-at-deb-pgto" type="date"></label>
+              </div>
+              <div class="mf-grade" style="margin-top:6px">
+                <button id="mf-at-deb-calcular" class="azul">Calcular débito</button>
+                <button id="mf-at-deb-copiar" class="cinza">Copiar resumo</button>
+              </div>
+              <div id="mf-at-deb-res" style="margin-top:6px"></div>
+              <button id="mf-at-deb-usar" class="verde" style="width:100%;margin-top:6px;display:none" title="Leva o total para o campo &quot;Valor total com juros&quot; (Campanha do Fôlego e Retorno do Fôlego).">Usar como "Valor total com juros"</button>
+              <div class="mf-info" style="margin-top:6px">Mesma regra do "Registro de Pagamento de Fatura" do ER: parcelas mensais no mesmo dia, encargos de mora (juros do contrato compostos + mora de 1% ao mês) e multa de 2%. Valor estimado: confira no ER antes de fechar o acordo. Nada é salvo.</div>
             </details>
             <details class="mf-grupo" id="mf-at-g-acordo" data-grupo="at-acordo" open><summary>Acordo</summary>
               <div class="mf-grade">
@@ -2737,6 +2760,8 @@
     // vira uma mensagem por motivo, no formato das antigas, com os limites da TABELA DA EQUIPE (CONFIG.FAIXAS), não os da
     // mensagem (a faixa E veio com R$0/0, considerado erro do MobFacil): A–D = valor acima do limite da faixa e/ou
     // quantidade acima de 10; E e F (sem limite de restritivos) = score baixo. "Passagens" não entra (não é motivo).
+    // A faixa sai do SCORE pela tabela da equipe (o MobFacil põe, por exemplo, o 397 na faixa E; na tabela ele é D);
+    // a letra da mensagem só vale quando não há score.
     // Sem dar para decidir: fica como veio.
     const faixaDe = (letra, score) => CONFIG.FAIXAS.find(x => letra ? x.faixa === String(letra).toUpperCase() : score != null && score >= x.de && score <= x.ate) || null;
     function motivosLista(reprov, score) {
@@ -2745,7 +2770,7 @@
       return String(reprov || '').split(' ¦ ').filter(Boolean).flatMap(msg => {
         const f = msg.match(/faixa\s+(\S+)\s+acima\s+do\s+limite/i);
         if (!f) return [msg];
-        const fx = faixaDe(f[1], sc) || faixaDe(null, sc);
+        const fx = faixaDe(null, sc) || faixaDe(f[1], sc);
         const at = msg.match(/atual\s*[:=]\s*R?\$?\s*([\d.,]+)\s*,\s*(\d+)/i);
         if (!fx) return [msg];
         if (fx.valor == null) return sc != null ? ['(P1) Reprovar: cliente abaixo do ponto de corte (score=' + sc + ')'] : [msg];
@@ -2755,6 +2780,23 @@
         if (q != null && q > fx.qtd) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (faixa ' + fx.faixa + ': ' + fx.qtd + ') (atual=' + q + ')');
         return out.length ? out : [msg];
       });
+    }
+    // Motivos da reprovação: os "Reprovar" do MobFacil (motivosLista). Sem nenhum — reprovada à mão na Mesa depois de o
+    // MobFacil mandar para a mesa ("(P1) Derivar mesa: faixa D acima do limite permitido (...) (atual: R$10956,91, 12, 0)") —,
+    // monta pelas restrições e pelo score lidos do motor, com a mesma tabela de faixas. Dentro dos limites: nada (fica N/A).
+    function motivosReprov(d) {
+      if (!d) return [];
+      const msgs = motivosLista(d.reprov, d.score);
+      if (msgs.some(x => /Reprovar\s*:/i.test(x))) return msgs;
+      const n = x => (x != null && String(x).trim() !== '' && !isNaN(aNum(x)) ? aNum(x) : null);
+      const sc = n(d.score), v = n(d.val), q = n(d.qtd);
+      const fx = sc != null ? faixaDe(null, sc) : null;
+      if (!fx) return msgs;
+      if (fx.valor == null) return ['(P1) Reprovar: cliente abaixo do ponto de corte (score=' + sc + ')'];
+      const out = [];
+      if (v != null && v > fx.valor) out.push('(P1) Reprovar: valor de restrições acima do limite permitido (faixa ' + fx.faixa + ': R$' + fx.valor + ') (atual=R$' + d.val + ')');
+      if (q != null && q > fx.qtd) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (faixa ' + fx.faixa + ': ' + fx.qtd + ') (atual=' + q + ')');
+      return out.length ? out : msgs;
     }
     function motivoDoMobFacil(reprov) {
       const primeira = String(reprov || '').split(' ¦ ')[0];
@@ -2781,10 +2823,10 @@
       if (!d) return '';
       const sit = mt && mt.sit;
       if (sit && !ehReprovada(sit)) return '';
-      if (d.reprov) {
+      if (d.reprov || ehReprovada(sit)) {
         const reais = [];
         let posRestr = -1, temValor = false, temQtd = false;
-        motivosLista(d.reprov, d.score).map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
+        motivosReprov(d).map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
           if (/restri|pend|negativ/i.test(mf.descr) && /quantidade|qtd|valor/i.test(mf.descr)) {
             if (/quantidade|qtd/i.test(mf.descr)) temQtd = true; else temValor = true;
             if (posRestr < 0) { posRestr = reais.length; reais.push(null); }
@@ -2883,7 +2925,7 @@
       if (m === 'reprovadas') {
         const tipo = x.ana && !/master/i.test(x.ana) ? 'Manual' : 'Automática';
         // uma mensagem por motivo de reprovação (o MobFacil lista TODOS os que falharam, ex.: valor E quantidade)
-        const msgs = d && d.reprov ? motivosLista(d.reprov, d.score).map(motivoDoMobFacil).filter(Boolean) : [];
+        const msgs = motivosReprov(d).map(motivoDoMobFacil).filter(Boolean);
         const motivo = [...new Set(msgs.map(x => x.label))].join(' / ');
         const partes = [];
         msgs.forEach(mf => {
@@ -6029,6 +6071,99 @@
       });
     }
 
+    /* ---- débito atualizado: calculadora de encargos das parcelas em atraso (só em memória, nada é salvo) ----
+       Reproduz o "Registro de Pagamento de Fatura" do ER, por parcela:
+         encargos de mora = parcela × [(1 + remunMes)^(dias/30) − 1]  (juros do contrato, compostos pro rata dia)
+                          + parcela × moraMes ÷ 30 × dias              (juros de mora, simples)
+         multa            = parcela × multa (fixa, fora da base dos juros)
+       Taxas calibradas em 23/11/2026 com 3 telas do ER (contrato de R$ 274,92; 18, 141 e 263 dias): batem ao centavo.
+       Se o ER mostrar outro valor em outro contrato/produto, conferir as taxas antes de mudar a fórmula. */
+    const AT_ENCARGOS = { remunMes: 0.13842539, moraMes: 0.0099984, multa: 0.02 };
+    let atDebResultado = null;   // último cálculo (em memória): { linhas, tot, pgto }
+    const atDebDias = (venc, pgto) => Math.round((Date.parse(pgto + 'T00:00:00Z') - Date.parse(venc + 'T00:00:00Z')) / 864e5);
+    // uma parcela (valores em centavos)
+    function atDebParcela(valor, venc, pgto, t = AT_ENCARGOS) {
+      const dias = Math.max(0, atDebDias(venc, pgto));
+      if (!dias) return { venc, dias: 0, valor, encargos: 0, multa: 0, total: valor };
+      const encargos = Math.round(valor * (Math.pow(1 + t.remunMes, dias / 30) - 1) + valor * t.moraMes / 30 * dias);
+      const multa = Math.round(valor * t.multa);
+      return { venc, dias, valor, encargos, multa, total: valor + encargos + multa };
+    }
+    // N parcelas mensais no mesmo dia do vencimento mais antigo (dia 31 em mês curto: último dia do mês, como atSomarMeses)
+    function atDebCalcular(valor, qtd, vencIni, pgto) {
+      const linhas = [];
+      for (let i = 0; i < qtd; i++) { const v = atSomarMeses(vencIni, i); if (v <= pgto) linhas.push(atDebParcela(valor, v, pgto)); }
+      const tot = linhas.reduce((s, l) => ({ valor: s.valor + l.valor, encargos: s.encargos + l.encargos, multa: s.multa + l.multa, total: s.total + l.total }), { valor: 0, encargos: 0, multa: 0, total: 0 });
+      return { linhas, tot, pgto };
+    }
+    const atDebMoeda = c => (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    function atDebLimpar() {
+      ['#mf-at-deb-valor', '#mf-at-deb-qtd', '#mf-at-deb-venc'].forEach(x => { $(x).value = ''; });
+      $('#mf-at-deb-pgto').value = lbHoje();
+      $('#mf-at-deb-res').innerHTML = ''; $('#mf-at-deb-usar').style.display = 'none';
+      atDebResultado = null;
+    }
+    // traz da ficha (Cobrança): só os campos vazios, a não ser que tudo=true
+    function atDebTrazer(tudo) {
+      const par = [['#mf-at-deb-valor', ngValores.valor_parcela], ['#mf-at-deb-qtd', ngValores.parcelas_atraso], ['#mf-at-deb-venc', ngValores.vencimento_antigo]];
+      let n = 0;
+      par.forEach(([sel, v]) => { if (v && String(v).trim() && (tudo || !$(sel).value.trim())) { $(sel).value = String(v).trim(); n++; } });
+      if (!$('#mf-at-deb-pgto').value) $('#mf-at-deb-pgto').value = lbHoje();
+      return n;
+    }
+    function atDebDesenhar(r) {
+      const caixa = $('#mf-at-deb-res'); caixa.innerHTML = '';
+      const tab = document.createElement('table'); tab.className = 'mf-deb-tab';
+      const lin = (cels, tag, cls) => { const tr = document.createElement('tr'); if (cls) tr.className = cls; cels.forEach(c => { const e = document.createElement(tag); e.textContent = c; tr.appendChild(e); }); tab.appendChild(tr); };
+      lin(['Vencimento', 'Dias', 'Parcela', 'Encargos', 'Multa', 'Total'], 'th');
+      r.linhas.forEach(l => lin([ngData(l.venc), String(l.dias), atDebMoeda(l.valor), atDebMoeda(l.encargos), atDebMoeda(l.multa), atDebMoeda(l.total)], 'td'));
+      lin(['Total (' + r.linhas.length + ')', '', atDebMoeda(r.tot.valor), atDebMoeda(r.tot.encargos), atDebMoeda(r.tot.multa), atDebMoeda(r.tot.total)], 'td', 'mf-deb-tot');
+      const saldo = document.createElement('div'); saldo.className = 'mf-ng-saldo'; saldo.style.marginTop = '6px';
+      saldo.textContent = 'Débito em ' + ngData(r.pgto) + ': ' + ngReais(r.tot.total);
+      caixa.append(tab, saldo);
+    }
+    function atDebResumo(r) {
+      return 'Débito atualizado em ' + ngData(r.pgto) + ' (' + r.linhas.length + ' parcela(s) em atraso)\n' +
+        r.linhas.map(l => ngData(l.venc) + ' — ' + l.dias + ' dias — parcela ' + ngReais(l.valor) + ' + encargos ' + ngReais(l.encargos) + ' + multa ' + ngReais(l.multa) + ' = ' + ngReais(l.total)).join('\n') +
+        '\n\nTotal das parcelas: ' + ngReais(r.tot.valor) + '\nEncargos de mora: ' + ngReais(r.tot.encargos) + '\nMulta: ' + ngReais(r.tot.multa) + '\nTotal atualizado: ' + ngReais(r.tot.total);
+    }
+    $('#mf-at-deb-pgto').value = lbHoje();
+    $('#mf-at-g-debito').addEventListener('toggle', () => { if ($('#mf-at-g-debito').open) atDebTrazer(false); });
+    $('#mf-at-deb-trazer').onclick = () => {
+      const n = atDebTrazer(true);
+      msg(n ? 'Dados da Cobrança trazidos (' + n + ' campo(s)).' : 'A Cobrança está vazia. Use "Aplicar cliente atual" ou digite os valores.');
+    };
+    $('#mf-at-deb-calcular').onclick = () => {
+      atDebTrazer(false);
+      const valor = ngCentavos($('#mf-at-deb-valor').value), qtdTxt = $('#mf-at-deb-qtd').value.trim(), venc = $('#mf-at-deb-venc').value, pgto = $('#mf-at-deb-pgto').value;
+      const falta = [];
+      if (valor == null || valor <= 0) falta.push('Valor da parcela');
+      if (!/^\d+$/.test(qtdTxt) || +qtdTxt < 1 || +qtdTxt > 120) falta.push('Parcelas em atraso (1 a 120)');
+      if (!venc) falta.push('Vencimento mais antigo');
+      if (!pgto) falta.push('Data do pagamento');
+      if (falta.length) return msg('Preencha antes de calcular:\n- ' + falta.join('\n- '));
+      if (venc > pgto) return msg('O vencimento mais antigo (' + ngData(venc) + ') é depois da data do pagamento (' + ngData(pgto) + '): nada em atraso.');
+      const r = atDebCalcular(valor, +qtdTxt, venc, pgto);
+      atDebResultado = r;
+      atDebDesenhar(r);
+      $('#mf-at-deb-usar').style.display = '';
+      const fora = +qtdTxt - r.linhas.length;
+      msg('Débito calculado: ' + ngReais(r.tot.total) + ' em ' + ngData(pgto) + '.' + (fora ? ' ' + fora + ' parcela(s) vencem depois da data do pagamento e ficaram de fora.' : '') + ' Confira no ER antes de fechar.');
+    };
+    $('#mf-at-deb-copiar').onclick = () => {
+      if (!atDebResultado) return msg('Calcule o débito antes de copiar.');
+      GM_setClipboard(atDebResumo(atDebResultado), 'text');
+      msg('Resumo do débito copiado.');
+    };
+    $('#mf-at-deb-usar').onclick = () => {
+      if (!atDebResultado) return msg('Calcule o débito antes.');
+      const v = (atDebResultado.tot.total / 100).toFixed(2).replace('.', ',');
+      ngValores.valor_total_juros = v;
+      const inp = painel.querySelector('#mf-ng-campos [data-campo="valor_total_juros"]');
+      if (inp) { inp.value = v; inp.dispatchEvent(new Event('input', { bubbles: true })); }   // recalcula o saldo restante
+      msg('Valor total com juros = ' + ngReais(atDebResultado.tot.total) + '.' + (inp ? '' : ' O campo aparece na modalidade Campanha do Fôlego e na mensagem Retorno ao cliente — Campanha do Fôlego.'));
+    };
+
     /* ---- cópia para a planilha ---- */
     const atTexto = k => ({ pedido: $('#mf-ng-f-pedido').value, acordo: $('#mf-ng-f-acordo').value, parcela: $('#mf-ng-f-parcela').value }[k] || '').replace(/\s*\n\s*/g, ' ').trim();
     function atValidar() {
@@ -6096,6 +6231,7 @@
       if ((ngTemDados() || atPlano.length) && !confirm('Começar um novo atendimento? Os dados digitados serão apagados (o que já foi registrado no histórico continua lá).')) return;
       Object.keys(ngValores).forEach(k => delete ngValores[k]);
       atPlano = []; atPlanoAuto = {};
+      atDebLimpar();   // calculadora de débito: não leva o cálculo do cliente anterior
       ['#mf-ng-f-pedido', '#mf-ng-f-acordo', '#mf-ng-f-parcela', '#mf-at-msg-texto', '#mf-ng-texto'].forEach(x => { $(x).value = ''; });
       $('#mf-at-msg-caixa').style.display = 'none';
       atDesenhar(); msg('Pronto para um novo atendimento.');
@@ -6122,6 +6258,7 @@
       let n = 0;
       Object.entries(novos).forEach(([k, v]) => { if (v) { ngValores[k] = v; n++; } });
       if (novos.parcela_inicial && !ngValores.abrangencia_tipo) ngValores.abrangencia_tipo = 'apartir';
+      atDebLimpar(); atDebTrazer(true);   // calculadora de débito: dados do cliente aplicado, sem o cálculo anterior
       atDesenhar();   // fica na tela atual (Negociação, Renegociação ou Mensagens)
       mostrarAba('neg');
       msg('Dados de ' + (c.nome || 'cliente') + ' aplicados (' + n + ' campo(s)).' + (ngCtx === 'mensagens' ? ' Revise e gere o texto.' : ' O número de contato não vem da proposta: digite o que o cliente usou.'));
