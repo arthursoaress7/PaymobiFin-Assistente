@@ -1,11 +1,13 @@
 # Visão Geral do Script — paymobifin-assistente.user.js
 
 **Arquivo:** `paymobifin-assistente.user.js` (até a v13.27.1 se chamava `automacaomobfacil.user.js`; esse nome ficou como ponte para migrar as instalações antigas e foi removido em 19/11/2026)  
-**Versão atual:** 13.38.0  
+**Versão atual:** 13.39.0  
 **Tipo:** Tampermonkey Userscript  
 **Sites alvo:**
 - `https://paymobi-app.ercard.com.br/*` — painel principal (ER). O endereço antigo `https://paymobi.ercard.com.br/*` continua aceito (`@include` com `paymobi(-app)?`)
 - `https://enviamotor.mobfacil.com.br/*` — motor de análise de crédito
+- `https://app.tallos.com.br/*` — RD Atendimento (encerramento com IA)
+- `https://paymobi.com.br/*` — site da Paymobi: só responde ao ER o Acesso ao APP (Boleto+) das Efetivadas; não mostra nada no site
 
 ---
 
@@ -56,6 +58,7 @@ O script é dividido em dois pontos de entrada principais:
 | Navegação automática | Troca de tela automática no ER | 7363 |
 | Mesa de crédito | Datas do dia | 7371 |
 | RD Atendimento | Encerramento com IA (app.tallos.com.br) | 7427 |
+| Boleto+ (`iniciarBoletoPlus`) | Acesso ao APP das Efetivadas (paymobi.com.br, só responde ao ER) | fim do arquivo |
 
 ---
 

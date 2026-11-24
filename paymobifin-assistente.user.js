@@ -3,12 +3,13 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.38.0
+// @version      13.39.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
 // @include      https://enviamotor.mobfacil.com.br/*
 // @include      https://app.tallos.com.br/*
+// @include      https://paymobi.com.br/*
 // @homepageURL  https://github.com/arthursoaress7/PaymobiFin-Assistente/tree/main
 // @downloadURL  https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/main/paymobifin-assistente.user.js
 // @updateURL    https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/main/paymobifin-assistente.user.js
@@ -30,7 +31,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.38.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.39.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -71,6 +72,11 @@
     ],
     VAZIAS_APOS_ID: 3,      // colunas entre a Proposta e a Qtd Restritivos (Nome, CPF, IMEI)
     TIMEOUT_CCB: 20,        // s máximos esperando cada resposta do sistema no download de CCB
+    // Acesso ao APP (Boleto+) no relatório de Efetivadas: o site paymobi.com.br aberto e logado responde ao ER
+    BP_POLL: 1000,          // ms: o site da Paymobi confere se o ER pediu consulta
+    BP_BATIDA: 10,          // s entre os "estou aberto" do site da Paymobi
+    BP_VIVO: 35,            // s sem batida do site: considera o site fechado (não espera resposta)
+    BP_ESPERA: 20,          // s máximos esperando a resposta de cada consulta do Boleto+
     ER_BASE_RECONFERIR: 5,  // s depois de abrir o ER para gravar de novo o endereço do ER (usado pelo RD Atendimento)
     RD_BOTAO_MS: 700,       // ms entre conferências da posição do botão "Analisar (IA)" no topo do atendimento
     RD_HORAS_JANELA: 24,    // h sem mensagem para considerar vencida uma conversa SEM cadeado (janela do WhatsApp)
@@ -2957,7 +2963,8 @@
         const prox = ri > 0 && rb > 0 ? (Math.min(ri, rb) / Math.max(ri, rb) * 100).toFixed(2).replace('.', ',') + '%' : '';
         cols = [dataDe(x.dh), id, na(x.cli || dd.nome), na(dd.cpf), dd.rendaInf || '', dd.rendaBiro || '', prox];
       } else if (m === 'efetivadas') {
-        cols = [id, na(x.cli), na(e.vendedor), '', na(hh), na(loja.toUpperCase())];   // Acesso ao APP: à mão (fica vazio)
+        // Acesso ao APP: primeiro acesso no Boleto+ (Sim/Não/N/A, ver bpEtapa); vazio = não consultado (site da Paymobi fechado)
+        cols = [id, na(x.cli), na(e.vendedor), e.acessoApp || '', na(hh), na(loja.toUpperCase())];
       } else {
         const c = d && d.cpf ? d.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '';
         cols = [id, na(x.cli), na(c), 'XPANSE - ' + loja.toUpperCase(), na(e.vendedor), na(valorTransacao(e)), 'Aprovada, não efetivada'];
@@ -3158,6 +3165,60 @@
         if (tel) { r.telefone = tel; break; }
       }
       return r;
+    }
+
+    /* ---------- Acesso ao APP (Boleto+), relatório de Efetivadas ----------
+       O site paymobi.com.br aberto e logado (em qualquer aba) responde às consultas por CPF (ver iniciarBoletoPlus).
+       Fechado (sem "batida" há CONFIG.BP_VIVO s): não espera, a coluna fica em branco e o aviso do fim da fila explica.
+       Texto: "Sim" (já fez o primeiro acesso), "Não", N/A (CPF não está no Boleto+); erro ou não consultado = vazio. */
+    const bpSiteAberto = () => Date.now() - (GM_getValue('bpVivo', 0) || 0) < CONFIG.BP_VIVO * 1000;
+    const bpTexto = it => (!it || it.erro ? '' : it.ausente ? NA : it.acesso ? 'Sim' : 'Não');
+    async function bpConsultar(cpfs) {
+      if (!bpSiteAberto()) return { erro: 'o site paymobi.com.br não está aberto' };
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      GM_setValue('bpPedido', { id, ts: Date.now(), cpfs });
+      const ini = Date.now();
+      while (Date.now() - ini < CONFIG.BP_ESPERA * 1000) {
+        await sleep(CONFIG.BP_POLL / 2);
+        const r = GM_getValue('bpResposta', null);
+        if (r && r.id === id) return r.erro ? { erro: r.erro === 'login' ? 'o site da Paymobi está sem login' : r.erro } : { itens: r.itens || {} };
+      }
+      return { erro: 'o site da Paymobi não respondeu' };
+    }
+    const bpGravar = (id, it) => {
+      const ex = GM_getValue('extra', {});
+      ex[id] = { ...(ex[id] || {}), acessoApp: bpTexto(it) || null, acessoAppEm: (it && it.em) || null };
+      GM_setValue('extra', ex);
+    };
+    // etapa de cada proposta no modo Efetivadas: CPF da aba Cliente + consulta ao Boleto+
+    async function bpEtapa(base, id) {
+      const ET = 'acesso ao app (Boleto+)';
+      etapa(id, ET);
+      let cpf = (GM_getValue('extra', {})[id] || {}).cpfCliente;
+      if (!cpf) {
+        const cli = await dadosCliente(base, id);
+        cpf = cli.cpf || '';
+        const ex = GM_getValue('extra', {});
+        ex[id] = { ...(ex[id] || {}), cpfCliente: cpf || null };
+        GM_setValue('extra', ex);
+        if (!cpf) return etapa(id, ET, 'CPF não encontrado na aba Cliente' + (cli.motivo ? ' (' + cli.motivo + ')' : ''));
+      }
+      const r = await bpConsultar([cpf]);
+      if (r.erro) return etapa(id, ET, 'não consultado: ' + r.erro);
+      const it = r.itens[cpf];
+      bpGravar(id, it);
+      etapa(id, ET, it && it.erro ? 'erro do site: ' + it.erro : bpTexto(it));
+    }
+    // fim da fila: consulta de uma vez as que ficaram sem o Acesso ao APP (ex.: o site foi aberto no meio da coleta)
+    async function bpCompletar() {
+      const ig = ignoradas(), ex = GM_getValue('extra', {});
+      const faltam = fila().filter(id => !ig[id] && ex[id] && ex[id].cpfCliente && !ex[id].acessoApp);
+      if (!faltam.length || !bpSiteAberto()) return faltam;
+      const r = await bpConsultar([...new Set(faltam.map(id => ex[id].cpfCliente))]);
+      if (r.erro) return faltam;
+      faltam.forEach(id => { const it = r.itens[ex[id].cpfCliente]; if (it && !it.erro) bpGravar(id, it); });
+      const ex2 = GM_getValue('extra', {});
+      return faltam.filter(id => !(ex2[id] && ex2[id].acessoApp));
     }
 
     // segunda barreira contra testes/canceladas: proposta que NÃO está na tabela da tela é conferida no detalhe
@@ -3416,6 +3477,9 @@
         // Diário: página lida e sem valor = N/A (não é falha); página que não carregou = falha (Continuar tenta de novo)
         if (m === 'valortransacao' && !valorTransacao(extra) &&((GM_getValue('extraDbg', {})[id] || {}).paginas || []).some(x => /erro/.test(x))) return 'página da proposta não carregou';
         if (m === 'efetivadas' && !extra.vendedor) return 'vendedor não localizado';
+        // Acesso ao APP: "Sim" não muda mais; "Não"/N/A são consultados de novo (o cliente pode ter entrado no app).
+        // Ficar vazio não é falha (site da Paymobi fechado): a proposta segue, e o aviso do fim da fila explica.
+        if (m === 'efetivadas' && extra.acessoApp !== 'Sim') await bpEtapa(base, id);
         if (m === 'aprovadas' && (!extra.vendedor || !valorTransacao(extra))) return 'vendedor ou valor não localizado';
         if (m !== 'aprovadas') return null;
       }
@@ -3523,6 +3587,8 @@
           '. Clique em Continuar para seguir de onde parou.');
       }
       let aviso = 'Fila concluída.';
+      // Efetivadas: tenta de novo, de uma vez, o Acesso ao APP que ficou vazio (o site pode ter sido aberto no meio)
+      if (modo() === 'efetivadas') await bpCompletar();
       if (cfg('copiarAoConcluir')) {
         if (modo() === 'coleta' && cfg('auditoriaCompleta')) { copiarCompleta(); aviso = 'Fila concluída e resultado COPIADO. ' + AVISO_COMPLETA; }
         else if (modo() === 'valortransacao') aviso = 'Fila concluída e COPIADO. ' + copiarDiario(GM_getValue('diarioSaida', 'completo') === 'completo' ? 'linhas' : 'valores');
@@ -3536,7 +3602,12 @@
       const semVerif = cfg('ignorarCanceladasTestes') ? fila().filter(id => !ig[id] && !ver.has(id) && !(ex[id] && ex[id].cliente)) : [];
       const dRend = GM_getValue('dados', {});
       const semBiro = modo() === 'rendas' ? fila().filter(id => !ig[id] && dRend[id] && dRend[id].rendaBiro === '') : [];
+      const feSet = new Set(feitas());
+      const semAcesso = modo() === 'efetivadas' ? fila().filter(id => !ig[id] && feSet.has(id) && !(ex[id] && ex[id].acessoApp)) : [];
       msg(aviso +
+        (semAcesso.length ? '\nAcesso ao APP em branco (' + semAcesso.join(', ') + '): ' + (bpSiteAberto()
+          ? 'o Boleto+ não respondeu ou o CPF não foi lido (ver a etapa "acesso ao app" no diagnóstico).'
+          : 'abra o site paymobi.com.br logado em outra aba e gere de novo, ou preencha à mão.') : '') +
         (semBiro.length ? '\nSem renda do birô no motor (coluna F vazia): ' + semBiro.join(', ') : '') +
         (igLista.length ? '\nIgnoradas (teste/cancelada): ' + igLista.map(id => id + ' (' + ig[id] + ')').join(', ') : '') +
         (semVerif.length ? '\nNão conferidas como teste (fora da tabela da tela e sem nome no detalhe): ' + semVerif.join(', ') : '') +
@@ -9169,8 +9240,68 @@
     };
   }
 
+  /* ================= BOLETO+ (bp): ACESSO AO APP — paymobi.com.br, SOMENTE LEITURA =================
+     Relatório de Efetivadas, coluna "Acesso ao APP": se o cliente já fez o primeiro acesso no app do Boleto+.
+     O dado está no site da Paymobi (Boleto+ > Relatório de usuários), que só responde com o login do site e um ticket
+     anti-robô que o próprio site resolve. Por isso a consulta roda AQUI, dentro da página, com o cliente do próprio site
+     (CustomersService.fetchBoletoPlusCustomers, o mesmo da busca manual por CPF): nada de token sai do site.
+       ER  -> GM 'bpPedido'   { id, ts, cpfs }               (pedido do relatório de Efetivadas)
+       site-> GM 'bpResposta' { id, ts, itens: {cpf: {acesso, em} | {ausente} | {erro}}, erro }
+       site-> GM 'bpVivo'     ts a cada CONFIG.BP_BATIDA s   (o ER só espera resposta se o site estiver aberto)
+     Não mostra nada no site e não muda nada nele. */
+  function iniciarBoletoPlus() {
+    // a parte que roda no mundo da página (importa o módulo do próprio site); conversa com o script por eventos do DOM
+    const codigo = `
+      import { CustomersService } from '/views/services/CustomersService.js';
+      document.addEventListener('mfBpConsulta', async (ev) => {
+        let ped = {}; try { ped = JSON.parse(ev.detail); } catch (_) { return; }
+        let us = {}; try { us = JSON.parse(localStorage.getItem('userStorage') || '{}'); } catch (_) {}
+        const token = us.token || (us.user && us.user.token);
+        const fin = (us.user && (us.user.financeiraId || (us.user.financeira && us.user.financeira.id))) || us.financeiraId || (us.financeira && us.financeira.id);
+        const itens = {}; let erro = '';
+        if (!token) erro = 'login';
+        else for (const cpf of ped.cpfs || []) {
+          try {
+            const r = await CustomersService.fetchBoletoPlusCustomers({ financeiraId: fin || undefined, customerDocument: cpf, page: 1, pageSize: 10, bearerToken: token });
+            if (r.status === 'UNAUTHORIZED') { erro = 'login'; break; }
+            if (r.status !== 'SUCCESS') { itens[cpf] = { erro: String(r.status) }; continue; }
+            const c = (r.data.customers || []).find(x => String(x.customerDocument || '').replace(/\\D/g, '') === cpf);
+            itens[cpf] = c ? { acesso: !!c.boletoPlusFirstAccess, em: c.boletoPlusFirstAccessAt || null } : { ausente: true };
+          } catch (e) { itens[cpf] = { erro: 'rede' }; }
+        }
+        document.dispatchEvent(new CustomEvent('mfBpResposta', { detail: JSON.stringify({ id: ped.id, itens, erro }) }));
+      });`;
+    const sc = document.createElement('script');
+    sc.type = 'module';
+    sc.textContent = codigo;
+    (document.head || document.documentElement).appendChild(sc);
+
+    let ocupado = '', ultimo = '', ocupadoDesde = 0;
+    document.addEventListener('mfBpResposta', ev => {
+      let r = {}; try { r = JSON.parse(ev.detail); } catch (_) { return; }
+      if (!r.id) return;
+      GM_setValue('bpResposta', { id: r.id, ts: Date.now(), itens: r.itens || {}, erro: r.erro || '' });
+      if (ocupado === r.id) ocupado = '';
+    });
+    const bater = () => GM_setValue('bpVivo', Date.now());
+    bater();
+    setInterval(bater, CONFIG.BP_BATIDA * 1000);
+    setInterval(() => {
+      if (ocupado && Date.now() - ocupadoDesde < CONFIG.BP_ESPERA * 1000) return;   // sem resposta da página: libera
+      ocupado = '';
+      const p = GM_getValue('bpPedido', null);
+      if (!p || !p.id || p.id === ultimo || !Array.isArray(p.cpfs)) return;
+      if (Date.now() - (p.ts || 0) > CONFIG.BP_ESPERA * 1000) return;   // pedido velho: o ER já desistiu
+      const r = GM_getValue('bpResposta', null);
+      if (r && r.id === p.id) { ultimo = p.id; return; }                 // outra aba do site já respondeu
+      ultimo = ocupado = p.id; ocupadoDesde = Date.now();
+      document.dispatchEvent(new CustomEvent('mfBpConsulta', { detail: JSON.stringify({ id: p.id, cpfs: p.cpfs }) }));
+    }, CONFIG.BP_POLL);
+  }
+
   /* ================= INÍCIO ================= */
   if (location.hostname.endsWith('mobfacil.com.br')) iniciarMotor();
   else if (location.hostname === 'app.tallos.com.br') { if (window.top === window) iniciarRD(); }
+  else if (location.hostname === 'paymobi.com.br') { if (window.top === window) iniciarBoletoPlus(); }
   else if (window.top === window) iniciarPainel();
 })();
