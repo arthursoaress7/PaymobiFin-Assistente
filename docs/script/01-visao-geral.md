@@ -109,3 +109,4 @@ Documentação completa das chaves: ver [README principal](../../README.md#9-arm
 - [10 - Navegação Automática e Busca](./10-navegacao-busca.md)
 - [11 - RD Atendimento: Encerramento com IA](./11-rd-encerramento.md)
 - [12 - Desbloqueios](./12-desbloqueios.md)
+- [14 - Analisar proposta](./14-analisar-proposta.md)

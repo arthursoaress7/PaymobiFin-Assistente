@@ -406,6 +406,7 @@ else if (window.top === window) iniciarPainel();
 | → Busca de cliente (`bs`) | Central de busca (somente leitura) |
 | → Navegação automática | Troca de tela automática no ER |
 | → Relatório de Pendências (`pd`) | Fila de Pendências da conta master (somente leitura) |
+| → Analisar proposta (`an`) | Conferência de uma proposta: política de faixa, Receita, documentos, contato, MobFacil, itens da análise e KYC da BMP (somente leitura; ver docs/script/14) |
 | → Impeditivos BMP (`ib`) | Fila de Propostas (ícone 🚫 do KYC da BMP) + Histórico da Mesa (somente leitura) |
 | → RD Atendimento (`rd`) | Análise com Gemini e encerramento do dia |
 | Boleto+ (`bp`, `iniciarBoletoPlus`, em `paymobi.com.br`) | Responde ao ER o primeiro acesso no app do Boleto+ por CPF (Acesso ao APP das Efetivadas; somente leitura) |
@@ -437,6 +438,7 @@ else if (window.top === window) iniciarPainel();
 | `pd` | Relatório de Pendências |
 | `ib` | Relatório de Impeditivos BMP |
 | `bp` | Boleto+ (Acesso ao APP das Efetivadas) |
+| `an` | Analisar proposta |
 | `rd` | RD Atendimento |
 | `er` | Acesso ao ER (sessão, base, requisições) |
 
@@ -477,6 +479,7 @@ Documentar novas chaves aqui antes de usar. Renomear sem migração quebra dados
 | `ibImpeditivos` | Impeditivos BMP já encontrados: `{ versao: 1, itens: { proposta: { nome, cpf, data, ts, motivo, vistoEm } } }` (90 dias; "Limpar lista" apaga) | Impeditivos BMP |
 | `ibRecolhido` | Seção Impeditivos BMP recolhida (padrão: sim) | Impeditivos BMP |
 | `bpPedido` / `bpResposta` | Consulta do ER ao site da Paymobi: `{ id, ts, cpfs }` e `{ id, ts, itens: { cpf: { acesso, em } \| { ausente } \| { erro } }, erro }` | Boleto+ |
+| `anPedido` / `anMotor` | Analisar proposta: pedido do painel ao iframe do motor `{ id, ts, nonce }` e o resumo do resultado do motor (os dois apagados no fim da análise) | Analisar proposta |
 | `bpVivo` | Hora da última "batida" do site paymobi.com.br aberto (o ER só espera resposta com o site aberto) | Boleto+ |
 | `extra[id].cpfCliente / acessoApp / acessoAppEm` | CPF da aba Cliente e o Acesso ao APP do Boleto+ ("Sim"/"Não"/N/A, data do primeiro acesso) | Efetivadas |
 
