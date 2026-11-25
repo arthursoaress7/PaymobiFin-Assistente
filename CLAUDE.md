@@ -35,7 +35,7 @@
 - **Não sobrescreva dados de armazenamento existentes** — siga o padrão de `salvar()`
 - **Dentro do painel, use `$()`, não `document.querySelector()`**
 - **Timeouts apenas em `CONFIG`** — nunca valores hard-coded fora dele
-- **Use o prefixo correto** para novas funções (`ng`, `at`, `lb`, `tm`, `cac`, `eq`, `hs`, `bs`, `pd`, `ib`, `bp`, `an`, `rd`, `er`)
+- **Use o prefixo correto** para novas funções (`ng`, `at`, `lb`, `tm`, `cac`, `eq`, `hs`, `bs`, `pd`, `ib`, `bp`, `an`, `pf`, `rd`, `er`)
 - **Alterações críticas (arquitetura, armazenamento, segurança, workflows) exigem autorização explícita**
 - **Prioridades atuais (P0, 23/11/2026):** otimizar as funções existentes, manter a documentação sempre igual ao estado do projeto e registrar logs temporários de cada ação — ver `PRIORIDADES.md` e o item 23 do `instructions.md`
 - **Fora do escopo:** API/camada de acesso ao ER, API oficial do fornecedor e site próprio. Não propor nem retomar sem nova decisão do responsável

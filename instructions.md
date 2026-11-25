@@ -406,6 +406,7 @@ else if (window.top === window) iniciarPainel();
 | → Busca de cliente (`bs`) | Central de busca (somente leitura) |
 | → Navegação automática | Troca de tela automática no ER |
 | → Relatório de Pendências (`pd`) | Fila de Pendências da conta master (somente leitura) |
+| → Negativação PEFIN (`pf`) | Lista de clientes para o gerador do arquivo PEFIN (Serasa): cadastro da Mesa de Crédito + dívida do CAC, cópia em texto/CSV (somente leitura; lista só em memória; ver docs/script/07-cac.md) |
 | → Analisar proposta (`an`) | Conferência de uma proposta: política de faixa, Receita, documentos, contato, MobFacil, itens da análise e KYC da BMP (somente leitura; ver docs/script/14) |
 | → Impeditivos BMP (`ib`) | Fila de Propostas (ícone 🚫 do KYC da BMP) + Histórico da Mesa (somente leitura) |
 | → RD Atendimento (`rd`) | Análise com Gemini e encerramento do dia |
@@ -439,6 +440,7 @@ else if (window.top === window) iniciarPainel();
 | `ib` | Relatório de Impeditivos BMP |
 | `bp` | Boleto+ (Acesso ao APP das Efetivadas) |
 | `an` | Analisar proposta |
+| `pf` | Negativação PEFIN |
 | `rd` | RD Atendimento |
 | `er` | Acesso ao ER (sessão, base, requisições) |
 
