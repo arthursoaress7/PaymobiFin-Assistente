@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.39.1
+// @version      13.40.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -31,7 +31,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.39.1');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.40.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -4437,6 +4437,8 @@
       abrangencia: { rot: 'Abrangência (texto)', tipo: 'calc' },
       operacao: { rot: 'Operação (Resultado do atendimento)', tipo: 'calc' },
       data_entrada_txt: { rot: '" (data da entrada)" (quando preenchida)', tipo: 'calc' },
+      vencimento_contrato: { rot: 'Vencimentos do contrato (1ª a última)', tipo: 'texto', dica: 'Ex.: 20/04/2026 a 20/03/2027. Vem da CAC em "Aplicar cliente atual".' },
+      acao_negociou: { rot: 'Cliente negociou / solicitou negociar (Resultado)', tipo: 'calc' },
       operacao_maiusc: { rot: 'Operação em maiúsculas', tipo: 'calc' },
       acao_parcial: { rot: 'Pagamento parcial conforme o Resultado', tipo: 'calc' },
       valor_total_devido: { rot: 'Valor total devido', tipo: 'moeda' },
@@ -4473,10 +4475,10 @@
     const NG_MODALIDADES = {
       geral: { nome: 'Condições gerais (modelo anterior)' },
       entrada: {   // "Renegociação" (chave 'entrada' mantida pelo histórico): pedido do cliente + simulação; entrada opcional (some se vazia). Título no modelo do Fôlego
-        nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', 'parcela_atual', ...NG_ABR, 'dia_solicitado', 'valor_solicitado', 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
+        nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', 'valor_parcela', 'vencimento_contrato', 'parcelas_atraso', 'parcela_atual', ...NG_ABR, 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
         obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
-        rotulos: { valor_solicitado: 'Valor de parcela solicitado pelo cliente', valor_entrada: 'Valor da entrada (se houver)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas simuladas', valor_parcela_acordo: 'Valor da parcela simulada' },
-        texto: '*RENEGOCIAÇÃO — {{operacao_maiusc}}*\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\nCliente solicitou pagamento todo dia {{dia_solicitado}} e parcelas de {{valor_solicitado}}\nEntrada: {{valor_entrada}}{{?data_entrada_txt}}\nForam simuladas {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nVencimento: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
+        rotulos: { valor_solicitado: 'Valor de parcela solicitado pelo cliente', valor_entrada: 'Valor da entrada (se houver)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas negociadas', valor_parcela_acordo: 'Valor da parcela negociada', valor_parcela: 'Valor da parcela do contrato' },
+        texto: '*RENEGOCIAÇÃO — {{operacao_maiusc}}*\n\nNome: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\nValor Parcela: {{valor_parcela}}\nVencimento: {{vencimento_contrato}}\nParcelas em Atraso: {{parcelas_atraso}}\n\n{{acao_negociou}}\nEntrada: {{valor_entrada}}\nValor: {{valor_parcela_acordo}}\nQuantidade de parcelas: {{quantidade_parcelas}}\nVencimento: Todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
         frases: (v, verbo) => { const e = (v('valor_entrada') ? '1 parcela de ' + v('valor_entrada') + ' como entrada' + (v('data_entrada') ? ' no dia ' + v('data_entrada') : '') + ', e ' : '') + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + (v('dia_vencimento') ? ', vencendo todo dia ' + v('dia_vencimento') : '');
           return { pedido: 'Cliente ' + verbo + ' ' + e, acordo: 'Prosseguimos com ' + e }; },
       },
@@ -4560,6 +4562,11 @@
         const sel = $('#mf-ng-frase-tipo'), r = sel ? sel.value : 'fechou';
         return r === 'solicitou' || r === 'nao' ? 'Cliente solicita pagar parcialmente' : 'Cliente pagou parcialmente';
       }
+      if (k === 'acao_negociou') {   // solicitado / não concluída: ainda é pedido
+        if (!ngNoAtendimento()) return '';
+        const sel = $('#mf-ng-frase-tipo'), r = sel ? sel.value : 'fechou';
+        return r === 'solicitou' || r === 'nao' ? 'Cliente solicitou negociar o contrato:' : 'Cliente negociou o contrato:';
+      }
       if (k === 'data_entrada_txt') return ngValores.data_entrada ? ' (' + ngValor('data_entrada') + ')' : '';
       if (k === 'quebra_acordo_txt') return ngValores.quebra_acordo ? ', após quebra de acordo' : '';
       if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
@@ -4633,7 +4640,7 @@
       m.campos.forEach(c => {
         const def = NG_CAMPOS[c];
         if (def.tipo === 'calc') return;
-        if (ngNoAtendimento() && AT_FIXOS.has(c) && !(ngCtx === 'renegociacao' && c === 'valor_parcela')) return;   // Renegociação não mostra o bloco Cobrança
+        if (ngNoAtendimento() && AT_FIXOS.has(c) && !(ngCtx === 'renegociacao' && (c === 'valor_parcela' || c === 'parcelas_atraso'))) return;   // Renegociação não mostra o bloco Cobrança
         const rot = (m.rotulos && m.rotulos[c]) || def.rot;
         const obrig = m.obrig.includes(c);
         const lab = ngCampoEl(c, rot, obrig);
@@ -5341,6 +5348,8 @@
         const aberta = parcelas.filter(p => p.saldo == null ? !/liquid/i.test(p.situacao) : p.saldo > 0).sort((a, b) => a.num - b.num)[0];
         if (aberta) put('parcelaAtual', String(aberta.num), 'Parcelas (1ª parcela com saldo em aberto)');
         // última parcela vencida = a de MAIOR número já vencida e não paga (dias de atraso > 0 e saldo em aberto); vai para "A partir da parcela"
+        const vencs = parcelas.map(p => p.venc).filter(Boolean).sort();
+        if (vencs.length) put('periodoVenc', ngData(vencs[0]) + ' a ' + ngData(vencs[vencs.length - 1]), 'Parcelas (vencimento da 1ª à última)');
         if (atraso.length) put('ultimaVencida', String(Math.max(...atraso.map(p => p.num))), 'Parcelas (maior número com dias de atraso > 0 e saldo em aberto)');
         // FPD: a 1ª parcela venceu e não foi paga integralmente
         if (p1.num === 1 && p1.venc) {
@@ -5548,6 +5557,7 @@
       CAC_EXIBIR.forEach(([rot, k]) => add(rot, res.campos[k], res.origem[k]));
       add('Parcela atual', res.campos.parcelaAtual, res.origem.parcelaAtual);
       add('Última parcela vencida', res.campos.ultimaVencida, res.origem.ultimaVencida);
+      add('Vencimentos do contrato', res.campos.periodoVenc, res.origem.periodoVenc);
       add('Total de parcelas', res.campos.totalParcelas, res.origem.totalParcelas);
       const info = document.createElement('div'); info.className = 'mf-info'; info.style.marginTop = '4px';
       info.textContent = 'Consultado em ' + res.consultadoEm + (res.conta ? ' com a conta ' + res.conta : '') + (res.posicaoGeral ? ' · Posição Geral aberta (protocolo ' + (res.protocolo || 'do sistema') + ')' : ' · sem Posição Geral') + '. Passe o mouse no valor para ver a origem.';
@@ -6324,7 +6334,7 @@
       const novos = {
         nome: c.nome, proposta: c.proposta, cpf: c.cpf, imei: c.imei, data_proposta: atIso(c.dataProposta), filial: c.filial, atendente: c.vendedor,
         valor_parcela: c.valorParcela ? bsReais(c.valorParcela) : '', fpd: c.fpd, parcelas_atraso: num(c.parcelasAtraso), dias_atraso: num(c.diasAtraso),
-        vencimento_antigo: atIso(c.vencMaisAntigo), parcela_atual: num(c.parcelaAtual),
+        vencimento_antigo: atIso(c.vencMaisAntigo), parcela_atual: num(c.parcelaAtual), vencimento_contrato: c.periodoVenc || '',
       };
       // "A partir da parcela" = última parcela vencida do contrato (sem parcela vencida: a 1ª em aberto)
       const pIni = c.ultimaVencida || c.parcelaAtual;
@@ -7659,7 +7669,7 @@
     }
 
     const BS_CAMPOS = [['nome', 'Nome'], ['cpf', 'CPF'], ['proposta', 'Proposta'], ['situacao', 'Situação da proposta'], ['telefone', 'Telefone do cadastro (proposta)'], ['email', 'E-mail'],
-      ['valorParcela', 'Valor da parcela'], ['parcelaAtual', 'Parcela atual'], ['ultimaVencida', 'Última parcela vencida'], ['totalParcelas', 'Total de parcelas'], ['entrada', 'Entrada'], ['valorCompra', 'Valor da compra'], ['vendedor', 'Vendedor'], ['imei', 'IMEI'], ['loja', 'Loja'],
+      ['valorParcela', 'Valor da parcela'], ['parcelaAtual', 'Parcela atual'], ['ultimaVencida', 'Última parcela vencida'], ['periodoVenc', 'Vencimentos do contrato'], ['totalParcelas', 'Total de parcelas'], ['entrada', 'Entrada'], ['valorCompra', 'Valor da compra'], ['vendedor', 'Vendedor'], ['imei', 'IMEI'], ['loja', 'Loja'],
       ['dataProposta', 'Data da proposta'], ['filial', 'Filial (CAC)'], ['fpd', 'FPD'], ['parcelasAtraso', 'Parcelas em atraso'], ['diasAtraso', 'Dias de atraso'], ['vencMaisAntigo', 'Vencimento mais antigo']];
     function bsMostrar() {
       const st = bsGet(), caixa = $('#mf-bs-res');
