@@ -93,6 +93,7 @@
     MESA_HOJE_CONFERE_MS: 700,    // ms entre conferências da tela da Mesa de Crédito (filtro de datas do dia)
     MESA_HOJE_ESPERA_MS: 15000,   // ms máximos esperando a lista da Mesa carregar antes/depois de aplicar as datas do dia
     PD_PAUSA_MS: 150,       // ms entre um detalhe e outro no Relatório de Pendências (não sobrecarrega o ER)
+    PF_PAUSA_MS: 300,       // ms entre um cliente e outro ao adicionar CPFs colados na lista PEFIN (não sobrecarrega o ER)
     RD_PAUSA_IA: 4000,      // ms entre uma conversa e outra na análise (respeita o limite do plano grátis do Gemini)
     RD_TIMEOUT_IA: 45,      // s máximos esperando cada resposta do Gemini
     RD_ESPERA_LIMITE: 20,   // s de espera quando o Gemini avisa limite de uso (HTTP 429), antes de tentar de novo
@@ -1993,6 +1994,34 @@
               <button id="mf-cac-limpar" class="cinza mf-cheia">Nova consulta</button>
             </div>
             <div class="mf-info" style="margin-top:6px">O resultado fica só nesta aba do navegador (some ao fechar a aba) e não é enviado a lugar nenhum.</div>
+          </div>
+          <div class="mf-sec">
+            <div class="mf-tit mf-dobra" id="mf-pf-tit" title="Mostrar / esconder a lista para a negativação PEFIN">Negativação PEFIN <span id="mf-pf-qtd" style="text-transform:none;letter-spacing:0;font-weight:400"></span></div>
+            <div id="mf-pf-corpo" style="display:none">
+              <div class="mf-info" style="margin-bottom:8px">Dados do cliente para o formulário do gerador PEFIN (Serasa). Cadastro e endereço vêm da aba Cliente da proposta na <b>Mesa de Crédito</b>; vencimento, término e valor vêm das parcelas do <b>CAC</b>. Use a conta da Mesa. Só leitura: nada é alterado no ER. A lista fica só nesta tela (some ao recarregar a página). Cada cliente consultado no CAC abre um protocolo de atendimento no ER, como a Consulta CAC.</div>
+              <div class="mf-linha" style="margin-bottom:6px">
+                <input id="mf-pf-termo" type="text" placeholder="CPF ou nome do cliente" autocomplete="off" style="flex:1">
+                <button id="mf-pf-add" class="azul" style="padding:8px 12px">Adicionar</button>
+              </div>
+              <div id="mf-pf-escolha"></div>
+              <textarea id="mf-pf-lote" placeholder="Ou cole vários CPFs (um por linha)" style="height:64px"></textarea>
+              <div class="mf-grade" style="margin-top:6px">
+                <button id="mf-pf-lote-ir" class="cinza">Adicionar CPFs colados</button>
+                <button id="mf-pf-parar" class="laranja" disabled>⏹ Parar</button>
+              </div>
+              <div id="mf-pf-st" class="mf-info" style="margin-top:6px"></div>
+              <div class="mf-grade" style="margin-top:8px">
+                <label class="mf-lb-rot">Natureza da dívida<input id="mf-pf-natureza" type="text" autocomplete="off"></label>
+                <label class="mf-lb-rot">Copiar como<select id="mf-pf-fmt"><option value="texto">Texto</option><option value="csv">CSV (;)</option></select></label>
+              </div>
+              <label class="mf-opc" style="margin-top:6px"><input type="checkbox" id="mf-pf-arquivo"><span><b>Copiar no formato do arquivo</b><small>CPF/CNPJ com 15 dígitos, datas AAAAMMDD, valor em centavos com 15 dígitos, CEP com 8 dígitos, texto em maiúsculas sem acento e só o código da natureza. Na tela os valores continuam formatados para leitura.</small></span></label>
+              <input id="mf-pf-filtro" type="text" placeholder="Buscar na lista por CPF ou nome" autocomplete="off" style="width:100%;margin-top:8px">
+              <div class="mf-grade" style="margin-top:6px">
+                <button id="mf-pf-copiar-todos" class="verde" title="Copia todos os clientes que aparecem na lista (respeita a busca)">Copiar todos</button>
+                <button id="mf-pf-limpar" class="vermelho" title="Esvazia a lista (não mexe em nada no ER)">Limpar lista</button>
+              </div>
+              <div id="mf-pf-lista" style="margin-top:6px"></div>
+            </div>
           </div>
         </div>
 
@@ -5718,6 +5747,306 @@
     ligarOpcao('#mf-cac-voltar', 'cacVoltarConta');
     ligarOpcao('#mf-cac-posicao', 'cacPosicaoGeral');
     desenharMaster();
+
+    /* ================= NEGATIVAÇÃO PEFIN (lista para o gerador do arquivo Serasa) — SOMENTE LEITURA =================
+       Monta, para cada cliente, os campos que hoje são digitados no formulário do gerador PEFIN (layout de 600 posições).
+         1. Mesa de Crédito: GET /MesaCredito/MesaCreditoLista (bsMesa, por CPF ou nome) -> proposta do cliente
+            (a efetivada mais recente; sem efetivada, a mais recente)
+         2. GET /MesaCredito/MesaAnaliseCliente?lngProposta=N (aba Cliente) -> nome, CPF, nascimento e endereço
+            (rótulo <small> e valor <b> da mesma célula; também pares <dt>/<dd>)
+         3. CAC pelo CPF, como cacAbrir sem a Posição Geral: CentralPesquisaCliente, BuscaCartao (abre protocolo, ver P4.12),
+            CentralCompras e DetalheCompra -> parcelas do contrato mais atrasado
+       Vencimento = parcela vencida mais antiga não paga; término = vencimento da última parcela;
+       valor = soma das parcelas vencidas e não pagas pelo valor ORIGINAL da parcela (sem juros, encargos nem multa).
+       A lista fica só em memória (pfLista): nada é gravado no armazenamento do script, em log ou no Pusher. */
+    const PF_NATUREZA_PADRAO = 'CB - CDC BENS';
+    const PF_CAMPOS = [
+      ['doc', 'CPF/CNPJ do devedor'], ['nome', 'Nome completo'], ['nascimento', 'Data de nascimento'], ['cep', 'CEP'],
+      ['logradouro', 'Logradouro'], ['numero', 'Número'], ['complemento', 'Complemento'], ['bairro', 'Bairro'],
+      ['cidade', 'Cidade'], ['uf', 'UF'], ['natureza', 'Natureza da dívida'], ['vencimento', 'Data de vencimento'],
+      ['termino', 'Data de término do contrato'], ['valor', 'Valor total da dívida'],
+    ];
+    const pfLista = [];
+    let pfOcupado = false, pfParar = false;
+    const pfStatus = t => { $('#mf-pf-st').textContent = t || ''; };
+    const pfSemAcento = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const pfChave = t => pfSemAcento(t).toLowerCase().replace(/[^a-z0-9/ ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const pfIsoDeBR = br => cacIsoDe(br);
+    const pfDataHora = t => { const m = String(t || '').match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/); return m ? Date.UTC(+m[3], m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)) : 0; };
+
+    // cadastro da aba Cliente (HTML da MesaAnaliseCliente): os rótulos do endereço são procurados por vários nomes
+    function pfCadastro(doc) {
+      const rot = {};
+      doc.querySelectorAll('small').forEach(sm => {
+        const k = pfChave(sm.textContent), cel = sm.closest('td') || sm.parentElement, b = cel && cel.querySelector('b');
+        if (k && !(k in rot)) rot[k] = b ? limpoTxt(b.textContent) : '';
+      });
+      Object.entries(cacDl(doc)).forEach(([k, v]) => { const kk = pfChave(k); if (kk && !(kk in rot)) rot[kk] = v; });
+      const pega = (...nomes) => { for (const n of nomes) { const v = rot[n]; if (v) return v; } return ''; };
+      const c = {
+        nome: pega('nome do cliente', 'nome'), cpf: pega('cpf', 'cpf/cnpj', 'cnpj').replace(/\D/g, ''),
+        nascimento: (pega('data de nascimento', 'nascimento', 'dt nascimento').match(/\d{2}\/\d{2}\/\d{4}/) || [''])[0],
+        cep: pega('cep').replace(/\D/g, ''), logradouro: pega('logradouro', 'endereco', 'endereco residencial', 'rua'),
+        numero: pega('numero', 'n', 'no', 'num'), complemento: pega('complemento', 'compl'), bairro: pega('bairro'),
+        cidade: pega('cidade', 'municipio'), uf: pega('uf', 'estado'),
+      };
+      // "Cidade/UF" num campo só, ou cidade terminando em " - SP"
+      const cuf = pega('cidade/uf', 'cidade / uf', 'municipio/uf');
+      if (cuf && !c.cidade) c.cidade = cuf;
+      const m = c.cidade.match(/^(.*?)\s*[-/]\s*([A-Za-z]{2})$/);
+      if (m) { c.cidade = m[1]; if (!c.uf) c.uf = m[2]; }
+      // endereço "RUA X, 123 - APTO 4" sem campo de número
+      if (c.logradouro && !c.numero) {
+        const e = c.logradouro.match(/^(.*?),\s*(\d+[A-Za-z]?|S\/?N)\b\s*(?:[-,]\s*(.+))?$/i);
+        if (e) { c.logradouro = e[1]; c.numero = e[2]; if (e[3] && !c.complemento) c.complemento = e[3]; }
+      }
+      c.uf = c.uf.toUpperCase().slice(0, 2);
+      c.rotulos = Object.keys(rot);   // só os nomes dos rótulos (sem valores), para conferir a tela quando faltar campo
+      return c;
+    }
+
+    // parcelas do CAC -> vencimento mais antigo, término e valor (centavos) = soma do valor original das parcelas vencidas
+    // e não pagas (sem juros); "hoje" (AAAA-MM-DD) só registra a data da consulta
+    function pfDivida(parcelas, hoje) {
+      const vencidas = parcelas.filter(p => p.venc && p.dias > 0 && (p.saldo == null || p.saldo > 0));
+      const vencs = parcelas.map(p => p.venc).filter(Boolean).sort();
+      const valor = vencidas.reduce((s, p) => s + (p.valor != null ? p.valor : (p.saldo || 0)), 0);
+      return { vencimento: vencidas.map(p => p.venc).sort()[0] || '', termino: vencs[vencs.length - 1] || '', valor, qtd: vencidas.length, calculadoEm: hoje };
+    }
+
+    // valor de um campo: para leitura (formatado) ou no formato do arquivo
+    function pfValor(it, k, arq) {
+      const v = it[k];
+      if (k === 'doc') { const d = String(v || '').replace(/\D/g, ''); return arq ? d.padStart(15, '0') : d.length === 11 ? cacCpfFmt(d) : d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : d; }
+      if (k === 'nascimento' || k === 'vencimento' || k === 'termino') return v ? (arq ? v.replace(/-/g, '') : ngData(v)) : '';
+      if (k === 'valor') return v == null ? '' : arq ? String(v).padStart(15, '0') : ngReais(v);
+      if (k === 'cep') { const d = String(v || '').replace(/\D/g, ''); return arq ? d : d.length === 8 ? d.replace(/(\d{5})(\d{3})/, '$1-$2') : d; }
+      if (k === 'natureza') return arq ? String(v || '').split(/\s+-\s+/)[0].trim().toUpperCase() : String(v || '');
+      return arq ? pfSemAcento(v).toUpperCase() : String(v || '');
+    }
+    const pfCsvCel = t => (/[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t);
+    function pfTexto(itens, fmt, arq) {
+      if (fmt === 'csv') return [PF_CAMPOS.map(c => pfCsvCel(c[1])).join(';'), ...itens.map(it => PF_CAMPOS.map(([k]) => pfCsvCel(pfValor(it, k, arq))).join(';'))].join('\n');
+      return itens.map(it => PF_CAMPOS.map(([k, r]) => r + ': ' + pfValor(it, k, arq)).join('\n')).join('\n\n');
+    }
+
+    // proposta do cliente na Mesa: a efetivada mais recente; sem efetivada, a mais recente
+    const pfEscolherProposta = linhas => {
+      const ord = linhas.slice().sort((a, b) => pfDataHora(b.data) - pfDataHora(a.data));
+      return ord.find(l => /efetivad/i.test(l.situacao) && !/n[ãa]o\s+efetivad/i.test(l.situacao)) || ord[0];
+    };
+
+    // CAC pelo CPF, sem a Posição Geral: parcelas do contrato mais atrasado
+    async function pfCac(cpf) {
+      const r = await cacReq('/CentralAtendimento/CentralPesquisaCliente', { strCliente: cpf });
+      const doc = r.texto ? cacDoc(r.texto) : null, tab = doc && doc.querySelector('#tabCentralClientes');
+      if (!r.ok || !tab) {
+        const aviso = r.ok && doc && doc.body ? limpoTxt(doc.body.textContent) : '';
+        if (/nenhum registro/i.test(aviso)) return { erro: 'CAC: nenhum cliente com este CPF' };
+        return { erro: 'CAC: ' + (r.erro || (ehLogin(r.texto) ? 'sessão expirada' : aviso ? aviso.slice(0, 120) : 'HTTP ' + r.status)) };
+      }
+      const rows = [...tab.querySelectorAll('tbody tr[onclick*="Atendimento("]')].map(tr => {
+        const m = tr.getAttribute('onclick').match(/Atendimento\(\s*['"]([^'"]*)['"]\s*,\s*['"]([^'"]*)['"]/) || [];
+        return { produto: m[1] || '', conta: m[2] || '', cpf: (limpoTxt(tr.children[0] && tr.children[0].textContent)).replace(/\D/g, '') };
+      }).filter(x => x.produto && x.conta && x.cpf.startsWith(cpf));
+      if (!rows.length) return { erro: 'CAC: nenhum cliente com este CPF' };
+      const detalhes = [];
+      for (const row of rows.slice(0, 3)) {
+        const b = await cacReq('/CentralAtendimento/BuscaCartao', { strProduto: row.produto, strCartao: row.conta });
+        let js = null; try { js = JSON.parse(b.texto); } catch (_) {}
+        const c = Array.isArray(js) ? js[0] : js;
+        if (!b.ok || !c || c.strResultado) continue;
+        if (c.strValidarDadosCliente === 'S') return { erro: 'o CAC exige a confirmação de identidade deste cliente (consulte pela tela do CAC)' };
+        const p = await cacReq('/CentralAtendimento/CentralCompras', { strProduto: row.produto, strCartao: row.conta });
+        const contratos = p.ok && p.texto ? cacContratos(cacDoc(p.texto)) : [];
+        for (const aut of contratos.slice(0, 5)) {
+          const d = await cacReq('/CentralAtendimento/DetalheCompra', { strAutorizacao: aut });
+          if (!d.ok || !d.texto) continue;
+          const dd = cacDoc(d.texto), dl = cacDl(dd), cpfDet = (dl['cpf'] || '').replace(/\D/g, '');
+          if (cpfDet && !cpf.startsWith(cpfDet)) continue;   // o contrato tem de ser do mesmo CPF
+          detalhes.push({ aut, dl, parcelas: cacParcelas(dd) || [] });
+        }
+      }
+      if (!detalhes.length) return { erro: 'CAC: nenhum contrato com parcelas para este CPF' };
+      const atraso = d => Math.max(0, ...d.parcelas.map(p => p.dias));
+      const esc = detalhes.slice().sort((a, b) => atraso(b) - atraso(a))[0];
+      return { contrato: esc.aut, dl: esc.dl, parcelas: esc.parcelas, outros: detalhes.filter(d => d !== esc).map(d => d.aut) };
+    }
+
+    // monta o item de um cliente a partir das linhas da Mesa já escolhidas (todas do mesmo cliente)
+    async function pfMontar(linhas, cpfBusca) {
+      const prop = pfEscolherProposta(linhas);
+      pfStatus('Lendo a aba Cliente da proposta ' + prop.proposta + '...');
+      const r = await cacReq('/MesaCredito/MesaAnaliseCliente', { lngProposta: prop.proposta });
+      if (!r.ok || !r.texto) return { erro: 'aba Cliente da proposta ' + prop.proposta + ': ' + (r.erro || 'HTTP ' + r.status) };
+      if (ehLogin(r.texto)) return { erro: 'sessão do ER expirada' };
+      const cad = pfCadastro(cacDoc(r.texto));
+      if (!cad.cpf && !cad.nome) return { erro: 'aba Cliente da proposta ' + prop.proposta + ' sem os dados do cliente' };
+      const avisos = [];
+      if (cpfBusca && cad.cpf && cad.cpf !== cpfBusca) return { erro: 'a proposta ' + prop.proposta + ' é do CPF ' + cacCpfFmt(cad.cpf) + ', não do CPF pesquisado' };
+      const cpf = cad.cpf || cpfBusca;
+      if (!cpf) return { erro: 'a aba Cliente da proposta ' + prop.proposta + ' não tem o CPF' };
+      pfStatus('Lendo as parcelas no CAC...');
+      const cac = await pfCac(cpf);
+      const hoje = lbHoje();
+      const div = cac.erro ? null : pfDivida(cac.parcelas, hoje);
+      if (cac.erro) avisos.push(cac.erro + ': vencimento, término e valor ficaram em branco');
+      else if (!div.qtd) avisos.push('nenhuma parcela vencida em aberto no contrato ' + cac.contrato + ': confira antes de negativar');
+      if (cac.outros && cac.outros.length) avisos.push('outros contratos no CAC: ' + cac.outros.join(', ') + ' (usei o ' + cac.contrato + ', o mais atrasado)');
+      const faltam = ['cep', 'logradouro', 'numero', 'bairro', 'cidade', 'uf'].filter(k => !cad[k]);
+      if (!cad.nascimento) faltam.unshift('nascimento');
+      if (faltam.length) avisos.push('não achei na aba Cliente: ' + faltam.join(', ') + ' (rótulos lidos: ' + cad.rotulos.slice(0, 40).join(', ') + ')');
+      const nomesMesa = [...new Set(linhas.map(l => l.nome).filter(Boolean))];
+      return { item: {
+        doc: cpf, nome: cad.nome || nomesMesa[0] || '', nascimento: pfIsoDeBR(cad.nascimento), cep: cad.cep, logradouro: cad.logradouro,
+        numero: cad.numero, complemento: cad.complemento, bairro: cad.bairro, cidade: cad.cidade, uf: cad.uf,
+        natureza: $('#mf-pf-natureza').value.trim() || PF_NATUREZA_PADRAO,
+        vencimento: div ? div.vencimento : '', termino: div ? div.termino : '', valor: div && div.qtd ? div.valor : null,
+        qtdVencidas: div ? div.qtd : 0, calculadoEm: hoje,
+        proposta: prop.proposta, situacao: prop.situacao, contrato: cac.contrato || '', avisos,
+      } };
+    }
+
+    // adiciona (ou atualiza) um cliente pelo CPF ou pelo nome; com nome de mais de um cliente, mostra a escolha
+    async function pfAdicionar(termo, lote) {
+      termo = limpoTxt(termo).toUpperCase();
+      const dig = termo.replace(/\D/g, '');
+      const ehCpf = /^[\d.\-/\s]+$/.test(termo) && (dig.length === 11 || dig.length === 14);
+      if (!ehCpf && (termo.length < 3 || /\d/.test(termo))) return { erro: 'informe o CPF/CNPJ ou o nome do cliente' };
+      const busca = ehCpf ? dig : termo;
+      pfStatus('Procurando "' + (ehCpf ? pfValor({ doc: dig }, 'doc') : termo) + '" na Mesa de Crédito...');
+      const m = await bsMesa(busca);
+      if (m.erro) return { erro: 'Mesa de Crédito: ' + m.erro + ' (use a conta da Mesa)' };
+      if (!m.linhas.length) return { erro: 'nenhuma proposta na Mesa de Crédito para "' + termo + '"' };
+      if (!ehCpf) {
+        const porNome = new Map();
+        m.linhas.forEach(l => { const k = limpoTxt(l.nome).toUpperCase(); if (!porNome.has(k)) porNome.set(k, []); porNome.get(k).push(l); });
+        if (porNome.size > 1 && !lote) return { escolha: [...porNome.entries()] };
+        return pfMontar([...porNome.values()][0], '');
+      }
+      return pfMontar(m.linhas, dig);
+    }
+    function pfGuardar(item) {
+      const i = pfLista.findIndex(x => x.doc === item.doc);
+      if (i >= 0) pfLista[i] = item; else pfLista.push(item);
+      pfDesenhar();
+    }
+
+    function pfDesenhar() {
+      const caixa = $('#mf-pf-lista'), filtro = limpoTxt($('#mf-pf-filtro').value).toUpperCase(), fd = filtro.replace(/\D/g, '');
+      caixa.innerHTML = '';
+      const vis = pfVisiveis();
+      $('#mf-pf-qtd').textContent = pfLista.length ? '(' + pfLista.length + ')' : '';
+      if (!pfLista.length) return;
+      if (!vis.length) { const d = document.createElement('div'); d.className = 'mf-info'; d.textContent = 'Nenhum cliente da lista bate com "' + (filtro || fd) + '".'; caixa.appendChild(d); return; }
+      vis.forEach(it => {
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin-top:8px';
+        const cab = document.createElement('div'); cab.className = 'mf-bs-cab'; cab.style.fontWeight = '600';
+        cab.textContent = it.nome + ' · ' + pfValor(it, 'doc');
+        card.appendChild(cab);
+        PF_CAMPOS.slice(2).forEach(([k, r]) => {
+          const l = document.createElement('div'); l.className = 'mf-cac-lin';
+          const a = document.createElement('span'); a.textContent = r;
+          const b = document.createElement('b'); b.textContent = pfValor(it, k) || '—';
+          if (k === 'valor' && it.valor != null) b.title = it.qtdVencidas + ' parcela(s) vencida(s) e não paga(s), pelo valor original da parcela (sem juros)';
+          l.append(a, b); card.appendChild(l);
+        });
+        const info = document.createElement('div'); info.className = 'mf-info'; info.style.marginTop = '4px';
+        info.textContent = 'Proposta ' + it.proposta + (it.situacao ? ' (' + it.situacao.replace(/^\d+\s*-\s*/, '') + ')' : '') + (it.contrato ? ' · contrato CAC ' + it.contrato : '') + ' · ' + it.qtdVencidas + ' parcela(s) vencida(s) · consultado em ' + ngData(it.calculadoEm);
+        card.appendChild(info);
+        it.avisos.forEach(t => { const w = document.createElement('div'); w.className = 'mf-info'; w.style.color = '#b45309'; w.textContent = '⚠ ' + t; card.appendChild(w); });
+        const bt = document.createElement('div'); bt.className = 'mf-linha'; bt.style.cssText = 'gap:6px;margin-top:6px';
+        const cp = document.createElement('button'); cp.className = 'verde mf-bs-mini'; cp.textContent = 'Copiar';
+        cp.onclick = () => { GM_setClipboard(pfTexto([it], $('#mf-pf-fmt').value, $('#mf-pf-arquivo').checked), 'text'); msg('Dados de ' + it.nome + ' copiados' + ($('#mf-pf-arquivo').checked ? ' no formato do arquivo.' : '.')); };
+        const rm = document.createElement('button'); rm.className = 'cinza mf-bs-mini'; rm.textContent = 'Remover';
+        rm.onclick = () => { const i = pfLista.indexOf(it); if (i >= 0) pfLista.splice(i, 1); pfDesenhar(); };
+        bt.append(cp, rm); card.appendChild(bt);
+        caixa.appendChild(card);
+      });
+    }
+    function pfVisiveis() {
+      const filtro = limpoTxt($('#mf-pf-filtro').value).toUpperCase(), fd = filtro.replace(/\D/g, '');
+      if (!filtro) return pfLista.slice();
+      const soDig = /^[\d.\-/\s]+$/.test(filtro);
+      return pfLista.filter(it => (soDig && fd ? it.doc.includes(fd) : pfSemAcento(it.nome).toUpperCase().includes(pfSemAcento(filtro))));
+    }
+    const pfOcupar = v => { pfOcupado = v; ['#mf-pf-add', '#mf-pf-lote-ir'].forEach(s => { $(s).disabled = v; }); $('#mf-pf-parar').disabled = !v; };
+    const pfPodeIniciar = () => {
+      if (pfOcupado) return false;
+      if (executando || ccb.rodando) { msg('Há uma coleta ou download em andamento. Aguarde terminar para montar a lista PEFIN.'); return false; }
+      return true;
+    };
+
+    $('#mf-pf-natureza').value = PF_NATUREZA_PADRAO;
+    // a natureza vale para a lista inteira: mudar o campo muda a de todos os clientes já na lista
+    $('#mf-pf-natureza').addEventListener('change', () => { const v = $('#mf-pf-natureza').value.trim() || PF_NATUREZA_PADRAO; pfLista.forEach(it => { it.natureza = v; }); pfDesenhar(); });
+    $('#mf-pf-tit').addEventListener('click', () => {
+      const ab = $('#mf-pf-corpo').style.display === 'none';
+      $('#mf-pf-corpo').style.display = ab ? '' : 'none';
+      $('#mf-pf-tit').classList.toggle('aberta', ab);
+    });
+    $('#mf-pf-add').onclick = async () => {
+      if (!pfPodeIniciar()) return;
+      $('#mf-pf-escolha').innerHTML = '';
+      pfOcupar(true);
+      try {
+        const r = await pfAdicionar($('#mf-pf-termo').value, false);
+        if (r.escolha) {
+          pfStatus('Mais de um cliente com esse nome: escolha.');
+          r.escolha.slice(0, 20).forEach(([nome, linhas]) => {
+            const b = document.createElement('button'); b.className = 'cinza';
+            b.style.cssText = 'width:100%;margin-top:4px;text-align:left;font-size:12px;padding:6px';
+            b.textContent = nome + ' · ' + linhas.length + ' proposta(s), a mais recente ' + (pfEscolherProposta(linhas).data || '');
+            b.onclick = async () => {
+              if (!pfPodeIniciar()) return;
+              $('#mf-pf-escolha').innerHTML = '';
+              pfOcupar(true);
+              try { const x = await pfMontar(linhas, ''); if (x.erro) { pfStatus(''); msg('PEFIN: ' + x.erro + '.'); } else { pfGuardar(x.item); pfStatus(''); msg('PEFIN: ' + x.item.nome + ' na lista.'); } }
+              finally { pfOcupar(false); }
+            };
+            $('#mf-pf-escolha').appendChild(b);
+          });
+          return;
+        }
+        pfStatus('');
+        if (r.erro) return msg('PEFIN: ' + r.erro + '.');
+        pfGuardar(r.item);
+        $('#mf-pf-termo').value = '';
+        msg('PEFIN: ' + r.item.nome + ' na lista' + (r.item.avisos.length ? ' (veja os avisos no cartão).' : '.'));
+      } finally { pfOcupar(false); }
+    };
+    $('#mf-pf-termo').addEventListener('keydown', e => { if (e.key === 'Enter') $('#mf-pf-add').click(); });
+    $('#mf-pf-lote-ir').onclick = async () => {
+      if (!pfPodeIniciar()) return;
+      const linhas = $('#mf-pf-lote').value.split(/\n+/).map(l => l.trim()).filter(Boolean);
+      const docs = [...new Set(linhas.map(l => l.replace(/\D/g, '')).filter(d => d.length === 11 || d.length === 14))];
+      const invalidas = linhas.filter(l => { const d = l.replace(/\D/g, ''); return d.length !== 11 && d.length !== 14; });
+      if (!docs.length) return msg('Cole os CPFs (um por linha) antes de adicionar.');
+      pfOcupar(true); pfParar = false;
+      const erros = [];
+      try {
+        for (let i = 0; i < docs.length; i++) {
+          if (pfParar) break;
+          pfStatus('Cliente ' + (i + 1) + ' de ' + docs.length + '...');
+          const r = await pfAdicionar(docs[i], true);
+          if (r.erro) erros.push(pfValor({ doc: docs[i] }, 'doc') + ': ' + r.erro); else pfGuardar(r.item);
+          if (i < docs.length - 1 && !pfParar) await sleep(CONFIG.PF_PAUSA_MS);
+        }
+      } finally { pfOcupar(false); pfStatus(''); }
+      const ok = docs.length - erros.length;
+      msg('PEFIN: ' + (pfParar ? 'parado. ' : '') + ok + ' de ' + docs.length + ' cliente(s) processado(s).' +
+        (erros.length ? '\nSem dados:\n- ' + erros.join('\n- ') : '') + (invalidas.length ? '\nLinhas ignoradas (sem CPF/CNPJ válido): ' + invalidas.length : ''));
+    };
+    $('#mf-pf-parar').onclick = () => { pfParar = true; pfStatus('Parando depois do cliente atual...'); };
+    $('#mf-pf-filtro').addEventListener('input', pfDesenhar);
+    $('#mf-pf-copiar-todos').onclick = () => {
+      const vis = pfVisiveis();
+      if (!vis.length) return msg('A lista PEFIN está vazia' + (pfLista.length ? ' com essa busca.' : '.'));
+      GM_setClipboard(pfTexto(vis, $('#mf-pf-fmt').value, $('#mf-pf-arquivo').checked), 'text');
+      msg(vis.length + ' cliente(s) copiado(s)' + ($('#mf-pf-fmt').value === 'csv' ? ' em CSV' : '') + ($('#mf-pf-arquivo').checked ? ', no formato do arquivo.' : '.'));
+    };
+    $('#mf-pf-limpar').onclick = () => { pfLista.length = 0; $('#mf-pf-escolha').innerHTML = ''; pfDesenhar(); msg('Lista PEFIN vazia.'); };
     cacRetomar();
 
     /* ================= RELATÓRIO DE PENDÊNCIAS (pd) — SOMENTE LEITURA =================

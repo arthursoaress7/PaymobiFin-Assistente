@@ -463,6 +463,17 @@ O módulo de geração de acordos (`at*`) já possui:
 
 ---
 
+- [ ] **P4.15 — Lista de clientes para a negativação PEFIN (Serasa)**
+
+  **Status:** Implementado (25/11/2026), aguardando teste no ER real  
+  **Objetivo:** parar de digitar à mão os dados do cliente no formulário do gerador do arquivo PEFIN (layout de 600 posições).  
+  **Comportamento:** aba CAC > seção Negativação PEFIN. Adicionar por CPF/nome ou colar vários CPFs; cadastro e endereço da aba Cliente da Mesa de Crédito; vencimento mais antigo, término e valor (soma das vencidas pelo valor original, sem juros) do CAC. Botões Copiar e Copiar todos, em texto ou CSV, legível ou no formato do arquivo. Detalhes em `docs/script/07-cac.md`.  
+  **Decisões do responsável (25/11/2026):** as duas formas de entrada; dívida pelo CAC; valor = parcelas vencidas pelo valor original, sem juros; lista só na tela (sem chave nova de armazenamento).  
+  **Critérios de aceite:** em clientes reais, os 14 campos batem com o ER; o formato do arquivo é aceito pelo gerador; CSV abre certo na planilha.  
+  **Pendências:** confirmar os rótulos do endereço da aba Cliente (o cartão avisa os campos não achados e os rótulos lidos) e o formato de cada campo no gerador. Cada cliente consultado abre um protocolo no ER (P4.12).
+
+---
+
 ## Decisões do responsável (12/11/2026)
 
 | # | Tema | Decisão |

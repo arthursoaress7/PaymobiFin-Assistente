@@ -176,8 +176,8 @@ Função = onde a rota aparece (pode ser uma função interna).
 
 | Rota do ER | Resposta | Funções | Módulo |
 |---|---|---|---|
-| `/MesaCredito/MesaCreditoLista` | HTML | `erGuardarBase`, `erMesa`, busca (`pg`) | Base / RD / Busca |
-| `/MesaCredito/MesaAnaliseCliente` | HTML | `buscarDetalhe`, `dadosCliente`, `erCadastro` | Diário / Aba Cliente / RD |
+| `/MesaCredito/MesaCreditoLista` | HTML | `erGuardarBase`, `erMesa`, busca (`pg`), `bsMesa` (também pela lista PEFIN) | Base / RD / Busca / PEFIN |
+| `/MesaCredito/MesaAnaliseCliente` | HTML | `buscarDetalhe`, `dadosCliente`, `erCadastro`, `pfMontar` (cadastro e endereço) | Diário / Aba Cliente / RD / PEFIN |
 | `/MesaCredito/MesaAnaliseProposta` | HTML | `telExtrair` (`DETALHES`), `erVendedor` | Diário / RD |
 | `/MesaCredito/DetalheProposta` | HTML | `telExtrair` (`DETALHES`), `erVendedor` | Diário / RD |
 | `/MesaCredito/MesaAnaliseMobFacil` | HTML (iframe do motor) | `coletarEtapas` | Coleta |
@@ -187,11 +187,11 @@ Função = onde a rota aparece (pode ser uma função interna).
 | `/FilaPropostas/DetalhePropostaCadastro` | HTML | CCBs | CCBs |
 | `/FilaPropostas/DetalhePropostaDocumentos` | HTML | CCBs | CCBs |
 | `/Documentos/BaixaDocumento` | Arquivo | CCBs | CCBs |
-| `/CentralAtendimento/CentralPesquisaCliente` | HTML | `cacConsultar` | CAC |
-| `/CentralAtendimento/BuscaCartao` | **JSON** | `cacAbrir` | CAC |
+| `/CentralAtendimento/CentralPesquisaCliente` | HTML | `cacConsultar`, `pfCac` | CAC / PEFIN |
+| `/CentralAtendimento/BuscaCartao` | **JSON** | `cacAbrir`, `pfCac` | CAC / PEFIN |
 | `/CentralAtendimento/CentralInicio` | HTML | `cacAbrir` | CAC |
-| `/CentralAtendimento/CentralCompras` | HTML | `cacAbrir` | CAC |
-| `/CentralAtendimento/DetalheCompra` | HTML | `cacAbrir` | CAC |
+| `/CentralAtendimento/CentralCompras` | HTML | `cacAbrir`, `pfCac` | CAC / PEFIN |
+| `/CentralAtendimento/DetalheCompra` | HTML | `cacAbrir`, `pfCac` | CAC / PEFIN |
 | Fila (modelo aprendido, `filaReqModelo`) | HTML | `bsFila` | Busca |
 
 **Dependências da tela ao vivo:** árvore React do motor MobFacil (`arvoreReact`, `listaReact`, cliques), `PAGINA.eval` nos CCBs, login/troca de conta, navegação automática, "Ler da tela".
