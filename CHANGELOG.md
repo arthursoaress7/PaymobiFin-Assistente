@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.40.0] — 2026-11-25
+
+### ✨ Novas funcionalidades
+
+- feat: mensagem do grupo da Renegociação com dados do contrato e o que o cliente negociou (#152) (f11ef8d)
+
 ## [v13.39.1] — 2026-11-25
 
 ### 🐛 Correções
