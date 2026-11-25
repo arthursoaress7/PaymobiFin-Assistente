@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.39.1] — 2026-11-25
+
+### 🐛 Correções
+
+- fix: proposta sem digitador sai N/A no vendedor em vez de falha (#148) (8e8423c)
+
 ## [v13.39.0] — 2026-11-24
 
 ### ✨ Novas funcionalidades

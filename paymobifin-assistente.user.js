@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.39.0
+// @version      13.39.1
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -31,7 +31,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.39.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.39.1');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -3098,6 +3098,11 @@
         if (!valor) valor = acharRotulo(doc, 'Valor', 'Garantias');
       }
       if (vendedor) vendedor = vendedor.replace(/^\d+\s+/, '').replace(/\s+-\s+.*$/, '').trim();   // "4144175588 LUCAS S. LINERES - XP ..." -> "LUCAS S. LINERES"
+      // proposta sem digitador (ex.: 5558, incluída pela WEBAPI, sem vendedor de loja): o rótulo "Digitador" está na página
+      // e vazio (<dt>Digitador</dt><dd> </dd>). Não é falha de leitura: o vendedor sai N/A e a fila segue (antes ficava como
+      // falha e parava em "3 de 4"). Só vale com o <dd> vazio de verdade: rótulo não encontrado continua sendo falha.
+      const semDigitador = !vendedor && docs.some(doc => [...doc.querySelectorAll('dt')].some(dt => normRot(proprio(dt)) === 'digitador' &&
+        dt.nextElementSibling && dt.nextElementSibling.tagName === 'DD' && !dt.nextElementSibling.textContent.trim()));
       if (valor) valor = valor.replace(/^R\$\s*/, 'R$');                                          // "R$ 1.864,00" -> "R$1.864,00"
       // IMEI: só aceita 14 a 16 dígitos; cliente: só letras (não inventa quando o rótulo não existe)
       const imeiTxt = primeiroRotulo(docs, ['IMEI'], t => /^\d{14,16}$/.test(t.replace(/\D/g, '')));
@@ -3113,7 +3118,7 @@
       const entradaPct = entradaTxt ? pctDe(entradaTxt) : null;
       const extra = GM_getValue('extra', {});
       extra[id] = { vendedor: vendedor || null, valor: valor || null, imei, cliente: cliente || null, situacao: situacao || null,
-        compra, entrada, entradaPct };
+        compra, entrada, entradaPct, semDigitador };
       GM_setValue('extra', extra);
       const dbg = GM_getValue('extraDbg', {});
       dbg[id] = { paginas: info, achouVendedor: !!vendedor, achouValor: !!valor, achouImei: !!imei, achouCliente: !!cliente, achouSituacao: !!situacao,
@@ -3374,12 +3379,13 @@
       }
       // em digitação (CONF CAD) ainda não tem valor: não é falta (a linha sai com N/A no valor)
       if (m === 'valortransacao') { const mt = GM_getValue('meta', {}); return ativos.filter(id => !valorTransacao(ex[id]) && !ehConfCad((mt[id] || {}).sit)).map(id => id + ' (sem valor de transação)'); }
-      if (m === 'efetivadas') return ativos.filter(id => !(ex[id] && ex[id].vendedor)).map(id => id + ' (falta: vendedor)');
+      const temVendedor = id => !!(ex[id] && (ex[id].vendedor || ex[id].semDigitador));   // sem digitador no ER = N/A, não falta
+      if (m === 'efetivadas') return ativos.filter(id => !temVendedor(id)).map(id => id + ' (falta: vendedor)');
       if (m === 'aprovadas') {
         return ativos.map(id => {
           const f = [];
           if (!(dados[id] && dados[id].cpf)) f.push('cpf');
-          if (!(ex[id] && ex[id].vendedor)) f.push('vendedor');
+          if (!temVendedor(id)) f.push('vendedor');
           if (!valorTransacao(ex[id])) f.push('valor');
           return f.length ? id + ' (falta: ' + f.join(', ') + ')' : null;
         }).filter(Boolean);
@@ -3448,7 +3454,9 @@
 
       // dados da página de detalhe: Vendedor e Valor (aba Garantias); na auditoria completa também IMEI/cliente
       const precisaDetalhe = m === 'efetivadas' || m === 'aprovadas' || m === 'valortransacao' || (m === 'coleta' && cfg('auditoriaCompleta'));
-      if (precisaDetalhe && !GM_getValue('extra', {})[id]) {
+      // sem vendedor lido por uma versão que não sabia de "sem digitador": lê de novo (para o Continuar destravar)
+      const exD = GM_getValue('extra', {})[id];
+      if (precisaDetalhe && (!exD || (!exD.vendedor && exD.semDigitador === undefined))) {
         etapa(id, 'detalhe da proposta');
         await buscarDetalhe(base, id);
         const dbgDet = GM_getValue('extraDbg', {})[id] || {}, pg = dbgDet.paginas || [];
@@ -3476,11 +3484,11 @@
         const extra = GM_getValue('extra', {})[id] || {};
         // Diário: página lida e sem valor = N/A (não é falha); página que não carregou = falha (Continuar tenta de novo)
         if (m === 'valortransacao' && !valorTransacao(extra) &&((GM_getValue('extraDbg', {})[id] || {}).paginas || []).some(x => /erro/.test(x))) return 'página da proposta não carregou';
-        if (m === 'efetivadas' && !extra.vendedor) return 'vendedor não localizado';
+        if (m === 'efetivadas' && !extra.vendedor && !extra.semDigitador) return 'vendedor não localizado';
         // Acesso ao APP: "Sim" não muda mais; "Não"/N/A são consultados de novo (o cliente pode ter entrado no app).
         // Ficar vazio não é falha (site da Paymobi fechado): a proposta segue, e o aviso do fim da fila explica.
         if (m === 'efetivadas' && extra.acessoApp !== 'Sim') await bpEtapa(base, id);
-        if (m === 'aprovadas' && (!extra.vendedor || !valorTransacao(extra))) return 'vendedor ou valor não localizado';
+        if (m === 'aprovadas' && ((!extra.vendedor && !extra.semDigitador) || !valorTransacao(extra))) return 'vendedor ou valor não localizado';
         if (m !== 'aprovadas') return null;
       }
       if (!GM_getValue('rodando', false)) return 'pausado';
