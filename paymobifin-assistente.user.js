@@ -492,14 +492,20 @@
     }
     if (!achado) return null;
     const fl = achado['Exibir fluxos'] || {};
+    // cada fluxo é uma lista de rodadas: vale a mais recente (Timestamp "24/11/2026 às 13:53:36")
+    const quando = s => { const x = /(\d{2})\/(\d{2})\/(\d{4})\D+(\d{2}):(\d{2})(?::(\d{2}))?/.exec(s || ''); return x ? +new Date(+x[3], x[2] - 1, +x[1], +x[4], +x[5], +(x[6] || 0)) : 0; };
     const fluxo = nome => {
-      const z = (fl[nome] || [])[0];
+      const z = (fl[nome] || []).slice().sort((a, b) => quando(b && b.Timestamp) - quando(a && a.Timestamp))[0];
       if (!z) return null;
       const ins = ((z.DadosProposta || {}).Submit || {}).Inputs || [];
-      return { id: String(z.IdProposta || ''), data: z.DataProposta || '', status: z.StatusFinalPuro || '', motivos: z.MotivoStatus || [],
+      return { id: String(z.IdProposta || ''), data: z.DataProposta || '', quando: z.Timestamp || '', status: z.StatusFinalPuro || '', motivos: z.MotivoStatus || [],
         regras: z.RegrasDeNegocios || {}, dados: Object.fromEntries(ins.filter(x => !/BASE64|ID_BIOMETRIA/.test(x.Name)).map(x => [x.Name, x.Value])) };
     };
     const rs = achado['Resumo proposta'] || {};
+    // reanálise (ex.: 5555): só "fluxos_reanalise", cada rodada com TODAS as regras (crédito + documentos e contato).
+    // A rodada mais recente vale no lugar do P1 e do P2, e o status/mensagens dela no lugar do resumo.
+    const re = fluxo('fluxos_reanalise');
+    if (re) return JSON.parse(JSON.stringify({ statusFinal: re.status || rs.statusFinal || '', motivos: re.motivos.length ? re.motivos : rs.motivoStatus || [], p1: re, p2: re, reanalise: true }));
     return JSON.parse(JSON.stringify({ statusFinal: rs.statusFinal || '', motivos: rs.motivoStatus || [], p1: fluxo('fluxos_P1'), p2: fluxo('fluxos_P2') }));
   }
   // responde ao pedido da aba "Analisar proposta" (GM 'anPedido' -> 'anMotor'), só se a página for a proposta pedida
@@ -1164,6 +1170,11 @@
         #mf-p .mf-an-item{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid #e2e8f0;font-size:12.5px;line-height:1.4}
         #mf-p .mf-an-item>span{flex:none;width:20px;text-align:center}
         #mf-p .mf-an-det{color:#475569;word-break:break-word}
+        #mf-p .mf-an-massa{border-top:1px solid #e2e8f0;padding:6px 0;font-size:12.5px;line-height:1.4}
+        #mf-p .mf-an-massa>summary{cursor:pointer;list-style:none}
+        #mf-p .mf-an-massa>summary::-webkit-details-marker{display:none}
+        #mf-p .mf-an-massa[open]>summary{margin-bottom:4px}
+        #mf-p[data-ui=nova] .mf-an-massa{border-top-color:var(--mf-borda,#334155)}
         #mf-p[data-ui=nova] .mf-an-item{border-top-color:var(--mf-borda,#334155)}
         #mf-p[data-ui=nova] .mf-an-det{color:var(--mf-txt2,#94a3b8)}
         #mf-p .mf-ui-menu{position:absolute;right:4px;top:100%;z-index:5;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px #0003;padding:4px;min-width:170px;display:none}
@@ -2003,6 +2014,41 @@
             <div id="mf-an-veredito" class="mf-an-veredito"></div>
             <div id="mf-an-lista"></div>
             <button id="mf-an-copiar" class="cinza mf-cheia" style="margin-top:8px;width:100%">Copiar resumo</button>
+          </div>
+          <div class="mf-sec">
+            <div class="mf-tit">Analisar várias propostas</div>
+            <textarea id="mf-an-ids" placeholder="Números das propostas (um por linha), ou busque na Fila abaixo"></textarea>
+            <div class="mf-grade" style="margin-top:6px">
+              <label class="mf-lb-rot">De<input type="date" id="mf-an-ini"></label>
+              <label class="mf-lb-rot">Até<input type="date" id="mf-an-fim"></label>
+            </div>
+            <div class="mf-linha" style="margin-top:6px">
+              <select id="mf-an-tipo" style="flex:1">
+                <option value="todas">Reprovadas, efetivadas e aprovadas</option>
+                <option value="rep">Reprovadas</option>
+                <option value="efe">Efetivadas</option>
+                <option value="apr">Aprovadas (não efetivadas)</option>
+              </select>
+              <button id="mf-an-buscar" class="cinza" style="padding:8px 12px">Buscar na Fila</button>
+            </div>
+            <div class="mf-grade" style="margin-top:8px">
+              <button id="mf-an-massa" class="azul">Analisar todas</button>
+              <button id="mf-an-parar" class="laranja" disabled>Parar</button>
+            </div>
+            <div id="mf-an-mst" class="mf-info" style="margin-top:6px"></div>
+            <div class="mf-info" style="margin-top:6px">Analisa uma por uma, com a mesma conferência da proposta única (alguns segundos cada).
+              Reprovadas: diz se a reprovação confere com a política ou se o MobFacil reprovou com o crédito dentro dela. Efetivadas e aprovadas:
+              diz se foram aprovadas fora da política ou com divergência. Clique numa proposta para ver os detalhes. Nada é alterado no ER.</div>
+          </div>
+          <div class="mf-sec" id="mf-an-mres" style="display:none">
+            <div class="mf-tit">Resultado <span id="mf-an-mqtd"></span></div>
+            <div id="mf-an-mresumo" class="mf-an-veredito"></div>
+            <div id="mf-an-mlista"></div>
+            <div class="mf-grade" style="margin-top:8px">
+              <button id="mf-an-mcopiar" class="cinza">Copiar resumo</button>
+              <button id="mf-an-mplan" class="cinza">Copiar planilha</button>
+            </div>
+            <button id="mf-an-mconf" class="cinza" style="width:100%;margin-top:6px">Copiar conferência (formato da equipe)</button>
           </div>
         </div>
 
@@ -6006,11 +6052,13 @@
       } finally { fr.remove(); GM_deleteValue('anPedido'); GM_deleteValue('anMotor'); }
     }
     // impeditivo do KYC da BMP: lista guardada do relatório Impeditivos BMP ou o ícone 🚫 na Fila do dia da proposta
-    async function anKyc(id, dataProp, sit) {
+    // filas (opcional, análise em massa): cache das Filas por dia, para não ler a mesma Fila uma vez por proposta
+    async function anKyc(id, dataProp, sit, filas) {
       const it = (ibBase().itens || {})[id];
       if (it) return { st: 'erro', det: 'impeditivo da BMP' + (it.motivo ? ': ' + it.motivo : '') + ' (lista do relatório Impeditivos BMP)' };
       if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dataProp || '')) return { st: 'nc', det: 'sem a data da proposta para procurar na Fila de Propostas' };
-      const l = await ibLista(dataProp, dataProp);
+      if (filas && !filas.has(dataProp)) filas.set(dataProp, ibLista(dataProp, dataProp));
+      const l = await (filas ? filas.get(dataProp) : ibLista(dataProp, dataProp));
       if (l.erro) return { st: 'nc', det: 'não deu para ler a Fila de Propostas (' + l.erro + ')' };
       const x = l.linhas.find(r => r.proposta === String(id));
       if (x) return { st: 'erro', det: 'ícone 🚫 da BMP na Fila: ' + (x.motivo || 'sem motivo no ícone') };
@@ -6019,115 +6067,232 @@
       return dias <= CONFIG.AN_KYC_DIAS ? { st: 'ok', det: 'sem o ícone 🚫 da BMP na Fila de Propostas' }
         : { st: 'nc', det: 'sem o ícone 🚫 na Fila hoje, mas a proposta é de ' + dataProp + ' e o ícone some com o tempo: não dá para confirmar' };
     }
+    // nome igual depois de tirar acento e espaço repetido ("WASHINGTON  MARTINS" x "WASHINGTON MARTINS")
+    const anNomeNorm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
     function anConferir(ctx) {
       const L = [];
       const add = (st, item, det) => L.push({ st, item, det: det || '' });
       const m = ctx.motor, p1 = m && m.p1, p2 = m && m.p2;
       const r1 = (p1 && p1.regras) || {}, r2 = (p2 && p2.regras) || {};
+      const reprovadaAntes = !!m && anLetra(m.statusFinal) === 'R';
       const semMotor = 'sem o resultado do MobFacil (' + (ctx.motorErro || 'não lido') + ')';
-      const semP2 = 'a proposta ainda não passou pela validação de documentos e contato do MobFacil (fluxo P2)';
-      // regra com "Status" ("A - Aprovado", "R - Reprovado", "L - Pendente loja"...): A = ok; o resto = naoA
-      const porStatus = (item, rg, fonte, detFn, naoA, campo) => {
+      const naoCalc = reprovadaAntes ? 'o MobFacil não calculou (a proposta foi reprovada antes)' : 'o MobFacil não trouxe essa validação';
+      // regra com "Status" ("A - Aprovado", "R - Reprovado", "L - Pendente loja", "P - Pendente mesa"): A = ok, R = problema;
+      // pendência (L/P) = naoA (problema por padrão; função = decide pela letra)
+      const porStatus = (item, rg, detFn, naoA, campo) => {
         if (!m) return add('nc', item, semMotor);
-        if (!fonte) return add('nc', item, semP2);
-        if (!rg) return add('nc', item, 'o MobFacil não trouxe essa validação');
+        if (!rg) return add('nc', item, naoCalc);
         const l = anLetra(rg[campo || 'Status']);
-        add(l === 'A' ? 'ok' : !l ? 'nc' : naoA || 'erro', item, (detFn && detFn(rg)) || rg[campo || 'Status'] || 'sem status');
+        const st = l === 'A' ? 'ok' : !l ? 'nc' : l === 'R' ? 'erro' : typeof naoA === 'function' ? naoA(l) : naoA || 'erro';
+        add(st, item, (detFn && detFn(rg)) || rg[campo || 'Status'] || 'sem status');
       };
+      const motivoCom = re => ((m && m.motivos) || []).find(x => re.test(x)) || '';
 
       // 1. política de faixa (CONFIG.FAIXAS): score x valor e quantidade de restrições
       const IP = 'Política de faixa (score x restrições)';
+      const nf = anNumeros(m);
       if (!p1) add('nc', IP, semMotor);
+      else if (!nf.fx) add('nc', IP, 'score não encontrado no MobFacil');
+      else if (nf.fx.valor == null) add('erro', IP, 'score ' + nf.sc + ' = faixa ' + nf.fx.faixa + ' (até ' + nf.fx.ate + '): reprova sempre (Score Baixo)');
+      else if (nf.v == null || nf.q == null) add('nc', IP, 'score ' + nf.sc + ' = faixa ' + nf.fx.faixa + ', mas o MobFacil não trouxe o valor/quantidade de restrições');
       else {
-        const sc = anNum((r1.classificacaoRiscoDeCredito || {}).valorScore), cr = r1.calculaRisco || {};
-        const v = anNum(cr.ValorRestritivos), q = anNum(cr.QuantidadeRestritivos);
-        const fx = sc != null ? faixaDe(null, sc) : null;
-        if (!fx) add('nc', IP, 'score não encontrado no MobFacil');
-        else if (fx.valor == null) add('erro', IP, 'score ' + sc + ' = faixa ' + fx.faixa + ' (até ' + fx.ate + '): reprova sempre (Score Baixo)');
-        else if (v == null || q == null) add('nc', IP, 'score ' + sc + ' = faixa ' + fx.faixa + ', mas o MobFacil não trouxe o valor/quantidade de restrições');
-        else {
-          const fora = [];
-          if (v > fx.valor) fora.push('valor ' + anReais(v) + ' acima do limite de ' + anReais(fx.valor));
-          if (q > fx.qtd) fora.push(q + ' restrições, acima do limite de ' + fx.qtd);
-          add(fora.length ? 'erro' : 'ok', IP, 'score ' + sc + ' = faixa ' + fx.faixa + ': ' + (fora.length ? fora.join(' e ')
-            : anReais(v) + ' (até ' + anReais(fx.valor) + ') e ' + q + ' restrição(ões) (até ' + fx.qtd + ')'));
-        }
+        const fora = [];
+        if (nf.v > nf.fx.valor) fora.push('valor ' + anReais(nf.v) + ' acima do limite de ' + anReais(nf.fx.valor));
+        if (nf.q > nf.fx.qtd) fora.push(nf.q + ' restrições, acima do limite de ' + nf.fx.qtd);
+        add(fora.length ? 'erro' : 'ok', IP, 'score ' + nf.sc + ' = faixa ' + nf.fx.faixa + ': ' + (fora.length ? fora.join(' e ')
+          : anReais(nf.v) + ' (até ' + anReais(nf.fx.valor) + ') e ' + nf.q + ' restrição(ões) (até ' + nf.fx.qtd + ')'));
       }
+      // 1b. a decisão do MobFacil no crédito confere com a política da equipe? (o motor pode usar limite antigo/errado:
+      //     reprovar com o crédito dentro da política ou aprovar com ele fora)
+      add(...anDecisaoMotor(m, nf));
       // 2. Receita Federal e requisitos do birô
       const vc = r1.validacaoCadastral || r2.validacaoCadastral || null;
       const simil = rg => 'similaridade ' + (rg.Similaridade || '?') + '%' + (rg.DadoBiro && rg.DadoProposta && rg.DadoBiro !== rg.DadoProposta
         ? ' (proposta: ' + rg.DadoProposta + ' · Receita: ' + rg.DadoBiro + ')' : '');
-      porStatus('Nome x Receita Federal', vc && vc.ValidacaoNome, p1 || p2, simil);
-      porStatus('Data de nascimento x Receita Federal', vc && vc.ValidacaoDataDeNascimento, p1 || p2, simil);
+      const vn = vc && vc.ValidacaoNome;
+      const INOME = 'Nome x Receita Federal';
+      if (vn && anLetra(vn.Status) && anLetra(vn.Status) !== 'A' && vn.DadoBiro && vn.DadoProposta) {
+        const a = anNomeNorm(vn.DadoProposta), b = anNomeNorm(vn.DadoBiro);
+        // mesma grafia sem acento/espaço repetido, ou nome cortado no fim (o campo da proposta tem limite) = alerta, não divergência
+        if (a === b) add('alerta', INOME, 'difere só em espaço ou acento · ' + simil(vn));
+        else if (a.length >= 30 && b.startsWith(a)) add('alerta', INOME, 'nome cortado no fim na proposta · ' + simil(vn));
+        else add('erro', INOME, simil(vn));
+      } else porStatus(INOME, vn, simil);
+      porStatus('Data de nascimento x Receita Federal', vc && vc.ValidacaoDataDeNascimento, simil);
       const rb = r1.requisitosBiroValores || {};
-      porStatus('CPF regular na Receita Federal', rb.SituacaoCpf, p1, rg => rg.SituacaoCPF);
-      porStatus('Sem marcação de óbito', rb.MarcacaoObito, p1, rg => rg.MarcacaoObitoBiro);
+      porStatus('CPF regular na Receita Federal', p1 && rb.SituacaoCpf, rg => rg.SituacaoCPF);
+      porStatus('Sem marcação de óbito', p1 && rb.MarcacaoObito, rg => rg.MarcacaoObitoBiro);
       const rq = r1.requisitosBasicosValores || {};
-      if (!p1) add('nc', 'Idade (18 a 75 anos)', semMotor);
-      else if (!rq.IdadeMinima || !rq.IdadeMaxima) add('nc', 'Idade (18 a 75 anos)', 'o MobFacil não trouxe essa validação');
+      if (!m) add('nc', 'Idade (18 a 75 anos)', semMotor);
+      else if (!rq.IdadeMinima || !rq.IdadeMaxima) add('nc', 'Idade (18 a 75 anos)', naoCalc);
       else add(anLetra(rq.IdadeMinima.Status) === 'A' && anLetra(rq.IdadeMaxima.Status) === 'A' ? 'ok' : 'erro', 'Idade (18 a 75 anos)', (rq.IdadeMinima.DadoInformado || '?') + ' anos');
-      porStatus('Renda mínima', rq.RendaMinima, p1, rg => 'renda informada R$' + (rg.DadoInformado || '?') + ' · ' + (rg.Regra || ''));
+      porStatus('Renda mínima', rq.RendaMinima, rg => 'renda informada R$' + (rg.DadoInformado || '?') + ' · ' + (rg.Regra || ''));
       const rv = r1.validaRendavalores;
-      if (!p1) add('nc', 'Renda validada no birô', semMotor);
-      else if (!rv) add('nc', 'Renda validada no birô', 'o MobFacil não trouxe a validação de renda');
+      if (!m) add('nc', 'Renda validada no birô', semMotor);
+      else if (!rv) add('nc', 'Renda validada no birô', naoCalc);
       else add(rv.RendaValidada ? 'ok' : 'alerta', 'Renda validada no birô', (rv.RendaValidada ? 'validada' : 'NÃO validada') +
         (rv.Variacao != null ? ' (variação ' + rv.Variacao + '%' + (rv.BiroSelecionado ? ', ' + rv.BiroSelecionado : '') + ')' : ''));
-      porStatus('Aparelho disponível para crédito', r1.validaAparelho || r2.validaAparelho, p1 || p2, rg => (rg.Regra || '') + (rg.SituacaoCodigoLojista ? ' · ' + rg.SituacaoCodigoLojista : ''));
-      // 3. documentos (fluxo P2)
-      porStatus('Tipos de documento', r2.validaTipoDoc, p2, rg => (rg.Mensagem || rg.Regra || '') + ' (' + [rg.TipoDocumento1, rg.TipoDocumento2].filter(Boolean).join(' e ') + ')');
-      const docs = (r2.validaDocumentos || {}).ValidaDoc;
-      const ID = 'Documento x proposta (CPF e nome no documento)';
-      if (!m) add('nc', ID, semMotor);
-      else if (!p2) add('nc', ID, semP2);
-      else if (!Array.isArray(docs) || !docs.length) add('nc', ID, 'o MobFacil não trouxe a validação dos documentos');
-      else {
-        const ruins = docs.filter(d => d.CpfEncontrado !== 'Sim' || d.NomeEncontrado !== 'Sim' || anLetra(d.StatusDocumento) !== 'A');
-        add(ruins.length ? 'erro' : 'ok', ID, docs.map((d, i) => 'doc ' + (i + 1) + ' (' + (d.TipoDocumento || '?') + '): CPF ' + (d.CpfEncontrado || '?') +
-          ', nome ' + (d.NomeEncontrado || '?') + (d.MensagemErro ? ', ' + d.MensagemErro : '')).join(' · '));
+      // parcela calculada x máximo mensal (o MobFacil só alerta)
+      const lc = r1.limiteCreditoValores;
+      const pc = lc && anNum(lc.parceladoMensalCalculado), pm = lc && anNum(lc.parceladoMensal);
+      // o MobFacil só manda a parcela calculada quando ela passa do máximo (visto em 26 propostas de 24-25/11/2026):
+      // sem ela e sem a mensagem de alerta de parcela = dentro do máximo
+      if (!m) add('nc', 'Parcela x máximo mensal', semMotor);
+      else if (!lc) add('nc', 'Parcela x máximo mensal', naoCalc);
+      else if (pc == null && !motivoCom(/parcela/i)) add('ok', 'Parcela x máximo mensal', 'sem alerta de parcela no MobFacil' + (pm != null ? ' (máximo mensal ' + anReais(pm) + ')' : ''));
+      else if (pc == null || pm == null) add('nc', 'Parcela x máximo mensal', 'o MobFacil alertou a parcela, mas não trouxe o valor calculado: ' + motivoCom(/parcela/i));
+      else add(pc > pm ? 'alerta' : 'ok', 'Parcela x máximo mensal', 'parcela ' + anReais(pc) + (pc > pm ? ' acima do' : ' dentro do') + ' máximo de ' + anReais(pm));
+      // aparelho: pendente mesa (ex.: IMEI/modelo não cadastrado) = alerta; reprovado = problema
+      const ap = r1.validaAparelho || r2.validaAparelho;
+      porStatus('Aparelho disponível para crédito', ap, rg => [motivoCom(/aparelho|imei/i) || rg.Regra, rg.LimitesFinanciamento ? 'limite R$' + rg.LimitesFinanciamento : ''].filter(Boolean).join(' · '), 'alerta');
+      // 3. documentos e contato (fluxo P2: só depois do cadastro completo)
+      if (m && !p2) {
+        add('nc', 'Documentos e contato (fluxo P2)', reprovadaAntes ? 'a proposta foi reprovada antes da validação de documentos e contato'
+          : 'a proposta ainda não passou pela validação de documentos e contato do MobFacil (cadastro completo)');
+      } else {
+        // tipos: "Documentos Iguais" (L) = problema; "para análise da mesa" (P, ex.: segundo documento NA) = alerta
+        porStatus('Tipos de documento', r2.validaTipoDoc, rg => (rg.Mensagem || rg.Regra || '') + ' (' + [rg.TipoDocumento1, rg.TipoDocumento2].filter(Boolean).join(' e ') + ')',
+          l => (l === 'P' ? 'alerta' : 'erro'));
+        // CPF e nome no conjunto dos documentos: frente e verso dividem os dados (ex.: RG frente com o nome, verso com o CPF)
+        const docs = (r2.validaDocumentos || {}).ValidaDoc;
+        const ID = 'Documento x proposta (CPF e nome no documento)';
+        if (!m) add('nc', ID, semMotor);
+        else if (!Array.isArray(docs) || !docs.length) add('nc', ID, 'o MobFacil não trouxe a validação dos documentos');
+        else {
+          const cpfOk = docs.some(d => d.CpfEncontrado === 'Sim'), nomeOk = docs.some(d => d.NomeEncontrado === 'Sim');
+          const reprov = docs.filter(d => anLetra(d.StatusDocumento) && anLetra(d.StatusDocumento) !== 'A');
+          const det = docs.map((d, i) => 'doc ' + (i + 1) + ' (' + (d.TipoDocumento || '?') + '): CPF ' + (d.CpfEncontrado || '?') + ', nome ' + (d.NomeEncontrado || '?') +
+            (d.MensagemErro ? ', ' + d.MensagemErro : '')).join(' · ');
+          add(reprov.length || !cpfOk || !nomeOk ? 'erro' : 'ok', ID, (!cpfOk ? 'CPF não encontrado em nenhum documento · ' : '') + (!nomeOk ? 'nome não encontrado em nenhum documento · ' : '') + det);
+        }
+        porStatus('Foto x documento (facematch)', r2.validaFacematch, rg => rg.Mensagem);
+        porStatus('Biometria', r2.validaBiometria, rg => 'score ' + (rg.Score != null ? rg.Score : '?') + (rg.Tipo ? ' · ' + rg.Tipo : ''));
+        // contato: o MobFacil só alerta, não reprova
+        const tel = ((r2.validaTelefones || {}).Telefones || [])[0];
+        porStatus('Telefone 1 nos birôs', tel, rg => (rg.TelefoneInformado || 'não informado') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'TelefoneValidado');
+        porStatus('E-mail nos birôs', r2.validaEmails, rg => (rg.EmailInformado || 'não informado') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'EmailValidado');
+        porStatus('Endereço nos birôs', r2.validaEnderecos, rg => [rg.EnderecoInformado, rg.NumeroInformado, rg.CidadeInformado, rg.UFInformado].filter(Boolean).join(', ') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'EnderecoValidado');
       }
-      porStatus('Foto x documento (facematch)', r2.validaFacematch, p2, rg => rg.Mensagem);
-      porStatus('Biometria', r2.validaBiometria, p2, rg => 'score ' + (rg.Score != null ? rg.Score : '?') + (rg.Tipo ? ' · ' + rg.Tipo : ''));
-      // 4. contato (fluxo P2): o MobFacil só alerta, não reprova
-      const tel = ((r2.validaTelefones || {}).Telefones || [])[0];
-      porStatus('Telefone 1 nos birôs', tel, p2, rg => (rg.TelefoneInformado || 'não informado') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'TelefoneValidado');
-      porStatus('E-mail nos birôs', r2.validaEmails, p2, rg => (rg.EmailInformado || 'não informado') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'EmailValidado');
-      porStatus('Endereço nos birôs', r2.validaEnderecos, p2, rg => [rg.EnderecoInformado, rg.NumeroInformado, rg.CidadeInformado, rg.UFInformado].filter(Boolean).join(', ') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'EnderecoValidado');
-      // 5. resultado e mensagens do MobFacil (reprovações, derivações e alertas, ex.: parcela acima do máximo)
+      // 4. resultado do MobFacil: aprovado = ok (os alertas já estão nas conferências acima); pendente = alerta; reprovado = problema
       if (!m) add('nc', 'Resultado do MobFacil', semMotor);
       else {
         const msgs = (m.motivos || []).filter(x => !/^Pendente: Aguarde/i.test(x));
         const l = anLetra(m.statusFinal);
-        add(l === 'A' && !msgs.some(x => /alerta|derivar|reprovar/i.test(x)) ? 'ok' : l === 'R' ? 'erro' : 'alerta', 'Resultado do MobFacil',
+        add(l === 'A' ? 'ok' : l === 'R' ? 'erro' : 'alerta', 'Resultado do MobFacil' + (m.reanalise ? ' (reanálise)' : ''),
           (m.statusFinal || 'sem status') + (msgs.length ? ' · ' + msgs.join(' · ') : ''));
       }
-      // 6. itens da análise da proposta no ER (biometria, idade, MobFacil, registros internos...)
+      // 5. itens da análise da proposta no ER (biometria, idade, MobFacil, registros internos...)
       if (ctx.itensErro) add('nc', 'Itens da análise da proposta (ER)', 'não deu para ler (' + ctx.itensErro + ')');
       else if (!(ctx.itens || []).length) add('nc', 'Itens da análise da proposta (ER)', 'a proposta não tem itens de análise');
       else ctx.itens.forEach(x => add(/aprovad/i.test(x.sit) ? 'ok' : /reprovad/i.test(x.sit) ? 'erro' : 'alerta', 'Análise ER: ' + x.nome,
         x.sit + (x.parecer ? ' · ' + (x.parecer.length > 220 ? x.parecer.slice(0, 220) + '…' : x.parecer) : '')));
-      // 7. KYC da BMP
+      // 6. KYC da BMP
       add(ctx.kyc.st, 'Impeditivo da BMP (KYC)', ctx.kyc.det);
       return L;
     }
-    function anMostrar(id, pag, motor, dataProp, lista) {
-      const d1 = (motor && motor.p1 && motor.p1.dados) || {}, d2 = (motor && motor.p2 && motor.p2.dados) || {};
-      const cpf = d2.PROP_CPF || d1.PROP_CPF || '';
-      const cab = [['Proposta', id], ['Cliente', d2.PROP_NOME || d1.PROP_NOME || NA], ['CPF', cpf ? cacCpfFmt(cpf) : NA], ['Data', dataProp || NA],
-        ['Situação no ER', pag.sit || NA], ['Digitador', pag.dig || NA], ['Valor da compra', pag.compra || NA]];
-      const c = { ok: 0, erro: 0, alerta: 0, nc: 0 };
-      lista.forEach(x => { c[x.st]++; });
+    // política da equipe pelo score e restrições: 'dentro' | 'fora' | null (sem dados)
+    function anPolitica(nf) {
+      if (!nf.fx) return null;
+      if (nf.fx.valor == null) return 'fora';
+      if (nf.v == null || nf.q == null) return null;
+      return nf.v > nf.fx.valor || nf.q > nf.fx.qtd ? 'fora' : 'dentro';
+    }
+    // decisão do MobFacil no CRÉDITO: calculaRisco (restrições) e classificacaoRiscoDeCredito (ponto de corte do score).
+    // R = reprovou, P/L = mandou para a mesa/loja, A = aprovou. Compara com a política da equipe.
+    const AN_DEC = 'Decisão do MobFacil (crédito) x política da equipe';
+    function anDecisaoMotor(m, nf) {
+      if (!m || !m.p1) return ['nc', AN_DEC, 'sem o resultado do MobFacil'];
+      const r1 = m.p1.regras || {};
+      const lr = anLetra((r1.calculaRisco || {}).Status), ls = anLetra((r1.classificacaoRiscoDeCredito || {}).Status);
+      const dec = lr === 'R' || ls === 'R' ? 'R' : lr === 'P' || lr === 'L' || ls === 'P' || ls === 'L' ? 'P' : lr === 'A' && (!ls || ls === 'A') ? 'A' : '';
+      const pol = anPolitica(nf);
+      if (!dec) return ['nc', AN_DEC, 'o MobFacil não trouxe a decisão de crédito (restrições/score)'];
+      if (!pol) return ['nc', AN_DEC, 'sem score ou restrições para comparar com a política'];
+      // limite que o MobFacil usou (da mensagem de faixa), para mostrar a diferença
+      const msgF = ((m.motivos || []).concat(m.p1.motivos || [])).find(x => /faixa\s+\S+\s+acima\s+do\s+limite/i.test(x)) || '';
+      const lim = msgF.match(/faixa\s+(\S+).*?Restritivo\s*=\s*R?\$?\s*([\d.,]+)\s*,\s*Qtde\s*=\s*(\d+)/i);
+      const usado = lim ? ' (o MobFacil usou faixa ' + lim[1] + ': R$' + lim[2] + ' e ' + lim[3] + ')' : '';
+      const tab = 'faixa ' + nf.fx.faixa + ' da equipe' + (nf.fx.valor != null ? ': até ' + anReais(nf.fx.valor) + ' e ' + nf.fx.qtd + ' restrição(ões)' : ': reprova sempre') +
+        (nf.v != null ? '; atual ' + anReais(nf.v) + ' e ' + nf.q : '');
+      const verbo = { R: 'reprovou', P: 'mandou para a mesa', A: 'aprovou' }[dec];
+      if (dec === 'R' && pol === 'dentro') return ['erro', AN_DEC, 'o MobFacil REPROVOU pelo crédito, mas está DENTRO da política (' + tab + ')' + usado];
+      if (dec === 'A' && pol === 'fora') return ['erro', AN_DEC, 'o MobFacil APROVOU o crédito, mas está FORA da política (' + tab + ')'];
+      if (dec === 'P' && pol === 'dentro') return ['alerta', AN_DEC, 'o MobFacil mandou para a mesa pelo crédito, mas está dentro da política (' + tab + ')' + usado];
+      return ['ok', AN_DEC, 'confere: o MobFacil ' + verbo + ' e a política diz ' + pol + ' (' + tab + ')'];
+    }
+    // score, faixa e restrições do motor (para a política, a planilha e a conferência no formato da equipe)
+    function anNumeros(m) {
+      const r1 = (m && m.p1 && m.p1.regras) || {};
+      const sc = anNum((r1.classificacaoRiscoDeCredito || {}).valorScore), cr = r1.calculaRisco || {};
+      return { sc, fx: sc != null ? faixaDe(null, sc) : null, v: anNum(cr.ValorRestritivos), q: anNum(cr.QuantidadeRestritivos) };
+    }
+    function anContar(lista) { const c = { ok: 0, erro: 0, alerta: 0, nc: 0 }; lista.forEach(x => { c[x.st]++; }); return c; }
+    function anVeredito(lista) {
+      const c = anContar(lista);
       const extras = [c.alerta ? c.alerta + ' alerta(s)' : '', c.nc ? c.nc + ' não confirmada(s)' : ''].filter(Boolean).join(' e ');
-      const ver = c.erro ? '❌ ' + c.erro + ' problema(s): fora da política ou com divergência' + (extras ? ' (e ' + extras + ')' : '')
+      return c.erro ? '❌ ' + c.erro + ' problema(s): fora da política ou com divergência' + (extras ? ' (e ' + extras + ')' : '')
         : extras ? '⚠️ Nenhum problema encontrado, mas há ' + extras + ': confira à mão antes de dar como certo'
         : '✅ Tudo certo: as ' + lista.length + ' conferências passaram';
-      const ord = [...lista].sort((a, b) => AN_ORDEM[a.st] - AN_ORDEM[b.st]);
+    }
+    // tipo da proposta pela situação (Fila ou página): reprovada, efetivada, aprovada (não efetivada) ou outra
+    const anTipo = sit => (ehReprovada(sit) ? 'rep' : /efetiv/i.test(sit || '') ? 'efe' : /cancel/i.test(sit || '') ? 'outra' : /\bapr\b|aprov/i.test(sit || '') ? 'apr' : 'outra');
+    // conferência da análise em massa: o que a análise diz sobre a decisão tomada na proposta
+    //   reprovada: confere se há problema de política/divergência (fora o próprio "reprovado" do MobFacil); senão, reprovada
+    //   dentro da política (conferir: ex.: reprovada com o limite antigo do MobFacil)
+    //   efetivada/aprovada: problema = aprovada fora da política ou com divergência
+    function anConferencia(r) {
+      if (r.erroGeral) return { nivel: 'nc', txt: '❔ Não analisada: ' + r.erroGeral };
+      // problemas de política/divergência (fora o próprio "reprovado" do MobFacil e a comparação da decisão dele)
+      const pol = r.lista.filter(x => x.st === 'erro' && !/^Resultado do MobFacil|^Análise ER: MOBFACIL|^Decisão do MobFacil/i.test(x.item));
+      const motorErrou = r.lista.some(x => x.item === AN_DEC && x.st === 'erro');
+      const tipo = anTipo(r.sitFila || r.pag.sit);
+      const c = anContar(r.lista);
+      if (tipo === 'rep') {
+        if (motorErrou && !pol.length) return { nivel: 'erro', txt: '❌ Reprovada pelo crédito, mas DENTRO da política da equipe: o MobFacil reprovou errado' };
+        if (pol.length) return { nivel: 'ok', txt: '✅ Reprovação confere: ' + pol.map(x => x.item).join(', ') + (motorErrou ? ' (o crédito estava dentro da política)' : '') };
+        if (!r.motor) return { nivel: 'nc', txt: '❔ Reprovada, sem o resultado do MobFacil para conferir' };
+        return { nivel: 'alerta', txt: '⚠️ Reprovada, mas nenhum motivo de política foi encontrado: conferir' };
+      }
+      if (c.erro) return { nivel: 'erro', txt: '❌ ' + (tipo === 'efe' ? 'Efetivada' : tipo === 'apr' ? 'Aprovada' : 'Proposta') + ' com problema: ' + r.lista.filter(x => x.st === 'erro').map(x => x.item).join(', ') };
+      if (c.alerta) return { nivel: 'alerta', txt: '⚠️ Sem problema, com alertas: ' + r.lista.filter(x => x.st === 'alerta').map(x => x.item).join(', ') };
+      if (c.nc) return { nivel: 'nc', txt: '❔ Sem problema encontrado, mas ' + c.nc + ' conferência(s) não confirmada(s)' };
+      return { nivel: 'ok', txt: '✅ Tudo certo' };
+    }
+    function anCabecalho(r) {
+      const d1 = (r.motor && r.motor.p1 && r.motor.p1.dados) || {}, d2 = (r.motor && r.motor.p2 && r.motor.p2.dados) || {};
+      const cpf = d2.PROP_CPF || d1.PROP_CPF || '';
+      return [['Proposta', r.id], ['Cliente', d2.PROP_NOME || d1.PROP_NOME || r.cliFila || NA], ['CPF', cpf ? cacCpfFmt(cpf) : NA], ['Data', r.dataProp || NA],
+        ['Situação no ER', r.pag.sit || r.sitFila || NA], ['Digitador', r.pag.dig || NA], ['Valor da compra', r.pag.compra || NA]];
+    }
+    const anItensHtml = lista => [...lista].sort((a, b) => AN_ORDEM[a.st] - AN_ORDEM[b.st]).map(x => '<div class="mf-an-item mf-an-' + x.st + '"><span>' + AN_ICONE[x.st] +
+      '</span><div><b>' + esc(x.item) + '</b><br><span class="mf-an-det">' + esc(x.det) + '</span></div></div>').join('');
+    function anMostrar(r) {
+      const cab = anCabecalho(r), ver = anVeredito(r.lista);
+      const ord = [...r.lista].sort((a, b) => AN_ORDEM[a.st] - AN_ORDEM[b.st]);
       $('#mf-an-cab').innerHTML = cab.map(([k, v]) => '<div><b>' + esc(k) + ':</b> ' + esc(v) + '</div>').join('');
       $('#mf-an-veredito').textContent = ver;
-      $('#mf-an-lista').innerHTML = ord.map(x => '<div class="mf-an-item mf-an-' + x.st + '"><span>' + AN_ICONE[x.st] + '</span><div><b>' + esc(x.item) +
-        '</b><br><span class="mf-an-det">' + esc(x.det) + '</span></div></div>').join('');
+      $('#mf-an-lista').innerHTML = anItensHtml(r.lista);
       $('#mf-an-res').style.display = '';
-      anTexto = ['*ANÁLISE DA PROPOSTA ' + id + '*', '', ...cab.map(([k, v]) => k + ': ' + v), '', ver, '',
+      anTexto = ['*ANÁLISE DA PROPOSTA ' + r.id + '*', '', ...cab.map(([k, v]) => k + ': ' + v), '', ver, '',
         ...ord.map(x => AN_ICONE[x.st] + ' ' + x.item + ': ' + x.det)].join('\n');
+    }
+    // análise de UMA proposta (a tela de uma e a em massa usam a mesma). fila: cache das Filas por dia (KYC), na massa
+    async function anAnalisarUm(base, id, avisar, filas) {
+      avisar('lendo a proposta no ER');
+      const pag = await anLerPagina(base, id);
+      if (pag.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
+      avisar('lendo a análise da proposta');
+      const an = await itensAnalise(base, id);
+      if (an.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
+      avisar('lendo o resultado do MobFacil (até ' + CONFIG.AN_ESPERA + ' s)');
+      const mt = await anLerMotor(base, id);
+      if (mt.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
+      const p1 = mt.motor && mt.motor.p1, p2 = mt.motor && mt.motor.p2;
+      const dataProp = (p1 && p1.data) || (p2 && p2.data) || pag.data || '';
+      avisar('procurando impeditivo da BMP na Fila');
+      const kyc = await anKyc(id, dataProp, pag.sit, filas);
+      const lista = anConferir({ itens: an.itens, itensErro: an.erro, motor: mt.motor, motorErro: mt.erro, kyc });
+      return { id, pag: pag.erro ? {} : pag, pagErro: pag.erro || '', motor: mt.motor || null, motorErro: mt.erro || '', dataProp, lista };
     }
     async function anAnalisar() {
       if (anRodando) return;
@@ -6135,27 +6300,15 @@
       if (!id) return anStatus('Digite o número da proposta.');
       const base = anBase();
       if (!base) return anStatus('Abra o ER (com o sistema carregado) para analisar.');
-      const caiu = () => anStatus('A sessão do ER expirou: entre de novo e analise outra vez.');
-      anRodando = true; $('#mf-an-ir').disabled = true; $('#mf-an-res').style.display = 'none'; anTexto = '';
+      anRodando = true; $('#mf-an-ir').disabled = true; $('#mf-an-massa').disabled = true; $('#mf-an-res').style.display = 'none'; anTexto = '';
       try {
-        anStatus('Lendo a proposta ' + id + ' no ER...');
-        const pag = await anLerPagina(base, id);
-        if (pag.erro === SESSAO_EXPIRADA) return caiu();
-        anStatus('Lendo a análise da proposta...');
-        const an = await itensAnalise(base, id);
-        if (an.erro === SESSAO_EXPIRADA) return caiu();
-        anStatus('Lendo o resultado do MobFacil (até ' + CONFIG.AN_ESPERA + ' s)...');
-        const mt = await anLerMotor(base, id);
-        if (mt.erro === SESSAO_EXPIRADA) return caiu();
-        const p1 = mt.motor && mt.motor.p1, p2 = mt.motor && mt.motor.p2;
-        const dataProp = (p1 && p1.data) || (p2 && p2.data) || pag.data || '';
-        anStatus('Procurando impeditivo da BMP na Fila de Propostas...');
-        const kyc = await anKyc(id, dataProp, pag.sit);
-        anMostrar(id, pag.erro ? {} : pag, mt.motor, dataProp, anConferir({ itens: an.itens, itensErro: an.erro, motor: mt.motor, motorErro: mt.erro, kyc }));
-        anStatus(pag.erro ? 'Atenção: a página da proposta não abriu (' + pag.erro + '); situação, digitador e valor ficaram N/A.' : '');
+        const r = await anAnalisarUm(base, id, t => anStatus('Proposta ' + id + ': ' + t + '...'));
+        if (r.erro === SESSAO_EXPIRADA) return anStatus('A sessão do ER expirou: entre de novo e analise outra vez.');
+        anMostrar(r);
+        anStatus(r.pagErro ? 'Atenção: a página da proposta não abriu (' + r.pagErro + '); situação, digitador e valor ficaram N/A.' : '');
       } catch (e) {
         anStatus('A análise parou com erro: ' + ((e && e.message) || e) + '. Nada foi alterado; tente de novo.');
-      } finally { anRodando = false; $('#mf-an-ir').disabled = false; }
+      } finally { anRodando = false; $('#mf-an-ir').disabled = false; $('#mf-an-massa').disabled = false; }
     }
     $('#mf-an-ir').addEventListener('click', () => anAnalisar());
     $('#mf-an-id').addEventListener('keydown', e => { if (e.key === 'Enter') anAnalisar(); });
@@ -6164,6 +6317,145 @@
       GM_setClipboard(anTexto, 'text');
       msg('Análise da proposta copiada.');
     });
+
+    /* ---------- análise em massa ----------
+       Lista de propostas (digitada ou buscada na Fila por período e tipo) analisada uma por uma, com a mesma análise.
+       Resultado por proposta: a conferência da decisão (anConferencia) e os detalhes (clique para abrir).
+       Cópias: resumo (texto), planilha (colunas) e a conferência no formato da equipe ("5545 - Score 602, Faixa C, R$2238,64
+       (Intervalo: 552 a 674)"). Os resultados ficam só nesta aba (memória). */
+    let anMassa = [], anParar = false;
+    const anMStatus = t => { $('#mf-an-mst').textContent = t || ''; };
+    const AN_TIPOS = { rep: 'Reprovadas', efe: 'Efetivadas', apr: 'Aprovadas (não efetivadas)', todas: 'Reprovadas, efetivadas e aprovadas' };
+    // linhas da Fila de Propostas no período (data de inclusão): { id, sit, cli }. Mais de 500 no período: lê dia a dia
+    async function anFila(iniIso, fimIso) {
+      const ler = async (ini, fim) => {
+        const r = await cacReq('/FilaPropostas/FilaPropostasLista', { strDados: JSON.stringify({ strDataInicial: ini, strDataFinal: fim, strLojista: '', strLoja: '', strProduto: '',
+          strSituacao: '00', strPontoAtendimento: '', strPromotora: '', strPromotoraFilial: '', strVisualizacao: 'N', strNomePesquisa: '', strSituacaoDocumentos: '',
+          strPagamento: '', strConveniada: '', strStatusAssinatura: '', strParceiro: '', lstPlanos: [], strCodigoEmprestimo: '', strDataVencimentoLiberacaoInicial: '',
+          strDataVencimentoLiberacaoFinal: '', strTipoData: 'INCLUSAO', strAnalista: '' }) });
+        if (r.erro) return { erro: 'o ER não respondeu (' + r.erro + ')' };
+        if (ehLogin(r.texto)) return { erro: SESSAO_EXPIRADA };
+        const doc = cacDoc(r.texto), t = doc.querySelector('#tabPropostasLista');
+        if (!t) return /n[ãa]o foi localizada/i.test(doc.body.textContent) ? { linhas: [] } : { erro: 'a resposta não trouxe a Fila de Propostas' };
+        const ths = [...t.querySelectorAll('thead th')].map(th => limpoTxt(th.textContent).toLowerCase());
+        const col = (n, p) => { const i = ths.findIndex(x => x.startsWith(n)); return i >= 0 ? i : p; };
+        const ci = { sit: col('sit', 2), cli: col('cliente', 3) };
+        return { linhas: [...t.querySelectorAll('tbody tr')].map(tr => {
+          const alvo = tr.querySelector('[onclick*="MostraDetalheProposta"]');
+          const id = ((alvo && alvo.getAttribute('onclick') || '').match(/MostraDetalheProposta\(\s*['"]?(\d+)/) || [])[1] || '';
+          const c = [...tr.cells];
+          return id ? { id, sit: limpoTxt(c[ci.sit] && c[ci.sit].textContent), cli: limpoTxt(c[ci.cli] && c[ci.cli].textContent) } : null;
+        }).filter(Boolean) };
+      };
+      const tudo = await ler(ibIsoBr(iniIso), ibIsoBr(fimIso));
+      if (tudo.erro || tudo.linhas.length < 500 || iniIso === fimIso) return tudo;
+      const linhas = [];
+      for (let d = new Date(iniIso + 'T12:00:00'); d <= new Date(fimIso + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+        const iso = d.toISOString().slice(0, 10), r = await ler(ibIsoBr(iso), ibIsoBr(iso));
+        if (r.erro) return r;
+        linhas.push(...r.linhas);
+      }
+      return { linhas };
+    }
+    async function anBuscarFila() {
+      const ini = $('#mf-an-ini').value, fim = $('#mf-an-fim').value, tipo = $('#mf-an-tipo').value;
+      if (!ini || !fim) return anMStatus('Escolha o período (De e Até).');
+      anMStatus('Lendo a Fila de Propostas de ' + ibIsoBr(ini) + ' a ' + ibIsoBr(fim) + '...');
+      const f = await anFila(ini, fim);
+      if (f.erro) return anMStatus(f.erro === SESSAO_EXPIRADA ? 'A sessão do ER expirou: entre de novo.' : 'Não deu para ler a Fila: ' + f.erro + '.');
+      const sel = f.linhas.filter(l => { const t = anTipo(l.sit); return tipo === 'todas' ? t !== 'outra' : t === tipo; });
+      anMassaFila = Object.fromEntries(sel.map(l => [l.id, l]));
+      $('#mf-an-ids').value = sel.map(l => l.id).join('\n');
+      anMStatus(sel.length + ' proposta(s) ' + AN_TIPOS[tipo].toLowerCase() + ' no período (de ' + f.linhas.length + ' na Fila). Clique em "Analisar todas".');
+    }
+    let anMassaFila = {};
+    async function anAnalisarMassa() {
+      if (anRodando) return;
+      const ids = [...new Set(String($('#mf-an-ids').value || '').split(/\D+/).filter(Boolean))];
+      if (!ids.length) return anMStatus('Cole os números das propostas ou busque na Fila.');
+      const base = anBase();
+      if (!base) return anMStatus('Abra o ER (com o sistema carregado) para analisar.');
+      anRodando = true; anParar = false; anMassa = [];
+      $('#mf-an-massa').disabled = true; $('#mf-an-ir').disabled = true; $('#mf-an-parar').disabled = false;
+      const filas = new Map();
+      const t0 = Date.now();
+      try {
+        for (const [i, id] of ids.entries()) {
+          if (anParar) break;
+          const fl = anMassaFila[id] || {};
+          let r;
+          try {
+            r = await anAnalisarUm(base, id, t => anMStatus('Proposta ' + id + ' (' + (i + 1) + ' de ' + ids.length + '): ' + t + '...'), filas);
+          } catch (e) { r = { id, erroGeral: 'erro na análise (' + ((e && e.message) || e) + ')', pag: {}, lista: [] }; }
+          if (r.erro === SESSAO_EXPIRADA) { anMStatus('A sessão do ER expirou na proposta ' + id + ': ' + anMassa.length + ' de ' + ids.length + ' analisadas. Entre de novo e analise as que faltaram.'); break; }
+          r.sitFila = fl.sit || ''; r.cliFila = fl.cli || '';
+          r.conf = anConferencia(r);
+          anMassa.push(r);
+          anMassaDesenhar();
+        }
+        if (anMassa.length === ids.length) anMStatus(ids.length + ' proposta(s) analisada(s) em ' + Math.round((Date.now() - t0) / 1000) + ' s.');
+        else if (anParar) anMStatus('Parado: ' + anMassa.length + ' de ' + ids.length + ' analisadas.');
+      } finally {
+        anRodando = false;
+        $('#mf-an-massa').disabled = false; $('#mf-an-ir').disabled = false; $('#mf-an-parar').disabled = true;
+      }
+    }
+    const AN_NIVEL = { erro: 0, alerta: 1, nc: 2, ok: 3 };
+    function anMassaDesenhar() {
+      const c = { erro: 0, alerta: 0, nc: 0, ok: 0 };
+      anMassa.forEach(r => { c[r.conf.nivel]++; });
+      $('#mf-an-mres').style.display = anMassa.length ? '' : 'none';
+      $('#mf-an-mqtd').textContent = '(' + anMassa.length + ')';
+      $('#mf-an-mresumo').textContent = ['❌ ' + c.erro + ' com problema', '⚠️ ' + c.alerta + ' para conferir', '❔ ' + c.nc + ' não confirmada(s)', '✅ ' + c.ok + ' ok'].join(' · ');
+      const ord = [...anMassa].sort((a, b) => AN_NIVEL[a.conf.nivel] - AN_NIVEL[b.conf.nivel] || Number(a.id) - Number(b.id));
+      $('#mf-an-mlista').innerHTML = ord.map(r => {
+        const cab = anCabecalho(r), nome = cab[1][1], sit = cab[4][1], nf = anNumeros(r.motor);
+        const num = nf.fx ? ' · score ' + nf.sc + ' (' + nf.fx.faixa + ')' + (nf.v != null ? ' · ' + anReais(nf.v) + ' / ' + nf.q : '') : '';
+        return '<details class="mf-an-massa"><summary><b>' + esc(r.id) + '</b> ' + esc(nome) + ' · ' + esc(sit) + esc(num) + '<br>' + esc(r.conf.txt) + '</summary>' +
+          (r.lista.length ? anItensHtml(r.lista) : '') + '</details>';
+      }).join('');
+    }
+    const anMassaOrd = () => [...anMassa].sort((a, b) => AN_NIVEL[a.conf.nivel] - AN_NIVEL[b.conf.nivel] || Number(a.id) - Number(b.id));
+    function anMassaTexto() {
+      const linhas = anMassaOrd().map(r => {
+        const cab = anCabecalho(r);
+        const det = r.lista.filter(x => x.st === 'erro' || x.st === 'alerta').map(x => '   ' + AN_ICONE[x.st] + ' ' + x.item + ': ' + x.det);
+        return [r.id + ' - ' + cab[1][1] + ' (' + cab[4][1] + ')', '   ' + r.conf.txt, ...det].join('\n');
+      });
+      return ['*ANÁLISE DE PROPOSTAS* (' + anMassa.length + ')', $('#mf-an-mresumo').textContent, '', ...linhas].join('\n\n').replace(/\n\n\n+/g, '\n\n');
+    }
+    function anMassaPlanilha() {
+      const H = ['Proposta', 'Cliente', 'CPF', 'Data', 'Situação', 'Score', 'Faixa', 'Valor restrições', 'Qtd restrições', 'Conferência', 'Problemas', 'Alertas', 'Não confirmados'];
+      const cel = t => String(t == null ? '' : t).replace(/[\t\r\n]+/g, ' ');
+      const lin = anMassaOrd().map(r => {
+        const cab = anCabecalho(r), nf = anNumeros(r.motor);
+        const so = st => r.lista.filter(x => x.st === st).map(x => x.item + ': ' + x.det).join(' | ');
+        return [r.id, cab[1][1], cab[2][1], cab[3][1], cab[4][1], nf.sc != null ? nf.sc : NA, nf.fx ? nf.fx.faixa : NA,
+          nf.v != null ? String(nf.v).replace('.', ',') : NA, nf.q != null ? nf.q : NA, r.conf.txt, so('erro'), so('alerta'), so('nc')].map(cel).join('\t');
+      });
+      return [H.join('\t'), ...lin].join('\n');
+    }
+    // formato da equipe: "5545 - Score 602, Faixa C, R$2238,64 (Intervalo: 552 a 674)"
+    function anMassaConferencia() {
+      const todasRep = anMassa.every(r => anTipo(r.sitFila || r.pag.sit) === 'rep');
+      const lin = anMassa.slice().sort((a, b) => Number(a.id) - Number(b.id)).map(r => {
+        const nf = anNumeros(r.motor);
+        if (!nf.fx) return r.id + ' - N/A (sem o score do MobFacil)';
+        return r.id + ' - Score ' + nf.sc + ', Faixa ' + nf.fx.faixa + ', ' + (nf.v != null ? 'R$' + String(nf.v).replace('.', ',') : 'R$ N/A') +
+          ' (Intervalo: ' + nf.fx.de + ' a ' + nf.fx.ate + ')';
+      });
+      return [(todasRep ? 'CONFERÊNCIA DE REPROVAÇÕES:' : 'CONFERÊNCIA DE PROPOSTAS:'), ...lin].join('\n');
+    }
+    $('#mf-an-ini').value = ibIsoDias(-1);
+    $('#mf-an-fim').value = ibIsoDias(0);
+    $('#mf-an-buscar').addEventListener('click', () => { if (!anRodando) anBuscarFila(); });
+    $('#mf-an-massa').addEventListener('click', () => anAnalisarMassa());
+    $('#mf-an-parar').addEventListener('click', () => { anParar = true; anMStatus('Parando depois da proposta atual...'); });
+    $('#mf-an-ids').addEventListener('input', () => { anMassaFila = {}; });
+    const anCopiarMassa = (fn, o) => () => { if (!anMassa.length) return msg('Analise as propostas primeiro.'); GM_setClipboard(fn(), 'text'); msg(o + ' copiado (' + anMassa.length + ' proposta(s)).'); };
+    $('#mf-an-mcopiar').addEventListener('click', anCopiarMassa(anMassaTexto, 'Resumo'));
+    $('#mf-an-mplan').addEventListener('click', anCopiarMassa(anMassaPlanilha, 'Planilha (cole na célula A1)'));
+    $('#mf-an-mconf').addEventListener('click', anCopiarMassa(anMassaConferencia, 'Conferência no formato da equipe'));
 
     /* ---- Gerador: frases de uma linha para a planilha (colunas "Pedido do cliente" e "Acordo Realizado") ----
        "fechou" = acordo fechado; "solicitou" = simulação para ver se é viável. Só usa o que foi digitado. */
