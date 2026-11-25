@@ -18,9 +18,10 @@ O veredito só é **"Tudo certo"** quando **todas** as conferências são ✅. O
 ## Fontes
 
 1. **Página da proposta** (`/MesaCredito/MesaAnaliseProposta`, `anLerPagina`): situação, data da proposta, digitador e valor da compra (`acharRotulo`). Digitador vazio (proposta da WEBAPI) sai N/A.
-2. **Itens da análise** (`/FilaPropostas/DetalhePropostaAnalise`, `itensAnalise`): biometria, idade, MobFacil, registros internos etc. APROVADO = ✅, REPROVADO = ❌, outro = ⚠️.
-3. **MobFacil** (`anLerMotor` no painel + `anMotorResumo`/`anResponder` no iframe do motor): o painel abre a página do motor da proposta num iframe escondido e grava `anPedido` `{ id, ts, nonce }`. No iframe, o script lê o resultado completo da análise **na memória do React** (o JSON que a página buscou em `/api/visualizador`: `Resumo proposta` e `Exibir fluxos`), sem clicar na árvore, e devolve em `anMotor` um resumo: status, mensagens, as regras de cada fluxo e os dados enviados, **sem** fotos/documentos e sem os dados dos birôs. Espera até `CONFIG.AN_ESPERA` s. Os dois valores são apagados no fim. Não usa nem muda a fila dos relatórios (`rodando`, `atualId`, `dados`).
-4. **Impeditivo da BMP** (`anKyc`): a lista guardada do relatório Impeditivos BMP (`ibImpeditivos`) e o ícone 🚫 na Fila de Propostas do dia da proposta (`ibLista`).
+2. **Aba Cliente** (`/MesaCredito/MesaAnaliseCliente`, `dadosCliente`): nome, CPF e data de nascimento como estão agora no ER.
+3. **Itens da análise** (`/FilaPropostas/DetalhePropostaAnalise`, `itensAnalise`): biometria, idade, MobFacil, registros internos etc. APROVADO = ✅, REPROVADO = ❌, outro = ⚠️.
+4. **MobFacil** (`anLerMotor` no painel + `anMotorResumo`/`anResponder` no iframe do motor): o painel abre a página do motor da proposta num iframe escondido e grava `anPedido` `{ id, ts, nonce }`. No iframe, o script lê o resultado completo da análise **na memória do React** (o JSON que a página buscou em `/api/visualizador`: `Resumo proposta` e `Exibir fluxos`), sem clicar na árvore, e devolve em `anMotor` um resumo: status, mensagens, as regras de cada fluxo e os dados enviados, **sem** fotos/documentos e sem os dados dos birôs. Espera até `CONFIG.AN_ESPERA` s. Os dois valores são apagados no fim. Não usa nem muda a fila dos relatórios (`rodando`, `atualId`, `dados`).
+5. **Impeditivo da BMP** (`anKyc`): a lista guardada do relatório Impeditivos BMP (`ibImpeditivos`) e o ícone 🚫 na Fila de Propostas do dia da proposta (`ibLista`).
 
 ## Conferências
 
@@ -28,8 +29,9 @@ O veredito só é **"Tudo certo"** quando **todas** as conferências são ✅. O
 |---|---|---|
 | Política de faixa (score x restrições) | P1 `classificacaoRiscoDeCredito.valorScore`, `calculaRisco` | ❌ valor ou quantidade acima do limite da faixa (`CONFIG.FAIXAS`), ou faixa F |
 | **Decisão do MobFacil (crédito) x política da equipe** (`anDecisaoMotor`) | P1 `calculaRisco.Status` (restrições) e `classificacaoRiscoDeCredito.Status` (ponto de corte) | ❌ o MobFacil **reprovou** pelo crédito com os dados **dentro** da política, ou **aprovou** com eles **fora**; ⚠️ mandou para a mesa com os dados dentro. Mostra o limite que o MobFacil usou (da mensagem "faixa X acima do limite (Restritivo=R$…, Qtde=…)") |
-| Nome x Receita Federal | `validacaoCadastral.ValidacaoNome` | ❌ nome diferente; ⚠️ quando difere só em espaço/acento ou o nome da proposta está cortado no fim (o campo tem limite de caracteres) |
-| Data de nascimento x Receita Federal | `validacaoCadastral.ValidacaoDataDeNascimento` | ❌ status diferente de "A" |
+| Nome x Receita Federal | `validacaoCadastral.ValidacaoNome` (Receita = `DadoBiro`) x **nome atual do ER** (aba Cliente) | ❌ nome diferente; ⚠️ nome cortado no fim (o campo tem limite de caracteres). Igual sem acento/espaço repetido = ✅ |
+| Data de nascimento x Receita Federal | `validacaoCadastral.ValidacaoDataDeNascimento` (`DadoBiro`) x **nascimento atual do ER** | ❌ data diferente |
+| CPF analisado pelo MobFacil | `PROP_CPF` enviado ao motor x CPF da aba Cliente | ❌ o MobFacil analisou outro CPF |
 | CPF regular na Receita Federal | P1 `requisitosBiroValores.SituacaoCpf` | ❌ |
 | Sem marcação de óbito | P1 `requisitosBiroValores.MarcacaoObito` | ❌ |
 | Idade (18 a 75 anos) | P1 `requisitosBasicosValores` | ❌ |
@@ -45,6 +47,8 @@ O veredito só é **"Tudo certo"** quando **todas** as conferências são ✅. O
 | Resultado do MobFacil | status final e mensagens | ❌ reprovado; ⚠️ pendente (mesa/loja). Aprovado = ✅ (os alertas já estão nas conferências acima) |
 | Análise ER: (cada item) | itens da análise da proposta | ❌ reprovado; ⚠️ pendente |
 | Impeditivo da BMP (KYC) | lista guardada + Fila de Propostas | ❌ com o ícone 🚫 |
+
+**Dados atuais do ER:** a loja pode corrigir o nome ou o nascimento depois da análise, sem o MobFacil rodar de novo (ex.: 5585, GIOVANE corrigido para GIOVANI; 5591, 28/05 corrigido para 28/06). Por isso o lado "proposta" do nome e do nascimento é o que está **agora** na aba Cliente do ER (`dadosCliente`, que passou a ler também a "Data de Nascimento"); a Receita continua sendo o `DadoBiro` do MobFacil. Quando o valor atual difere do que o MobFacil recebeu, o detalhe diz "corrigido no ER depois da análise do MobFacil (o MobFacil recebeu …)". Sem a aba Cliente, vale o que o MobFacil recebeu. O cabeçalho também mostra o nome e o CPF atuais do ER.
 
 **Fluxo P2** (documentos e contato) só existe depois do cadastro completo. Sem ele, sai uma linha só, ❔ "Documentos e contato (fluxo P2)", dizendo se a proposta foi reprovada antes ou ainda não chegou nessa etapa.
 
