@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.42.0
+// @version      13.42.1
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -31,7 +31,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.42.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.42.1');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -3264,7 +3264,7 @@
        O valor é o <b> da MESMA célula do rótulo; <b> vazio/&nbsp; = sem dado (nunca lê a célula vizinha).
        O CPF do bloco é guardado para conferir com o CPF do motor (garante que os dados são da proposta certa). */
     async function dadosCliente(base, id) {
-      const r = { ok: false, telefone: null, email: null, cpf: null, nome: null, motivo: '' };
+      const r = { ok: false, telefone: null, email: null, cpf: null, nome: null, nascimento: null, motivo: '' };
       const ctl = new AbortController();
       const tm = setTimeout(() => ctl.abort(), CONFIG.TIMEOUT_REDE * 1000);
       let html = '';
@@ -3293,6 +3293,7 @@
       r.ok = true;
       r.nome = campo('Nome do Cliente');
       r.cpf = (campo('CPF') || '').replace(/\D/g, '') || null;
+      r.nascimento = ((campo('Data de Nascimento') || '').match(/\d{2}\/\d{2}\/\d{4}/) || [])[0] || null;   // "26/12/2005 (20 anos)"
       const em = campo('Email') || campo('E-mail');
       r.email = em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) ? em : null;
       for (const rot of ['Telefone 1', 'Telefone 2']) {
@@ -6109,16 +6110,34 @@
       const vc = r1.validacaoCadastral || r2.validacaoCadastral || null;
       const simil = rg => 'similaridade ' + (rg.Similaridade || '?') + '%' + (rg.DadoBiro && rg.DadoProposta && rg.DadoBiro !== rg.DadoProposta
         ? ' (proposta: ' + rg.DadoProposta + ' · Receita: ' + rg.DadoBiro + ')' : '');
+      // Nome e nascimento: o lado da "proposta" é o dado ATUAL do ER (aba Cliente), não o que o MobFacil recebeu: a loja pode
+      // corrigir depois da análise sem o motor rodar de novo (ex.: 5585 GIOVANE -> GIOVANI, 5591 28/05 -> 28/06). Sem a aba
+      // Cliente, vale o que o MobFacil recebeu. A Receita é sempre o DadoBiro do MobFacil.
+      const cli = ctx.cliente && ctx.cliente.ok ? ctx.cliente : null;
       const vn = vc && vc.ValidacaoNome;
       const INOME = 'Nome x Receita Federal';
-      if (vn && anLetra(vn.Status) && anLetra(vn.Status) !== 'A' && vn.DadoBiro && vn.DadoProposta) {
-        const a = anNomeNorm(vn.DadoProposta), b = anNomeNorm(vn.DadoBiro);
-        // mesma grafia sem acento/espaço repetido, ou nome cortado no fim (o campo da proposta tem limite) = alerta, não divergência
-        if (a === b) add('alerta', INOME, 'difere só em espaço ou acento · ' + simil(vn));
-        else if (a.length >= 30 && b.startsWith(a)) add('alerta', INOME, 'nome cortado no fim na proposta · ' + simil(vn));
-        else add('erro', INOME, simil(vn));
+      const nomeProp = (cli && cli.nome) || (vn && vn.DadoProposta) || '';
+      const corrigido = (antes, agora) => antes && agora && anNomeNorm(antes) !== anNomeNorm(agora) ? ' · corrigido no ER depois da análise do MobFacil (o MobFacil recebeu ' + antes + ')' : '';
+      if (vn && vn.DadoBiro && nomeProp) {
+        const a = anNomeNorm(nomeProp), b = anNomeNorm(vn.DadoBiro);
+        const doEr = !!(cli && cli.nome);
+        const det = (doEr ? 'ER: ' : 'proposta: ') + nomeProp + ' · Receita: ' + vn.DadoBiro + corrigido(vn.DadoProposta, doEr && cli.nome);
+        // igual (sem acento/espaço repetido) = ok; nome cortado no fim (o campo da proposta tem limite) = alerta; outro = divergência
+        if (a === b) add(nomeProp === vn.DadoBiro || anLetra(vn.Status) === 'A' || doEr ? 'ok' : 'alerta', INOME, (nomeProp === vn.DadoBiro ? 'igual à Receita' : 'igual à Receita (só espaço/acento)') + ' · ' + det);
+        else if (a.length >= 30 && b.startsWith(a)) add('alerta', INOME, 'nome cortado no fim na proposta · ' + det);
+        else add('erro', INOME, 'nome diferente da Receita · ' + det + (vn.Similaridade ? ' · similaridade ' + vn.Similaridade + '% no MobFacil' : ''));
       } else porStatus(INOME, vn, simil);
-      porStatus('Data de nascimento x Receita Federal', vc && vc.ValidacaoDataDeNascimento, simil);
+      const vd = vc && vc.ValidacaoDataDeNascimento;
+      const INASC = 'Data de nascimento x Receita Federal';
+      const nascProp = (cli && cli.nascimento) || (vd && vd.DadoProposta) || '';
+      if (vd && /^\d{2}\/\d{2}\/\d{4}$/.test(vd.DadoBiro || '') && /^\d{2}\/\d{2}\/\d{4}$/.test(nascProp)) {
+        const det = (cli && cli.nascimento ? 'ER: ' : 'proposta: ') + nascProp + ' · Receita: ' + vd.DadoBiro +
+          (cli && cli.nascimento && vd.DadoProposta && vd.DadoProposta !== cli.nascimento ? ' · corrigido no ER depois da análise do MobFacil (o MobFacil recebeu ' + vd.DadoProposta + ')' : '');
+        add(nascProp === vd.DadoBiro ? 'ok' : 'erro', INASC, (nascProp === vd.DadoBiro ? 'igual à Receita · ' : 'data diferente da Receita · ') + det);
+      } else porStatus(INASC, vd, simil);
+      // o MobFacil analisou o CPF da proposta? (CPF da aba Cliente x CPF enviado ao motor)
+      const cpfMotor = String(((p2 && p2.dados) || (p1 && p1.dados) || {}).PROP_CPF || '').replace(/\D/g, '');
+      if (m && cli && cli.cpf && cpfMotor) add(cli.cpf === cpfMotor ? 'ok' : 'erro', 'CPF analisado pelo MobFacil', cli.cpf === cpfMotor ? 'o mesmo da proposta' : 'diferente: o MobFacil analisou ' + cacCpfFmt(cpfMotor) + ', a proposta é ' + cacCpfFmt(cli.cpf));
       const rb = r1.requisitosBiroValores || {};
       porStatus('CPF regular na Receita Federal', p1 && rb.SituacaoCpf, rg => rg.SituacaoCPF);
       porStatus('Sem marcação de óbito', p1 && rb.MarcacaoObito, rg => rg.MarcacaoObitoBiro);
@@ -6260,8 +6279,9 @@
     }
     function anCabecalho(r) {
       const d1 = (r.motor && r.motor.p1 && r.motor.p1.dados) || {}, d2 = (r.motor && r.motor.p2 && r.motor.p2.dados) || {};
-      const cpf = d2.PROP_CPF || d1.PROP_CPF || '';
-      return [['Proposta', r.id], ['Cliente', d2.PROP_NOME || d1.PROP_NOME || r.cliFila || NA], ['CPF', cpf ? cacCpfFmt(cpf) : NA], ['Data', r.dataProp || NA],
+      const c = r.cliente && r.cliente.ok ? r.cliente : {};   // dados atuais do ER (aba Cliente) primeiro
+      const cpf = c.cpf || d2.PROP_CPF || d1.PROP_CPF || '';
+      return [['Proposta', r.id], ['Cliente', c.nome || d2.PROP_NOME || d1.PROP_NOME || r.cliFila || NA], ['CPF', cpf ? cacCpfFmt(cpf) : NA], ['Data', r.dataProp || NA],
         ['Situação no ER', r.pag.sit || r.sitFila || NA], ['Digitador', r.pag.dig || NA], ['Valor da compra', r.pag.compra || NA]];
     }
     const anItensHtml = lista => [...lista].sort((a, b) => AN_ORDEM[a.st] - AN_ORDEM[b.st]).map(x => '<div class="mf-an-item mf-an-' + x.st + '"><span>' + AN_ICONE[x.st] +
@@ -6284,6 +6304,9 @@
       avisar('lendo a análise da proposta');
       const an = await itensAnalise(base, id);
       if (an.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
+      avisar('lendo os dados atuais do cliente no ER');
+      const cliente = await dadosCliente(base, id);   // nome, CPF e nascimento como estão AGORA (podem ter sido corrigidos)
+      if (cliente.motivo === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
       avisar('lendo o resultado do MobFacil (até ' + CONFIG.AN_ESPERA + ' s)');
       const mt = await anLerMotor(base, id);
       if (mt.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
@@ -6291,8 +6314,8 @@
       const dataProp = (p1 && p1.data) || (p2 && p2.data) || pag.data || '';
       avisar('procurando impeditivo da BMP na Fila');
       const kyc = await anKyc(id, dataProp, pag.sit, filas);
-      const lista = anConferir({ itens: an.itens, itensErro: an.erro, motor: mt.motor, motorErro: mt.erro, kyc });
-      return { id, pag: pag.erro ? {} : pag, pagErro: pag.erro || '', motor: mt.motor || null, motorErro: mt.erro || '', dataProp, lista };
+      const lista = anConferir({ itens: an.itens, itensErro: an.erro, motor: mt.motor, motorErro: mt.erro, kyc, cliente });
+      return { id, pag: pag.erro ? {} : pag, pagErro: pag.erro || '', motor: mt.motor || null, motorErro: mt.erro || '', dataProp, lista, cliente };
     }
     async function anAnalisar() {
       if (anRodando) return;

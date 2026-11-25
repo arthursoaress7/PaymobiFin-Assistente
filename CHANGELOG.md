@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.42.1] — 2026-11-25
+
+### 🐛 Correções
+
+- fix: análise compara nome e nascimento atuais do ER com a Receita (#162) (80d9634)
+
 ## [v13.42.0] — 2026-11-25
 
 ### ✨ Novas funcionalidades
