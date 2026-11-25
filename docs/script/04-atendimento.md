@@ -38,7 +38,7 @@ Aproveita o bloco Cliente do Modelo 1 e acrescenta:
 | **Acordo** | Resultado\* (as mesmas opções da Negociação) + Modalidade\* |
 | **Textos** | Acordo Solicitado, Acordo Realizado |
 | **Renegociação** | Responsável\*, Formalizou (SIM), Data renegociação, Contrato novo, Observação, Régua, Recebeu boletos, Concluída |
-| **Plano de parcelas** | Tabela editável gerada automaticamente a partir do acordo |
+| **Plano de parcelas** | Periodicidade e 1º vencimento das parcelas; a tabela editável é gerada a partir do bloco Acordo (entrada, data da entrada, quantidade e valor das parcelas vêm só de lá desde 26/11/2026) |
 | **Débito atualizado (calculadora)** | O mesmo grupo da Negociação (fica visível nas duas telas) |
 
 > **Número de contato:** é o número usado pelo cliente no RD Station. O telefone do cadastro da proposta nunca preenche esse campo automaticamente.
@@ -86,6 +86,8 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 ---
 
 ## Plano de parcelas (Renegociação)
+
+**Fonte única (26/11/2026):** a entrada, a data da entrada, a quantidade e o valor das parcelas do plano vêm sempre do bloco **Acordo**. `atPlanoCampos` copia esses valores para `plano_entrada_valor`, `plano_entrada_data`, `plano_qtd` e `plano_valor`, que não aparecem mais na tela (`AT_PLANO_TELA`). No bloco Renegociação ficam só a **Periodicidade** e o **1º vencimento das parcelas**, sugerido pela Data renegociação e pelo Dia de vencimento; o que for digitado à mão nesses dois fica. Para mudar uma parcela específica, edite a linha na tabela depois de "Montar parcelas". Sem quantidade ou valor, a mensagem aponta os campos do bloco Acordo.
 
 `atSugestao()` — sugere as linhas do plano com base na modalidade. Todas são editáveis antes de copiar.
 
@@ -149,7 +151,7 @@ Quebra de Acordo · Vencimento · Observação · Número Contrato Novo ·
 Procedimento feito na régua · Recebeu Boletos? · Negociação Concluída?
 ```
 
-"Número da Parcela Renegociada" (campo `parcela_renegociada`, bloco Renegociação) vai igual em todas as linhas do acordo. Digita-se só o número (`3`, `3 4 5`, `8, 9 e 10`) e sai no mesmo formato do texto do acordo (`3° parcela`, `3°, 4° e 5° parcelas`); texto livre fica como digitado. Se ficar vazio, usa a "Parcela(s) negociada(s)" do acordo (`parcela_negociada`).
+"Número da Parcela Renegociada" vai igual em todas as linhas do acordo e vem da "Parcelas negociadas" do bloco Acordo (`parcela_negociada`). O campo próprio do bloco Renegociação (`parcela_renegociada`) saiu da tela em 26/11/2026 por repetir o do Acordo; a montagem ainda aceita o valor, se existir. Digita-se só o número (`3`, `3 4 5`, `8, 9 e 10`) e sai no mesmo formato do texto do acordo (`3° parcela`, `3°, 4° e 5° parcelas`); texto livre fica como digitado.
 
 Formatos: valores `R$ 0,00`, datas `dd/mm/aaaa`, telefone `(11) 912345678`.
 

@@ -6585,8 +6585,13 @@
     const AT_CLIENTE = ['proposta', 'nome', 'cpf', 'imei', 'data_proposta', 'filial', 'atendente', 'contato', 'quem_negociou', 'data_contato'];
     const AT_COBRANCA = ['valor_parcela', 'fpd', 'parcelas_atraso', 'dias_atraso', 'vencimento_antigo', 'parcela_atual'];
     const AT_ACOMP = ['data_envio', 'data_1pag', 'vencimentos', 'parcelas_negociadas', 'qtd_parcelas_neg', 'pag_entrada', 'boleto_disp', 'contrato_novo', 'data_reneg', 'regua', 'recebeu_boletos', 'concluida'];
-    const AT_RENEG = ['responsavel', 'formalizou', 'parcela_renegociada', 'data_reneg', 'contrato_novo', 'obs_reneg', 'regua', 'recebeu_boletos', 'concluida'];
+    // Bloco Renegociação: só o que é da formalização. A parcela renegociada vem da "Parcelas negociadas" do Acordo
+    // (parcela_renegociada vazio = usa parcela_negociada; ver ngValor), sem campo repetido na tela (26/11/2026).
+    const AT_RENEG = ['responsavel', 'formalizou', 'data_reneg', 'contrato_novo', 'obs_reneg', 'regua', 'recebeu_boletos', 'concluida'];
+    // Plano de parcelas: entrada, data da entrada, nº e valor das parcelas vêm SEMPRE do Acordo (atPlanoCampos); na tela
+    // ficam só a periodicidade e o 1º vencimento, que não existem no Acordo. AT_PLANO continua com todas as chaves (limpar/montar).
     const AT_PLANO = ['plano_entrada_valor', 'plano_entrada_data', 'plano_qtd', 'plano_valor', 'plano_periodo', 'plano_inicio'];
+    const AT_PLANO_TELA = ['plano_periodo', 'plano_inicio'];
     const AT_COL_NEG = [['Proposta', 'proposta'], ['Nome', 'nome'], ['CPF', 'cpf'], ['IMEI', 'imei'], ['Data da Proposta', 'data_proposta'], ['Filial', 'filial'],
       ['Atendente', 'atendente'], ['Número Contato', 'contato'], ['Quem negociou', 'quem_negociou'], ['Data do Contato', 'data_contato'], ['Valor parcela', 'valor_parcela'],
       ['FPD', 'fpd'], ['Parcelas Em Atraso', 'parcelas_atraso'], ['Dias Atraso', 'dias_atraso'], ['Vencimento Mais Antigo', 'vencimento_antigo'],
@@ -6717,13 +6722,14 @@
         const mapa = { plano_entrada_valor: 'entradaValor', plano_entrada_data: 'entradaData', plano_qtd: 'qtd', plano_valor: 'valor', plano_periodo: 'periodo', plano_inicio: 'inicio' };
         Object.entries(mapa).forEach(([k, s2]) => {
           const atual = ngValores[k] == null ? '' : String(ngValores[k]);
-          if (atual !== '' && atual !== (atPlanoAuto[k] || '')) return;
+          // fora da tela (entrada, data, nº e valor): segue SEMPRE o Acordo; na tela (periodicidade, 1º vencimento): o editado à mão fica
+          if (AT_PLANO_TELA.includes(k) && atual !== '' && atual !== (atPlanoAuto[k] || '')) return;
           const novo = sug[s2] == null ? '' : String(sug[s2]);
           if (novo === '' && atual === '') return;
           ngValores[k] = novo; atPlanoAuto[k] = novo;
         });
       }
-      atBloco('#mf-at-plano-cfg', esp ? [] : AT_PLANO);
+      atBloco('#mf-at-plano-cfg', esp ? [] : AT_PLANO_TELA);
       $('#mf-at-plano-cfg').style.display = esp ? 'none' : '';
       $('#mf-at-plano-gerar').textContent = esp ? 'Montar parcelas com os valores do acordo' : 'Montar parcelas';
     }
@@ -6738,10 +6744,12 @@
         const qtd = +String(ngValores.plano_qtd || '').trim(), valor = ngCentavos(ngValores.plano_valor), ini = ngValores.plano_inicio || '';
         semanal = ngValores.plano_periodo === 'semanal';
         const ent = String(ngValores.plano_entrada_valor || '').trim() ? ngCentavos(ngValores.plano_entrada_valor) : null;
-        if (!(qtd >= 1 && qtd <= 240)) erros.push('Nº de parcelas');
-        if (valor == null) erros.push('Valor de cada parcela');
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(ini)) erros.push('1º vencimento das parcelas');
-        if (String(ngValores.plano_entrada_valor || '').trim() && ent == null) erros.push('Entrada (valor inválido)');
+        // entrada, nº e valor das parcelas vêm do bloco Acordo (não aparecem mais no bloco Renegociação)
+        const pix = ngModalidade() === 'pix';
+        if (!(qtd >= 1 && qtd <= 240)) erros.push((pix ? 'Quantidade de semanas' : 'Quantidade de parcelas negociadas') + ' (bloco Acordo)');
+        if (valor == null) erros.push((pix ? 'Valor semanal' : 'Valor da parcela negociada') + ' (bloco Acordo)');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ini)) erros.push('1º vencimento das parcelas (ou a Data renegociação, que é a base dele)');
+        if (String(ngValores.plano_entrada_valor || '').trim() && ent == null) erros.push('Valor da entrada (bloco Acordo: valor inválido)');
         if (!erros.length) {
           if (ent != null) linhas.push({ valor: ent, venc: ngValores.plano_entrada_data || '' });
           for (let i = 0; i < qtd; i++) linhas.push({ valor, venc: semanal ? atSomarDias(ini, 7 * i) : atSomarMeses(ini, i) });
