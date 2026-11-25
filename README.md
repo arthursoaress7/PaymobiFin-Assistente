@@ -2,7 +2,7 @@
 
 Userscript Tampermonkey que adiciona um painel flutuante ao sistema ER da Paymobi, automatizando tarefas operacionais da equipe de cobrança e crédito.
 
-**Versão atual:** 13.42.2
+**Versão atual:** 13.43.0
 
 ---
 
@@ -14,6 +14,7 @@ Userscript Tampermonkey que adiciona um painel flutuante ao sistema ER da Paymob
 - Cálculo do débito atualizado das parcelas em atraso (encargos de mora e multa, mesma regra do ER)
 - Gerenciamento de lembretes de pagamentos parciais
 - Consulta CAC, download de CCBs, troca rápida de conta
+- Lista de clientes para a negativação PEFIN (Serasa): cadastro da Mesa de Crédito e dívida do CAC, prontos para copiar (texto ou CSV, legível ou no formato do arquivo)
 - Relatório das propostas com pendência em aberto (Fila de Pendências da conta master)
 - Análise de atendimentos com IA (Gemini) no painel do RD Station
 

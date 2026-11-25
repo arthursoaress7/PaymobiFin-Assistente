@@ -174,7 +174,8 @@ Grupo **"Débito atualizado (calculadora)"** (`#mf-at-g-debito`, `data-grupo="at
 
 - As parcelas são **mensais no mesmo dia** do vencimento mais antigo (dia 31 em mês curto: último dia do mês, `atSomarMeses`). Parcela que vence depois da data do pagamento fica de fora (aviso na mensagem).
 - **Taxas calibradas em 23/11/2026** com 3 telas do ER (contrato de R$ 274,92, pagamento em 23/11/2026): 263 dias → encargos R$ 605,84; 141 dias → R$ 243,63; 18 dias → R$ 23,89. As três batem ao centavo. Com a mora em 1% redondo, a de 141 dias sai R$ 0,01 acima.
-- **Limites conhecidos:** taxa conferida em um só contrato (outros produtos podem ter outra taxa do contrato); parcela com pagamento parcial (saldo menor que a parcela) não é tratada; vencimentos fora do padrão mensal precisam ser calculados à parte. Por isso o aviso "Valor estimado: confira no ER antes de fechar".
+- **Base padrão aprovada em 25/11/2026:** essas taxas valem para todos os contratos. Se o ER mostrar outro valor em algum contrato, ajustar `AT_ENCARGOS` e registrar aqui.
+- **Limites conhecidos:** parcela com pagamento parcial (saldo menor que a parcela) não é tratada; vencimentos fora do padrão mensal precisam ser calculados à parte. Por isso o aviso "Valor estimado: confira no ER antes de fechar".
 
 **Saída:** tabela (Vencimento, Dias, Parcela, Encargos, Multa, Total) com a linha de total e o débito em destaque. Botões:
 

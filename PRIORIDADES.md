@@ -272,7 +272,8 @@ O módulo de geração de acordos (`at*`) já possui:
   **Observações:** o script já calcula vencimentos, situações, rótulos e saldo. Possíveis melhorias: cálculo de juros no restante, preenchimento automático de "procedimento na régua" e "recebeu boletos" baseado na modalidade.
 
   **Avanço (23/11/2026):** primeira melhoria entregue: **calculadora de débito atualizado** no Atendimento (grupo "Débito atualizado (calculadora)", `atDeb*`; detalhes em `docs/script/04-atendimento.md`). Calcula encargos de mora e multa das parcelas em atraso com a regra do "Registro de Pagamento de Fatura" do ER e leva o total para "Valor total com juros".  
-  **Pendente na calculadora:** conferir as taxas (`AT_ENCARGOS`) em contratos de outros produtos/valores; tratar parcela com pagamento parcial; avaliar ler as parcelas direto da Consulta CAC (vencimento e saldo de cada uma) em vez de supor vencimentos mensais.
+  **Decisão (25/11/2026):** o responsável aprovou as taxas de `AT_ENCARGOS` (calibradas em 23/11/2026) como base padrão da calculadora para todos os contratos. Mudar só se o ER mostrar outro valor.  
+  **Pendente na calculadora:** tratar parcela com pagamento parcial; avaliar ler as parcelas direto da Consulta CAC (vencimento e saldo de cada uma) em vez de supor vencimentos mensais.
 
 ---
 
@@ -459,6 +460,17 @@ O módulo de geração de acordos (`at*`) já possui:
   **Comportamento:** aba Relatórios > seção Impeditivos BMP. Lê a Fila de Propostas do período (ícone 🚫, todos os motivos) e a data/hora da efetivação no Histórico da Mesa. O que encontra fica guardado no navegador (o ícone some da Fila depois de um tempo) até "Limpar lista".  
   **Critérios de aceite (atendidos no ER real):** a lista de 13/11 a 21/11 bate com a da equipe em nome, CPF e data (5475, 5440, 5452, 5188...); gerar de novo não duplica; Copiar e Limpar lista funcionam.  
   **Limitação:** quem perdeu o ícone antes da primeira geração (ex.: 5211 e 5241) não aparece: a partir de agora, gerar com frequência guarda os casos.
+
+---
+
+- [ ] **P4.15 — Lista de clientes para a negativação PEFIN (Serasa)**
+
+  **Status:** Implementado (25/11/2026), aguardando teste no ER real  
+  **Objetivo:** parar de digitar à mão os dados do cliente no formulário do gerador do arquivo PEFIN (layout de 600 posições).  
+  **Comportamento:** aba CAC > seção Negativação PEFIN. Adicionar por CPF/nome ou colar vários CPFs; cadastro e endereço da aba Cliente da Mesa de Crédito; vencimento mais antigo, término e valor (parcelas em aberto, vencidas + a vencer, pelo valor original, sem juros) do CAC. Botões Copiar e Copiar todos, em texto ou CSV, legível ou no formato do arquivo. Detalhes em `docs/script/07-cac.md`.  
+  **Decisões do responsável (25/11/2026):** as duas formas de entrada; dívida pelo CAC; valor = parcelas em aberto (vencidas + a vencer) pelo valor original, sem juros, sem as pagas; lista só na tela (sem chave nova de armazenamento).  
+  **Critérios de aceite:** em clientes reais, os 14 campos batem com o ER; o formato do arquivo é aceito pelo gerador; CSV abre certo na planilha.  
+  **Pendências:** confirmar os rótulos do endereço da aba Cliente (o cartão avisa os campos não achados e os rótulos lidos) e o formato de cada campo no gerador. Cada cliente consultado abre um protocolo no ER (P4.12).
 
 ---
 

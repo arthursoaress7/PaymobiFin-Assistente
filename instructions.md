@@ -18,7 +18,7 @@ O **PaymobiFin - Assistente** é um userscript Tampermonkey que roda em dois sit
 
 **Nome antigo:** até a v13.27.1 o script se chamava `automacaomobfacil.user.js`. Esse arquivo ficou como ponte (congelado na 13.27.2) para migrar as instalações antigas e foi removido em 19/11/2026 (P4.8). Instalações que ainda apontem para o nome antigo não recebem mais atualizações: reinstalar pelo endereço de `paymobifin-assistente.user.js`.
 
-**Versão atual:** 13.42.2 (fonte de verdade: campo `@version` no cabeçalho do script — ver item 12)
+**Versão atual:** 13.43.0 (fonte de verdade: campo `@version` no cabeçalho do script — ver item 12)
 
 **Repositório:** `git@github.com:arthursoaress7/PaymobiFin-Assistente.git`  
 **Proprietário do repositório:** arthursoaress7 (pode ter permissões administrativas que o usuário atual não tem)
@@ -406,6 +406,7 @@ else if (window.top === window) iniciarPainel();
 | → Busca de cliente (`bs`) | Central de busca (somente leitura) |
 | → Navegação automática | Troca de tela automática no ER |
 | → Relatório de Pendências (`pd`) | Fila de Pendências da conta master (somente leitura) |
+| → Negativação PEFIN (`pf`) | Lista de clientes para o gerador do arquivo PEFIN (Serasa): cadastro da Mesa de Crédito + dívida do CAC, cópia em texto/CSV (somente leitura; lista só em memória; ver docs/script/07-cac.md) |
 | → Analisar proposta (`an`) | Conferência de uma proposta: política de faixa, Receita, documentos, contato, MobFacil, itens da análise e KYC da BMP (somente leitura; ver docs/script/14) |
 | → Impeditivos BMP (`ib`) | Fila de Propostas (ícone 🚫 do KYC da BMP) + Histórico da Mesa (somente leitura) |
 | → RD Atendimento (`rd`) | Análise com Gemini e encerramento do dia |
@@ -439,6 +440,7 @@ else if (window.top === window) iniciarPainel();
 | `ib` | Relatório de Impeditivos BMP |
 | `bp` | Boleto+ (Acesso ao APP das Efetivadas) |
 | `an` | Analisar proposta |
+| `pf` | Negativação PEFIN |
 | `rd` | RD Atendimento |
 | `er` | Acesso ao ER (sessão, base, requisições) |
 
