@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.39.0] — 2026-11-24
+
+### ✨ Novas funcionalidades
+
+- feat: acesso ao app do Boleto+ automático no relatório de Efetivadas (#145) (eefdd61)
+
 ## [v13.38.0] — 2026-11-24
 
 ### ✨ Novas funcionalidades
