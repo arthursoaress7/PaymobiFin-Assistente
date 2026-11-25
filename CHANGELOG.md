@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.41.0] — 2026-11-25
+
+### ✨ Novas funcionalidades
+
+- feat: nova tabela de faixas e aba Analisar proposta (#155) (8e845c7)
+
 ## [v13.40.0] — 2026-11-25
 
 ### ✨ Novas funcionalidades
