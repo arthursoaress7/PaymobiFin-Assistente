@@ -18,7 +18,7 @@
 |---|---|
 | Arquivo principal | `paymobifin-assistente.user.js` (~8.800 linhas) |
 | Tipo | Tampermonkey userscript (monólito, sem build) |
-| Versão atual | 13.40.0 |
+| Versão atual | 13.41.0 |
 | Sites alvo | `paymobi-app.ercard.com.br` (ER; o antigo `paymobi.ercard.com.br` também é aceito), `enviamotor.mobfacil.com.br`, `app.tallos.com.br` (RD) e `paymobi.com.br` (só o Acesso ao APP do Boleto+) |
 | Arquitetura | **Monolítica** — não dividir em arquivos |
 | Fluxo Git | branch temporária → `development` (testes) → `main` (produção) |
@@ -35,7 +35,7 @@
 - **Não sobrescreva dados de armazenamento existentes** — siga o padrão de `salvar()`
 - **Dentro do painel, use `$()`, não `document.querySelector()`**
 - **Timeouts apenas em `CONFIG`** — nunca valores hard-coded fora dele
-- **Use o prefixo correto** para novas funções (`ng`, `at`, `lb`, `tm`, `cac`, `eq`, `hs`, `bs`, `pd`, `ib`, `bp`, `rd`, `er`)
+- **Use o prefixo correto** para novas funções (`ng`, `at`, `lb`, `tm`, `cac`, `eq`, `hs`, `bs`, `pd`, `ib`, `bp`, `an`, `rd`, `er`)
 - **Alterações críticas (arquitetura, armazenamento, segurança, workflows) exigem autorização explícita**
 - **Prioridades atuais (P0, 23/11/2026):** otimizar as funções existentes, manter a documentação sempre igual ao estado do projeto e registrar logs temporários de cada ação — ver `PRIORIDADES.md` e o item 23 do `instructions.md`
 - **Fora do escopo:** API/camada de acesso ao ER, API oficial do fornecedor e site próprio. Não propor nem retomar sem nova decisão do responsável
@@ -89,6 +89,7 @@ docs/script/10-navegacao-busca.md
 docs/script/11-rd-encerramento.md
 docs/script/12-desbloqueios.md
 docs/script/13-rotas-er.md         ← rotas do ER e do motor usadas pelo script
+docs/script/14-analisar-proposta.md ← aba Analisar proposta (conferência de uma proposta)
 PRIORIDADES.md                      ← prioridades funcionais
 docs/BRANCHES-IMPLEMENTACOES-POSSIVEIS.md ← branches guardadas (plano de API etc.); não integrar nem apagar
 README.md
