@@ -1,5 +1,58 @@
 # Changelog
 
+## [v13.42.1] — 2026-11-25
+
+### 🐛 Correções
+
+- fix: análise compara nome e nascimento atuais do ER com a Receita (#162) (80d9634)
+
+## [v13.42.0] — 2026-11-25
+
+### ✨ Novas funcionalidades
+
+- feat: análise de propostas em massa e conferência da decisão do MobFacil (#158) (befd7be)
+
+## [v13.41.0] — 2026-11-25
+
+### ✨ Novas funcionalidades
+
+- feat: nova tabela de faixas e aba Analisar proposta (#155) (8e845c7)
+
+## [v13.40.0] — 2026-11-25
+
+### ✨ Novas funcionalidades
+
+- feat: mensagem do grupo da Renegociação com dados do contrato e o que o cliente negociou (#152) (f11ef8d)
+
+## [v13.39.1] — 2026-11-25
+
+### 🐛 Correções
+
+- fix: proposta sem digitador sai N/A no vendedor em vez de falha (#148) (8e8423c)
+
+## [v13.39.0] — 2026-11-24
+
+### ✨ Novas funcionalidades
+
+- feat: acesso ao app do Boleto+ automático no relatório de Efetivadas (#145) (eefdd61)
+
+## [v13.38.0] — 2026-11-24
+
+### ✨ Novas funcionalidades
+
+- feat: calculadora de débito atualizado no atendimento (#141) (0df2e20)
+
+### 🐛 Correções
+
+- fix: motivo das reprovadas manuais pelas restrições e faixa pelo score (#143) (c5bcc4f)
+
+## [v13.37.1] — 2026-11-23
+
+### 🐛 Correções
+
+- fix: motivo do desbloqueio acompanha o tipo e observação volta a texto livre (#133) (ebc5afd)
+- fix: opções fixas do desbloqueio no tipo de desbloqueio, motivo volta a texto livre (#131) (38b2aac)
+
 ## [v13.37.0] — 2026-11-23
 
 ### ✨ Novas funcionalidades

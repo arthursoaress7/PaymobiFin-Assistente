@@ -24,6 +24,7 @@ Campos organizados em blocos:
 |---|---|
 | **Cliente** | Proposta\*, Nome\*, CPF, IMEI, Data da proposta, Filial, Atendente, Número de contato (RD Station)\*, Quem negociou, Data do contato (padrão: hoje) |
 | **Cobrança** | Valor parcela, FPD, Parcelas em atraso, Dias atraso, Vencimento mais antigo, Parcela atual |
+| **Débito atualizado (calculadora)** | Valor da parcela, Parcelas em atraso, Vencimento mais antigo, Data do pagamento → tabela por parcela com encargos, multa e total (ver "Débito atualizado") |
 | **Acordo** | Resultado\* (fechou / pagou tudo / solicitou / não concluída) + Modalidade\* + campos da modalidade |
 | **Textos** | Pedido do cliente, Acordo Realizado, A partir de qual parcela |
 | **Acompanhamento** | 12 colunas opcionais (botão "Trazer do acordo" preenche data e quantidade) |
@@ -38,6 +39,7 @@ Aproveita o bloco Cliente do Modelo 1 e acrescenta:
 | **Textos** | Acordo Solicitado, Acordo Realizado |
 | **Renegociação** | Responsável\*, Formalizou (SIM), Data renegociação, Contrato novo, Observação, Régua, Recebeu boletos, Concluída |
 | **Plano de parcelas** | Tabela editável gerada automaticamente a partir do acordo |
+| **Débito atualizado (calculadora)** | O mesmo grupo da Negociação (fica visível nas duas telas) |
 
 > **Número de contato:** é o número usado pelo cliente no RD Station. O telefone do cadastro da proposta nunca preenche esse campo automaticamente.
 
@@ -101,7 +103,7 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 
 | Modalidade | Linhas sugeridas |
 |---|---|
-| Renegociação (`entrada`) | Mensagem do grupo no formato da equipe (19/11/2026): título no padrão do Fôlego, `*RENEGOCIAÇÃO — {{operacao_maiusc}}*` (ex.: `*RENEGOCIAÇÃO — ACORDO SOLICITADO*`), cliente/CPF, parcela atual e abrangência, o pedido do cliente ("Cliente solicitou pagamento todo dia X e parcelas de R$ Y" — campos `dia_solicitado` e `valor_solicitado`), a entrada (opcional: some se vazia; data entre parênteses via `data_entrada_txt`), "Foram simuladas N parcelas de R$ Z." e "Vencimento: todo dia D". Obrigatórios: nome, quantidade e valor da parcela simulada |
+| Renegociação (`entrada`) | Mensagem do grupo no formato de 24/11/2026: título `*RENEGOCIAÇÃO — {{operacao_maiusc}}*`; dados do contrato (Nome, CPF, Proposta, Valor Parcela, Vencimento = `vencimento_contrato` "1ª a última", Parcelas em Atraso); "Cliente negociou o contrato:" (`acao_negociou`; com Resultado = solicitou / não concluída: "Cliente solicitou negociar o contrato:") + Entrada (opcional), Valor, Quantidade de parcelas e "Vencimento: Todo dia D". `vencimento_contrato` e `parcelas_atraso` vêm da CAC em "Aplicar cliente atual" (`periodoVenc`); na tela Renegociação, Valor da parcela e Parcelas em atraso aparecem no bloco da modalidade. Obrigatórios: nome, quantidade e valor da parcela negociada. Frases da planilha sem mudança |
 | PIX semanal / Automático | N pagamentos semanais (+ entrada se informada) |
 | Campanha do Fôlego | 2 linhas: valor agora + saldo restante |
 
@@ -153,6 +155,32 @@ Formatos: valores `R$ 0,00`, datas `dd/mm/aaaa`, telefone `(11) 912345678`.
 
 ---
 
+## Débito atualizado (calculadora de encargos)
+
+Grupo **"Débito atualizado (calculadora)"** (`#mf-at-g-debito`, `data-grupo="at-debito"`), logo abaixo de Cobrança, nas telas Negociação e Renegociação. Calcula quanto o cliente deve hoje (ou numa data escolhida) pelas parcelas em atraso, com a **mesma regra do "Registro de Pagamento de Fatura" do ER**. Só em memória: nada é salvo, nenhuma chave nova de armazenamento, nenhuma requisição ao ER.
+
+**Entradas:** Valor da parcela, Parcelas em atraso, Vencimento mais antigo e Data do pagamento (padrão: hoje). "Trazer da Cobrança" copia os três primeiros da ficha (`valor_parcela`, `parcelas_atraso`, `vencimento_antigo`); ao abrir o grupo e ao calcular, os campos vazios também são preenchidos pela ficha. "Aplicar cliente atual" e "Novo atendimento" limpam o cálculo anterior.
+
+**Regra (por parcela, valores em centavos, `AT_ENCARGOS`):**
+
+| Parte | Fórmula |
+|---|---|
+| Dias | data do pagamento − vencimento (dias corridos) |
+| Encargos de mora | parcela × [(1 + 13,842539%)^(dias/30) − 1] (juros do contrato, compostos pro rata dia) + parcela × 0,99984% ÷ 30 × dias (mora, simples); arredondado ao centavo |
+| Multa | parcela × 2% (fixa, fora da base dos juros) |
+| Total | parcela + encargos + multa |
+
+- As parcelas são **mensais no mesmo dia** do vencimento mais antigo (dia 31 em mês curto: último dia do mês, `atSomarMeses`). Parcela que vence depois da data do pagamento fica de fora (aviso na mensagem).
+- **Taxas calibradas em 23/11/2026** com 3 telas do ER (contrato de R$ 274,92, pagamento em 23/11/2026): 263 dias → encargos R$ 605,84; 141 dias → R$ 243,63; 18 dias → R$ 23,89. As três batem ao centavo. Com a mora em 1% redondo, a de 141 dias sai R$ 0,01 acima.
+- **Limites conhecidos:** taxa conferida em um só contrato (outros produtos podem ter outra taxa do contrato); parcela com pagamento parcial (saldo menor que a parcela) não é tratada; vencimentos fora do padrão mensal precisam ser calculados à parte. Por isso o aviso "Valor estimado: confira no ER antes de fechar".
+
+**Saída:** tabela (Vencimento, Dias, Parcela, Encargos, Multa, Total) com a linha de total e o débito em destaque. Botões:
+
+- **Copiar resumo** — texto com uma linha por parcela e os totais (`GM_setClipboard`).
+- **Usar como "Valor total com juros"** — grava o total em `valor_total_juros` (ficha em memória). Se o campo está na tela (modalidade Campanha do Fôlego ou mensagem Retorno ao cliente — Campanha do Fôlego), atualiza a caixa e o saldo restante (`ngSaldoHook`).
+
+---
+
 ## Aplicar cliente atual
 
 `atAplicarCliente()` — preenche a ficha com os dados da Busca de cliente ativa: Proposta, Nome, CPF, IMEI, Data da proposta, Filial, Atendente, Valor da parcela, FPD, Parcelas em atraso, Dias de atraso, Vencimento mais antigo e Parcela atual (e "A partir da parcela", se vazio). **"A partir da parcela" (`parcela_inicial`) = última parcela vencida do contrato** (`ultimaVencida`: a de maior número com dias de atraso > 0 e saldo em aberto, calculada em `cacCalcular`); sem parcela vencida, a 1ª em aberto (`parcelaAtual`). Corrigido em 20/11/2026 (antes era sempre a 1ª em aberto). Esse valor alimenta a Abrangência da **Mensagem p/ grupo** ("a partir da parcela N") e o campo "A partir de qual parcela" dos Textos da planilha. Pergunta antes de substituir o que já foi digitado. O campo Número de contato **nunca** é preenchido automaticamente.
@@ -171,7 +199,7 @@ Só aparência e retorno visual: os campos, ids, botões, textos gerados e linha
 - **Plano de parcelas:** cada parcela num cartão; a 1ª (entrada) com borda verde.
 - **Botões que apagam o que foi digitado** ("Novo atendimento", "Limpar campos", "Novo texto"): texto vermelho. A confirmação continua a mesma.
 - **Validação (`atValidar`):** ao copiar ou registrar com campo faltando, o grupo recolhido que tem o campo em vermelho é aberto. O Número de contato inválido também fica em vermelho. A lista de pendências e a regra não mudaram.
-- **Grupos:** cada grupo da aba (`at-cliente`, `at-cobranca`, `at-acordo`, `at-reneg`, `at-textos`, `at-acomp`, `ng-dados`, `ng-saida`) guarda o próprio aberto/fechado.
+- **Grupos:** cada grupo da aba (`at-cliente`, `at-cobranca`, `at-debito`, `at-acordo`, `at-reneg`, `at-textos`, `at-acomp`, `ng-dados`, `ng-saida`) guarda o próprio aberto/fechado.
 - **Grades:** `repeat(auto-fit, minmax(130px, 1fr))`. São 2 colunas no painel padrão e até 5 no ampliado, e um grupo com poucos campos ocupa a largura toda. Campo comum até 420 px. Os botões de ação ficam sempre 2 por linha.
 - **Rótulo em cima, caixa embaixo** (`justify-content: space-between`): as caixas de uma linha ficam alinhadas mesmo quando um rótulo quebra.
 - **Obrigatório:** o ` *` fica num `<span class="mf-obrig">`, com espaço que não quebra, em azul na Nova UI. O texto do rótulo é o mesmo.
@@ -207,6 +235,10 @@ O fluxo tem duas etapas e cada uma fica num lugar só:
 | `atSomarMeses(iso, n)` | Soma N meses a uma data ISO (respeitando últimos dias do mês) |
 | `atPlanoCampos()` | Retorna os campos do plano de parcelas |
 | `atValidar()` | Valida campos obrigatórios antes de registrar |
+| `atDebParcela(valor, venc, pgto)` | Encargos, multa e total de uma parcela em atraso (centavos), regra do ER (`AT_ENCARGOS`) |
+| `atDebCalcular(valor, qtd, vencIni, pgto)` | Parcelas mensais em atraso a partir do vencimento mais antigo + totais |
+| `atDebTrazer(tudo)` / `atDebLimpar()` | Preenche a calculadora com a ficha (Cobrança) / limpa o cálculo |
+| `atDebDesenhar(r)` / `atDebResumo(r)` | Tabela do débito / texto do "Copiar resumo" |
 | `ngValor(k)` | Lê o valor atual de um campo do formulário |
 | `ngMontar(modelo)` | Monta a interface do modelo selecionado |
 | `ngDesenharCampos()` | Renderiza os campos da modalidade ativa |

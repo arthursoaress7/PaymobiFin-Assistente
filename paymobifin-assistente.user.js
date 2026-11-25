@@ -3,12 +3,13 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.37.0
+// @version      13.42.1
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
 // @include      https://enviamotor.mobfacil.com.br/*
 // @include      https://app.tallos.com.br/*
+// @include      https://paymobi.com.br/*
 // @homepageURL  https://github.com/arthursoaress7/PaymobiFin-Assistente/tree/main
 // @downloadURL  https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/main/paymobifin-assistente.user.js
 // @updateURL    https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/main/paymobifin-assistente.user.js
@@ -30,7 +31,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.37.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.42.1');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -60,17 +61,25 @@
     CORTE_VALOR: 4000,      // reprova se valor de restrições > 4000
     CORTE_QTD: 10,          // reprova se quantidade de restrições > 10
     // Política por faixa de risco (score): limites de valor e quantidade de restritivos de cada faixa (tabela da equipe,
-    // 21/11/2026). E e F não têm limite de restritivos: o motivo é o score (Score Baixo).
+    // 25/11/2026). Passar de qualquer um dos dois limites reprova. F (score até 390) reprova sempre: o motivo é o score (Score Baixo).
     FAIXAS: [
       { faixa: 'A', de: 816, ate: 1000, valor: 4000, qtd: 10 },
       { faixa: 'B', de: 675, ate: 815, valor: 4000, qtd: 10 },
-      { faixa: 'C', de: 552, ate: 674, valor: 2000, qtd: 10 },
-      { faixa: 'D', de: 392, ate: 551, valor: 1000, qtd: 10 },
-      { faixa: 'E', de: 2, ate: 391, valor: null, qtd: null },
-      { faixa: 'F', de: 1, ate: 1, valor: null, qtd: null },
+      { faixa: 'C', de: 552, ate: 674, valor: 3000, qtd: 10 },
+      { faixa: 'D', de: 467, ate: 551, valor: 2000, qtd: 10 },
+      { faixa: 'E', de: 391, ate: 466, valor: 300, qtd: 2 },
+      { faixa: 'F', de: 0, ate: 390, valor: null, qtd: null },
     ],
     VAZIAS_APOS_ID: 3,      // colunas entre a Proposta e a Qtd Restritivos (Nome, CPF, IMEI)
     TIMEOUT_CCB: 20,        // s máximos esperando cada resposta do sistema no download de CCB
+    // Analisar proposta (aba do menu Mais)
+    AN_ESPERA: 35,          // s máximos esperando o MobFacil (iframe escondido) devolver o resultado do motor
+    AN_KYC_DIAS: 3,         // dias: depois disso, "sem ícone 🚫 da BMP na Fila" não confirma mais (o ícone some com o tempo)
+    // Acesso ao APP (Boleto+) no relatório de Efetivadas: o site paymobi.com.br aberto e logado responde ao ER
+    BP_POLL: 1000,          // ms: o site da Paymobi confere se o ER pediu consulta
+    BP_BATIDA: 10,          // s entre os "estou aberto" do site da Paymobi
+    BP_VIVO: 35,            // s sem batida do site: considera o site fechado (não espera resposta)
+    BP_ESPERA: 20,          // s máximos esperando a resposta de cada consulta do Boleto+
     ER_BASE_RECONFERIR: 5,  // s depois de abrir o ER para gravar de novo o endereço do ER (usado pelo RD Atendimento)
     RD_BOTAO_MS: 700,       // ms entre conferências da posição do botão "Analisar (IA)" no topo do atendimento
     RD_HORAS_JANELA: 24,    // h sem mensagem para considerar vencida uma conversa SEM cadeado (janela do WhatsApp)
@@ -459,8 +468,66 @@
     console.log('[PaymobiFin]', r.id, atual);
   }
 
+  /* ---------- Analisar proposta: resultado completo do motor, lido na memória da página (sem cliques na árvore) ----------
+     A página do motor busca o JSON da análise uma vez (POST /api/visualizador, token de uso único) e o guarda no estado
+     do React ({ "Resumo proposta", "Exibir fluxos": { fluxos_P1, fluxos_P2 } }). Aqui só lemos esse estado e devolvemos
+     um resumo: as regras de cada fluxo, as mensagens e os dados enviados (sem fotos/documentos nem os dados dos birôs). */
+  function anMotorResumo() {
+    let root = null, k = null;
+    try { root = PAGINA.document.getElementById('__next'); k = root && Object.keys(root).find(x => x.startsWith('__reactContainer')); } catch (_) { return null; }
+    if (!k) return null;
+    const temDados = v => (v && typeof v === 'object' && v['Exibir fluxos'] ? v : v && v.data && v.data['Exibir fluxos'] ? v.data : null);
+    let f = root[k];
+    if (f && f.stateNode && f.stateNode.current) f = f.stateNode.current;
+    const pilha = [f];
+    let achado = null, n = 0;
+    while (pilha.length && !achado && n++ < 20000) {
+      const x = pilha.pop();
+      if (!x) continue;
+      for (let h = x.memoizedState, i = 0; h && i < 40 && !achado; h = h.next, i++) {
+        try { achado = temDados(h.memoizedState) || temDados(h.memoizedState && h.memoizedState.data); } catch (_) {}
+      }
+      if (x.sibling) pilha.push(x.sibling);
+      if (x.child) pilha.push(x.child);
+    }
+    if (!achado) return null;
+    const fl = achado['Exibir fluxos'] || {};
+    // cada fluxo é uma lista de rodadas: vale a mais recente (Timestamp "24/11/2026 às 13:53:36")
+    const quando = s => { const x = /(\d{2})\/(\d{2})\/(\d{4})\D+(\d{2}):(\d{2})(?::(\d{2}))?/.exec(s || ''); return x ? +new Date(+x[3], x[2] - 1, +x[1], +x[4], +x[5], +(x[6] || 0)) : 0; };
+    const fluxo = nome => {
+      const z = (fl[nome] || []).slice().sort((a, b) => quando(b && b.Timestamp) - quando(a && a.Timestamp))[0];
+      if (!z) return null;
+      const ins = ((z.DadosProposta || {}).Submit || {}).Inputs || [];
+      return { id: String(z.IdProposta || ''), data: z.DataProposta || '', quando: z.Timestamp || '', status: z.StatusFinalPuro || '', motivos: z.MotivoStatus || [],
+        regras: z.RegrasDeNegocios || {}, dados: Object.fromEntries(ins.filter(x => !/BASE64|ID_BIOMETRIA/.test(x.Name)).map(x => [x.Name, x.Value])) };
+    };
+    const rs = achado['Resumo proposta'] || {};
+    // reanálise (ex.: 5555): só "fluxos_reanalise", cada rodada com TODAS as regras (crédito + documentos e contato).
+    // A rodada mais recente vale no lugar do P1 e do P2, e o status/mensagens dela no lugar do resumo.
+    const re = fluxo('fluxos_reanalise');
+    if (re) return JSON.parse(JSON.stringify({ statusFinal: re.status || rs.statusFinal || '', motivos: re.motivos.length ? re.motivos : rs.motivoStatus || [], p1: re, p2: re, reanalise: true }));
+    return JSON.parse(JSON.stringify({ statusFinal: rs.statusFinal || '', motivos: rs.motivoStatus || [], p1: fluxo('fluxos_P1'), p2: fluxo('fluxos_P2') }));
+  }
+  // responde ao pedido da aba "Analisar proposta" (GM 'anPedido' -> 'anMotor'), só se a página for a proposta pedida
+  function anResponder() {
+    const ini = Date.now();
+    const t = setInterval(() => {
+      const acabou = Date.now() - ini > CONFIG.AN_ESPERA * 1000;
+      const ped = GM_getValue('anPedido', null);
+      if (!ped || !ped.id || Date.now() - (ped.ts || 0) > CONFIG.AN_ESPERA * 1000) { if (acabou) clearInterval(t); return; }
+      let r = null;
+      try { r = anMotorResumo(); } catch (_) {}
+      if (!r) { if (acabou) clearInterval(t); return; }
+      clearInterval(t);
+      const id = (r.p1 && r.p1.id) || (r.p2 && r.p2.id) || '';
+      if (id !== String(ped.id)) return;   // é o iframe de outra proposta (ex.: a coleta rodando ao mesmo tempo)
+      GM_setValue('anMotor', { ...r, id, ts: Date.now(), pedido: ped.nonce });
+    }, 300);
+  }
+
   /* ================= IFRAME DO MOTOR (enviamotor.mobfacil.com.br) ================= */
   function iniciarMotor() {
+    anResponder();
     // Em aba escondida o navegador não executa requestAnimationFrame, e a árvore (antd) usa isso para abrir os nós.
     // Só enquanto a aba estiver escondida, troca por um setTimeout equivalente. Com a aba visível nada muda.
     try {
@@ -1097,7 +1164,19 @@
         #mf-p .mf-grupo{padding:4px 14px;border-bottom:1px solid #e2e8f0}
         /* navegação (as duas aparências): Atendimento · Histórico · Agenda · Relatórios · Mais ▾ */
         #mf-p .mf-abas button[data-aba=ccb],#mf-p .mf-abas button[data-aba=cac],#mf-p .mf-abas button[data-aba=cta],
-        #mf-p .mf-abas button[data-aba=lem],#mf-p .mf-abas button[data-aba=tim],#mf-p .mf-abas button[data-aba=cfg]{display:none}
+        #mf-p .mf-abas button[data-aba=lem],#mf-p .mf-abas button[data-aba=tim],#mf-p .mf-abas button[data-aba=cfg],#mf-p .mf-abas button[data-aba=ana]{display:none}
+        #mf-p .mf-an-cab{font-size:12.5px;line-height:1.5;margin-bottom:8px}
+        #mf-p .mf-an-veredito{font-weight:700;font-size:13px;margin:6px 0 8px}
+        #mf-p .mf-an-item{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid #e2e8f0;font-size:12.5px;line-height:1.4}
+        #mf-p .mf-an-item>span{flex:none;width:20px;text-align:center}
+        #mf-p .mf-an-det{color:#475569;word-break:break-word}
+        #mf-p .mf-an-massa{border-top:1px solid #e2e8f0;padding:6px 0;font-size:12.5px;line-height:1.4}
+        #mf-p .mf-an-massa>summary{cursor:pointer;list-style:none}
+        #mf-p .mf-an-massa>summary::-webkit-details-marker{display:none}
+        #mf-p .mf-an-massa[open]>summary{margin-bottom:4px}
+        #mf-p[data-ui=nova] .mf-an-massa{border-top-color:var(--mf-borda,#334155)}
+        #mf-p[data-ui=nova] .mf-an-item{border-top-color:var(--mf-borda,#334155)}
+        #mf-p[data-ui=nova] .mf-an-det{color:var(--mf-txt2,#94a3b8)}
         #mf-p .mf-ui-menu{position:absolute;right:4px;top:100%;z-index:5;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px #0003;padding:4px;min-width:170px;display:none}
         #mf-p .mf-ui-menu.aberto{display:block}
         #mf-p .mf-ui-menu button{display:block;width:100%;text-align:left;background:transparent;color:#1e293b;padding:8px 10px;border-radius:6px;font-size:13px;border:0}
@@ -1142,7 +1221,7 @@
         #mf-p[data-ui=nova] .mf-abas button:hover:not(:disabled){background:#f8fafc}
         #mf-p[data-ui=nova] .mf-abas button.ativa{color:#1d4ed8;border-bottom-color:#2563eb;background:transparent}
         #mf-p[data-ui=nova] .mf-abas button[data-aba=ccb],#mf-p[data-ui=nova] .mf-abas button[data-aba=cac],#mf-p[data-ui=nova] .mf-abas button[data-aba=cta],
-        #mf-p[data-ui=nova] .mf-abas button[data-aba=lem],#mf-p[data-ui=nova] .mf-abas button[data-aba=tim],#mf-p[data-ui=nova] .mf-abas button[data-aba=cfg]{display:none}
+        #mf-p[data-ui=nova] .mf-abas button[data-aba=lem],#mf-p[data-ui=nova] .mf-abas button[data-aba=tim],#mf-p[data-ui=nova] .mf-abas button[data-aba=cfg],#mf-p[data-ui=nova] .mf-abas button[data-aba=ana]{display:none}
         #mf-p[data-ui=nova] .mf-ui-menu{position:absolute;right:6px;top:100%;z-index:5;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 24px #0f172a26;padding:4px;min-width:170px;display:none}
         #mf-p[data-ui=nova] .mf-ui-menu.aberto{display:block}
         #mf-p[data-ui=nova] .mf-ui-menu button{display:block;width:100%;text-align:left;background:transparent;color:#1e293b;font-weight:500;padding:8px 10px;border-radius:6px;border:0}
@@ -1199,6 +1278,10 @@
         #mf-p .mf-ng-saldo{font-size:14px;font-weight:700;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 9px}
         #mf-p .mf-ng-saldo:empty{display:none}
         #mf-p .mf-ng-saldo.erro{color:#b91c1c;background:#fef2f2;border-color:#fecaca}
+        #mf-p .mf-deb-tab{width:100%;border-collapse:collapse;font-size:11px}
+        #mf-p .mf-deb-tab th,#mf-p .mf-deb-tab td{padding:3px 4px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap}
+        #mf-p .mf-deb-tab th:first-child,#mf-p .mf-deb-tab td:first-child{text-align:left}
+        #mf-p .mf-deb-tab tr.mf-deb-tot td{font-weight:700;border-top:2px solid #94a3b8}
         #mf-p .mf-ng-bloco>summary{cursor:pointer;font-size:12px;font-weight:600;color:#475569;padding:4px 0}
         #mf-p .mf-ui-prev.ativo{display:flex;gap:6px;align-items:center;padding:8px 14px;background:#fef9c3;font-size:12.5px;border-bottom:1px solid #fde68a}
         #mf-p .mf-bs{padding:8px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc}
@@ -1281,6 +1364,7 @@
         #mf-p[data-tema=escuro] input.mf-erro,#mf-p[data-tema=escuro] textarea.mf-erro,#mf-p[data-tema=escuro] select.mf-erro{background:#450a0a !important;border-color:#ef4444 !important}
         #mf-p[data-tema=escuro] .mf-ng-saldo{color:#4ade80;background:#052e16;border-color:#166534}
         #mf-p[data-tema=escuro] .mf-ng-saldo.erro{color:#fca5a5;background:#450a0a;border-color:#7f1d1d}
+        #mf-p[data-tema=escuro] .mf-deb-tab th,#mf-p[data-tema=escuro] .mf-deb-tab td{border-bottom-color:#334155}
         /* botões: antiga (cinza claro vira cinza escuro) e nova (neutros escuros; os principais azul/verde mantêm as cores) */
         #mf-p[data-tema=escuro][data-ui=antiga] .cinza{background:#334155 !important;color:#e2e8f0 !important}
         #mf-p[data-tema=escuro][data-ui=nova] button{background:#1e293b;color:#e2e8f0;border-color:#475569}
@@ -1454,6 +1538,7 @@
         #mf-p[data-ui=nova] .mf-abas>button[data-ui-aba=mais]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1.5'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1.5'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=cac],#mf-p[data-ui=nova] .mf-abas>button[data-aba=cac]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=ccb],#mf-p[data-ui=nova] .mf-abas>button[data-aba=ccb]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z'/%3E%3Cpath d='M14 2v5h6M12 18v-6M9 15l3 3 3-3'/%3E%3C/svg%3E")}
+        #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=ana],#mf-p[data-ui=nova] .mf-abas>button[data-aba=ana]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='8' y='2' width='8' height='4' rx='1'/%3E%3Cpath d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/%3E%3Cpath d='m9 14 2 2 4-4'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=cta],#mf-p[data-ui=nova] .mf-abas>button[data-aba=cta]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=cfg],#mf-p[data-ui=nova] .mf-abas>button[data-aba=cfg],#mf-p[data-ui=nova] .mf-ui-icone{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] #mf-tam{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'/%3E%3C/svg%3E")}
@@ -1762,6 +1847,7 @@
           <button data-aba="cac">Consulta CAC</button>
           <button data-aba="ccb">CCBs</button>
           <button data-aba="cta">Contas</button>
+          <button data-aba="ana">Analisar proposta</button>
           <button data-aba="cfg">Configurações</button>
         </div>
 
@@ -1910,6 +1996,62 @@
           </div>
         </div>
 
+        <div data-pag="ana">
+          <div class="mf-sec">
+            <div class="mf-tit">Analisar proposta (somente leitura)</div>
+            <div class="mf-linha" style="margin-bottom:6px">
+              <input id="mf-an-id" type="text" inputmode="numeric" placeholder="Número da proposta" autocomplete="off" style="flex:1">
+              <button id="mf-an-ir" class="azul" style="padding:8px 12px">Analisar</button>
+            </div>
+            <div id="mf-an-st" class="mf-info"></div>
+            <div class="mf-info" style="margin-top:6px">Confere a política de faixa (score x restrições), a Receita Federal (nome, nascimento, CPF, óbito),
+              idade, renda, aparelho, documentos (tipos, CPF e nome no documento, facematch, biometria), contato, as mensagens do MobFacil,
+              os itens da análise do ER e o impeditivo da BMP (KYC). O que não der para confirmar aparece como ❔, nunca como ok. Nada é alterado no ER.</div>
+          </div>
+          <div class="mf-sec" id="mf-an-res" style="display:none">
+            <div class="mf-tit">Resultado</div>
+            <div id="mf-an-cab" class="mf-an-cab"></div>
+            <div id="mf-an-veredito" class="mf-an-veredito"></div>
+            <div id="mf-an-lista"></div>
+            <button id="mf-an-copiar" class="cinza mf-cheia" style="margin-top:8px;width:100%">Copiar resumo</button>
+          </div>
+          <div class="mf-sec">
+            <div class="mf-tit">Analisar várias propostas</div>
+            <textarea id="mf-an-ids" placeholder="Números das propostas (um por linha), ou busque na Fila abaixo"></textarea>
+            <div class="mf-grade" style="margin-top:6px">
+              <label class="mf-lb-rot">De<input type="date" id="mf-an-ini"></label>
+              <label class="mf-lb-rot">Até<input type="date" id="mf-an-fim"></label>
+            </div>
+            <div class="mf-linha" style="margin-top:6px">
+              <select id="mf-an-tipo" style="flex:1">
+                <option value="todas">Reprovadas, efetivadas e aprovadas</option>
+                <option value="rep">Reprovadas</option>
+                <option value="efe">Efetivadas</option>
+                <option value="apr">Aprovadas (não efetivadas)</option>
+              </select>
+              <button id="mf-an-buscar" class="cinza" style="padding:8px 12px">Buscar na Fila</button>
+            </div>
+            <div class="mf-grade" style="margin-top:8px">
+              <button id="mf-an-massa" class="azul">Analisar todas</button>
+              <button id="mf-an-parar" class="laranja" disabled>Parar</button>
+            </div>
+            <div id="mf-an-mst" class="mf-info" style="margin-top:6px"></div>
+            <div class="mf-info" style="margin-top:6px">Analisa uma por uma, com a mesma conferência da proposta única (alguns segundos cada).
+              Reprovadas: diz se a reprovação confere com a política ou se o MobFacil reprovou com o crédito dentro dela. Efetivadas e aprovadas:
+              diz se foram aprovadas fora da política ou com divergência. Clique numa proposta para ver os detalhes. Nada é alterado no ER.</div>
+          </div>
+          <div class="mf-sec" id="mf-an-mres" style="display:none">
+            <div class="mf-tit">Resultado <span id="mf-an-mqtd"></span></div>
+            <div id="mf-an-mresumo" class="mf-an-veredito"></div>
+            <div id="mf-an-mlista"></div>
+            <div class="mf-grade" style="margin-top:8px">
+              <button id="mf-an-mcopiar" class="cinza">Copiar resumo</button>
+              <button id="mf-an-mplan" class="cinza">Copiar planilha</button>
+            </div>
+            <button id="mf-an-mconf" class="cinza" style="width:100%;margin-top:6px">Copiar conferência (formato da equipe)</button>
+          </div>
+        </div>
+
         <div data-pag="neg">
           <div class="mf-ui-seg mf-at-seg">
             <button data-at="negociacao">Negociação</button><button data-at="renegociacao">Renegociação</button><button data-at="desbloqueios">Desbloqueios</button><button data-at="mensagens">Mensagens</button>
@@ -1923,6 +2065,24 @@
             </details>
             <details class="mf-grupo" id="mf-at-g-cobranca" data-grupo="at-cobranca"><summary>Cobrança</summary>
               <div id="mf-at-cobranca" class="mf-grade"></div>
+            </details>
+            <details class="mf-grupo" id="mf-at-g-debito" data-grupo="at-debito"><summary>Débito atualizado (calculadora)</summary>
+              <div class="mf-linha" style="flex-wrap:wrap;gap:6px;margin:2px 0 6px">
+                <button id="mf-at-deb-trazer" class="cinza mf-bs-mini" title="Preenche com Valor da parcela, Parcelas em atraso e Vencimento mais antigo da ficha (Cobrança).">Trazer da Cobrança</button>
+              </div>
+              <div class="mf-grade">
+                <label class="mf-lb-rot"><span>Valor da parcela</span><input id="mf-at-deb-valor" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+                <label class="mf-lb-rot"><span>Parcelas em atraso</span><input id="mf-at-deb-qtd" type="text" inputmode="numeric" autocomplete="off"></label>
+                <label class="mf-lb-rot"><span>Vencimento mais antigo</span><input id="mf-at-deb-venc" type="date"></label>
+                <label class="mf-lb-rot"><span>Data do pagamento</span><input id="mf-at-deb-pgto" type="date"></label>
+              </div>
+              <div class="mf-grade" style="margin-top:6px">
+                <button id="mf-at-deb-calcular" class="azul">Calcular débito</button>
+                <button id="mf-at-deb-copiar" class="cinza">Copiar resumo</button>
+              </div>
+              <div id="mf-at-deb-res" style="margin-top:6px"></div>
+              <button id="mf-at-deb-usar" class="verde" style="width:100%;margin-top:6px;display:none" title="Leva o total para o campo &quot;Valor total com juros&quot; (Campanha do Fôlego e Retorno do Fôlego).">Usar como "Valor total com juros"</button>
+              <div class="mf-info" style="margin-top:6px">Mesma regra do "Registro de Pagamento de Fatura" do ER: parcelas mensais no mesmo dia, encargos de mora (juros do contrato compostos + mora de 1% ao mês) e multa de 2%. Valor estimado: confira no ER antes de fechar o acordo. Nada é salvo.</div>
             </details>
             <details class="mf-grupo" id="mf-at-g-acordo" data-grupo="at-acordo" open><summary>Acordo</summary>
               <div class="mf-grade">
@@ -2222,7 +2382,7 @@
 
     /* ---------- abas ---------- */
     const mostrarAba = a => {
-      if (!['rel', 'ccb', 'cac', 'cta', 'neg', 'his', 'lem', 'tim', 'cfg'].includes(a)) a = 'neg';
+      if (!['rel', 'ccb', 'cac', 'cta', 'neg', 'his', 'lem', 'tim', 'cfg', 'ana'].includes(a)) a = 'neg';
       painel.querySelectorAll('[data-pag]').forEach(p => { p.style.display = p.dataset.pag === a ? 'block' : 'none'; });
       painel.querySelectorAll('.mf-abas button').forEach(b => b.classList.toggle('ativa', b.dataset.aba === a));
       painel.dataset.abaAtiva = a;   // só para o visual (CSS) saber qual aba está aberta
@@ -2735,8 +2895,9 @@
     // Política por faixa de risco (score A–F, cada faixa com os seus limites de restritivos), mensagem única do MobFacil:
     //  "(P1) Reprovar: faixa E acima do limite permitido (Restritivo=R$0, Qtde=0, Passagens=0) (atual: R$1360, 1, 0)"
     // vira uma mensagem por motivo, no formato das antigas, com os limites da TABELA DA EQUIPE (CONFIG.FAIXAS), não os da
-    // mensagem (a faixa E veio com R$0/0, considerado erro do MobFacil): A–D = valor acima do limite da faixa e/ou
-    // quantidade acima de 10; E e F (sem limite de restritivos) = score baixo. "Passagens" não entra (não é motivo).
+    // mensagem: A–E = valor acima do limite da faixa e/ou quantidade acima do limite da faixa (E: R$300 e 2);
+    // F (score até 390, sem limite) = score baixo. "Passagens" não entra (não é motivo).
+    // A faixa sai do SCORE pela tabela da equipe; a letra da mensagem só vale quando não há score.
     // Sem dar para decidir: fica como veio.
     const faixaDe = (letra, score) => CONFIG.FAIXAS.find(x => letra ? x.faixa === String(letra).toUpperCase() : score != null && score >= x.de && score <= x.ate) || null;
     function motivosLista(reprov, score) {
@@ -2745,7 +2906,7 @@
       return String(reprov || '').split(' ¦ ').filter(Boolean).flatMap(msg => {
         const f = msg.match(/faixa\s+(\S+)\s+acima\s+do\s+limite/i);
         if (!f) return [msg];
-        const fx = faixaDe(f[1], sc) || faixaDe(null, sc);
+        const fx = faixaDe(null, sc) || faixaDe(f[1], sc);
         const at = msg.match(/atual\s*[:=]\s*R?\$?\s*([\d.,]+)\s*,\s*(\d+)/i);
         if (!fx) return [msg];
         if (fx.valor == null) return sc != null ? ['(P1) Reprovar: cliente abaixo do ponto de corte (score=' + sc + ')'] : [msg];
@@ -2755,6 +2916,23 @@
         if (q != null && q > fx.qtd) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (faixa ' + fx.faixa + ': ' + fx.qtd + ') (atual=' + q + ')');
         return out.length ? out : [msg];
       });
+    }
+    // Motivos da reprovação: os "Reprovar" do MobFacil (motivosLista). Sem nenhum — reprovada à mão na Mesa depois de o
+    // MobFacil mandar para a mesa ("(P1) Derivar mesa: faixa D acima do limite permitido (...) (atual: R$10956,91, 12, 0)") —,
+    // monta pelas restrições e pelo score lidos do motor, com a mesma tabela de faixas. Dentro dos limites: nada (fica N/A).
+    function motivosReprov(d) {
+      if (!d) return [];
+      const msgs = motivosLista(d.reprov, d.score);
+      if (msgs.some(x => /Reprovar\s*:/i.test(x))) return msgs;
+      const n = x => (x != null && String(x).trim() !== '' && !isNaN(aNum(x)) ? aNum(x) : null);
+      const sc = n(d.score), v = n(d.val), q = n(d.qtd);
+      const fx = sc != null ? faixaDe(null, sc) : null;
+      if (!fx) return msgs;
+      if (fx.valor == null) return ['(P1) Reprovar: cliente abaixo do ponto de corte (score=' + sc + ')'];
+      const out = [];
+      if (v != null && v > fx.valor) out.push('(P1) Reprovar: valor de restrições acima do limite permitido (faixa ' + fx.faixa + ': R$' + fx.valor + ') (atual=R$' + d.val + ')');
+      if (q != null && q > fx.qtd) out.push('(P1) Reprovar: quantidade de restrições acima do limite permitido (faixa ' + fx.faixa + ': ' + fx.qtd + ') (atual=' + q + ')');
+      return out.length ? out : msgs;
     }
     function motivoDoMobFacil(reprov) {
       const primeira = String(reprov || '').split(' ¦ ')[0];
@@ -2781,10 +2959,10 @@
       if (!d) return '';
       const sit = mt && mt.sit;
       if (sit && !ehReprovada(sit)) return '';
-      if (d.reprov) {
+      if (d.reprov || ehReprovada(sit)) {
         const reais = [];
         let posRestr = -1, temValor = false, temQtd = false;
-        motivosLista(d.reprov, d.score).map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
+        motivosReprov(d).map(motivoDoMobFacil).filter(Boolean).forEach(mf => {
           if (/restri|pend|negativ/i.test(mf.descr) && /quantidade|qtd|valor/i.test(mf.descr)) {
             if (/quantidade|qtd/i.test(mf.descr)) temQtd = true; else temValor = true;
             if (posRestr < 0) { posRestr = reais.length; reais.push(null); }
@@ -2883,7 +3061,7 @@
       if (m === 'reprovadas') {
         const tipo = x.ana && !/master/i.test(x.ana) ? 'Manual' : 'Automática';
         // uma mensagem por motivo de reprovação (o MobFacil lista TODOS os que falharam, ex.: valor E quantidade)
-        const msgs = d && d.reprov ? motivosLista(d.reprov, d.score).map(motivoDoMobFacil).filter(Boolean) : [];
+        const msgs = motivosReprov(d).map(motivoDoMobFacil).filter(Boolean);
         const motivo = [...new Set(msgs.map(x => x.label))].join(' / ');
         const partes = [];
         msgs.forEach(mf => {
@@ -2915,7 +3093,8 @@
         const prox = ri > 0 && rb > 0 ? (Math.min(ri, rb) / Math.max(ri, rb) * 100).toFixed(2).replace('.', ',') + '%' : '';
         cols = [dataDe(x.dh), id, na(x.cli || dd.nome), na(dd.cpf), dd.rendaInf || '', dd.rendaBiro || '', prox];
       } else if (m === 'efetivadas') {
-        cols = [id, na(x.cli), na(e.vendedor), '', na(hh), na(loja.toUpperCase())];   // Acesso ao APP: à mão (fica vazio)
+        // Acesso ao APP: primeiro acesso no Boleto+ (Sim/Não/N/A, ver bpEtapa); vazio = não consultado (site da Paymobi fechado)
+        cols = [id, na(x.cli), na(e.vendedor), e.acessoApp || '', na(hh), na(loja.toUpperCase())];
       } else {
         const c = d && d.cpf ? d.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '';
         cols = [id, na(x.cli), na(c), 'XPANSE - ' + loja.toUpperCase(), na(e.vendedor), na(valorTransacao(e)), 'Aprovada, não efetivada'];
@@ -3049,6 +3228,11 @@
         if (!valor) valor = acharRotulo(doc, 'Valor', 'Garantias');
       }
       if (vendedor) vendedor = vendedor.replace(/^\d+\s+/, '').replace(/\s+-\s+.*$/, '').trim();   // "4144175588 LUCAS S. LINERES - XP ..." -> "LUCAS S. LINERES"
+      // proposta sem digitador (ex.: 5558, incluída pela WEBAPI, sem vendedor de loja): o rótulo "Digitador" está na página
+      // e vazio (<dt>Digitador</dt><dd> </dd>). Não é falha de leitura: o vendedor sai N/A e a fila segue (antes ficava como
+      // falha e parava em "3 de 4"). Só vale com o <dd> vazio de verdade: rótulo não encontrado continua sendo falha.
+      const semDigitador = !vendedor && docs.some(doc => [...doc.querySelectorAll('dt')].some(dt => normRot(proprio(dt)) === 'digitador' &&
+        dt.nextElementSibling && dt.nextElementSibling.tagName === 'DD' && !dt.nextElementSibling.textContent.trim()));
       if (valor) valor = valor.replace(/^R\$\s*/, 'R$');                                          // "R$ 1.864,00" -> "R$1.864,00"
       // IMEI: só aceita 14 a 16 dígitos; cliente: só letras (não inventa quando o rótulo não existe)
       const imeiTxt = primeiroRotulo(docs, ['IMEI'], t => /^\d{14,16}$/.test(t.replace(/\D/g, '')));
@@ -3064,7 +3248,7 @@
       const entradaPct = entradaTxt ? pctDe(entradaTxt) : null;
       const extra = GM_getValue('extra', {});
       extra[id] = { vendedor: vendedor || null, valor: valor || null, imei, cliente: cliente || null, situacao: situacao || null,
-        compra, entrada, entradaPct };
+        compra, entrada, entradaPct, semDigitador };
       GM_setValue('extra', extra);
       const dbg = GM_getValue('extraDbg', {});
       dbg[id] = { paginas: info, achouVendedor: !!vendedor, achouValor: !!valor, achouImei: !!imei, achouCliente: !!cliente, achouSituacao: !!situacao,
@@ -3080,7 +3264,7 @@
        O valor é o <b> da MESMA célula do rótulo; <b> vazio/&nbsp; = sem dado (nunca lê a célula vizinha).
        O CPF do bloco é guardado para conferir com o CPF do motor (garante que os dados são da proposta certa). */
     async function dadosCliente(base, id) {
-      const r = { ok: false, telefone: null, email: null, cpf: null, nome: null, motivo: '' };
+      const r = { ok: false, telefone: null, email: null, cpf: null, nome: null, nascimento: null, motivo: '' };
       const ctl = new AbortController();
       const tm = setTimeout(() => ctl.abort(), CONFIG.TIMEOUT_REDE * 1000);
       let html = '';
@@ -3109,6 +3293,7 @@
       r.ok = true;
       r.nome = campo('Nome do Cliente');
       r.cpf = (campo('CPF') || '').replace(/\D/g, '') || null;
+      r.nascimento = ((campo('Data de Nascimento') || '').match(/\d{2}\/\d{2}\/\d{4}/) || [])[0] || null;   // "26/12/2005 (20 anos)"
       const em = campo('Email') || campo('E-mail');
       r.email = em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) ? em : null;
       for (const rot of ['Telefone 1', 'Telefone 2']) {
@@ -3116,6 +3301,60 @@
         if (tel) { r.telefone = tel; break; }
       }
       return r;
+    }
+
+    /* ---------- Acesso ao APP (Boleto+), relatório de Efetivadas ----------
+       O site paymobi.com.br aberto e logado (em qualquer aba) responde às consultas por CPF (ver iniciarBoletoPlus).
+       Fechado (sem "batida" há CONFIG.BP_VIVO s): não espera, a coluna fica em branco e o aviso do fim da fila explica.
+       Texto: "Sim" (já fez o primeiro acesso), "Não", N/A (CPF não está no Boleto+); erro ou não consultado = vazio. */
+    const bpSiteAberto = () => Date.now() - (GM_getValue('bpVivo', 0) || 0) < CONFIG.BP_VIVO * 1000;
+    const bpTexto = it => (!it || it.erro ? '' : it.ausente ? NA : it.acesso ? 'Sim' : 'Não');
+    async function bpConsultar(cpfs) {
+      if (!bpSiteAberto()) return { erro: 'o site paymobi.com.br não está aberto' };
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      GM_setValue('bpPedido', { id, ts: Date.now(), cpfs });
+      const ini = Date.now();
+      while (Date.now() - ini < CONFIG.BP_ESPERA * 1000) {
+        await sleep(CONFIG.BP_POLL / 2);
+        const r = GM_getValue('bpResposta', null);
+        if (r && r.id === id) return r.erro ? { erro: r.erro === 'login' ? 'o site da Paymobi está sem login' : r.erro } : { itens: r.itens || {} };
+      }
+      return { erro: 'o site da Paymobi não respondeu' };
+    }
+    const bpGravar = (id, it) => {
+      const ex = GM_getValue('extra', {});
+      ex[id] = { ...(ex[id] || {}), acessoApp: bpTexto(it) || null, acessoAppEm: (it && it.em) || null };
+      GM_setValue('extra', ex);
+    };
+    // etapa de cada proposta no modo Efetivadas: CPF da aba Cliente + consulta ao Boleto+
+    async function bpEtapa(base, id) {
+      const ET = 'acesso ao app (Boleto+)';
+      etapa(id, ET);
+      let cpf = (GM_getValue('extra', {})[id] || {}).cpfCliente;
+      if (!cpf) {
+        const cli = await dadosCliente(base, id);
+        cpf = cli.cpf || '';
+        const ex = GM_getValue('extra', {});
+        ex[id] = { ...(ex[id] || {}), cpfCliente: cpf || null };
+        GM_setValue('extra', ex);
+        if (!cpf) return etapa(id, ET, 'CPF não encontrado na aba Cliente' + (cli.motivo ? ' (' + cli.motivo + ')' : ''));
+      }
+      const r = await bpConsultar([cpf]);
+      if (r.erro) return etapa(id, ET, 'não consultado: ' + r.erro);
+      const it = r.itens[cpf];
+      bpGravar(id, it);
+      etapa(id, ET, it && it.erro ? 'erro do site: ' + it.erro : bpTexto(it));
+    }
+    // fim da fila: consulta de uma vez as que ficaram sem o Acesso ao APP (ex.: o site foi aberto no meio da coleta)
+    async function bpCompletar() {
+      const ig = ignoradas(), ex = GM_getValue('extra', {});
+      const faltam = fila().filter(id => !ig[id] && ex[id] && ex[id].cpfCliente && !ex[id].acessoApp);
+      if (!faltam.length || !bpSiteAberto()) return faltam;
+      const r = await bpConsultar([...new Set(faltam.map(id => ex[id].cpfCliente))]);
+      if (r.erro) return faltam;
+      faltam.forEach(id => { const it = r.itens[ex[id].cpfCliente]; if (it && !it.erro) bpGravar(id, it); });
+      const ex2 = GM_getValue('extra', {});
+      return faltam.filter(id => !(ex2[id] && ex2[id].acessoApp));
     }
 
     // segunda barreira contra testes/canceladas: proposta que NÃO está na tabela da tela é conferida no detalhe
@@ -3271,12 +3510,13 @@
       }
       // em digitação (CONF CAD) ainda não tem valor: não é falta (a linha sai com N/A no valor)
       if (m === 'valortransacao') { const mt = GM_getValue('meta', {}); return ativos.filter(id => !valorTransacao(ex[id]) && !ehConfCad((mt[id] || {}).sit)).map(id => id + ' (sem valor de transação)'); }
-      if (m === 'efetivadas') return ativos.filter(id => !(ex[id] && ex[id].vendedor)).map(id => id + ' (falta: vendedor)');
+      const temVendedor = id => !!(ex[id] && (ex[id].vendedor || ex[id].semDigitador));   // sem digitador no ER = N/A, não falta
+      if (m === 'efetivadas') return ativos.filter(id => !temVendedor(id)).map(id => id + ' (falta: vendedor)');
       if (m === 'aprovadas') {
         return ativos.map(id => {
           const f = [];
           if (!(dados[id] && dados[id].cpf)) f.push('cpf');
-          if (!(ex[id] && ex[id].vendedor)) f.push('vendedor');
+          if (!temVendedor(id)) f.push('vendedor');
           if (!valorTransacao(ex[id])) f.push('valor');
           return f.length ? id + ' (falta: ' + f.join(', ') + ')' : null;
         }).filter(Boolean);
@@ -3345,7 +3585,9 @@
 
       // dados da página de detalhe: Vendedor e Valor (aba Garantias); na auditoria completa também IMEI/cliente
       const precisaDetalhe = m === 'efetivadas' || m === 'aprovadas' || m === 'valortransacao' || (m === 'coleta' && cfg('auditoriaCompleta'));
-      if (precisaDetalhe && !GM_getValue('extra', {})[id]) {
+      // sem vendedor lido por uma versão que não sabia de "sem digitador": lê de novo (para o Continuar destravar)
+      const exD = GM_getValue('extra', {})[id];
+      if (precisaDetalhe && (!exD || (!exD.vendedor && exD.semDigitador === undefined))) {
         etapa(id, 'detalhe da proposta');
         await buscarDetalhe(base, id);
         const dbgDet = GM_getValue('extraDbg', {})[id] || {}, pg = dbgDet.paginas || [];
@@ -3373,8 +3615,11 @@
         const extra = GM_getValue('extra', {})[id] || {};
         // Diário: página lida e sem valor = N/A (não é falha); página que não carregou = falha (Continuar tenta de novo)
         if (m === 'valortransacao' && !valorTransacao(extra) &&((GM_getValue('extraDbg', {})[id] || {}).paginas || []).some(x => /erro/.test(x))) return 'página da proposta não carregou';
-        if (m === 'efetivadas' && !extra.vendedor) return 'vendedor não localizado';
-        if (m === 'aprovadas' && (!extra.vendedor || !valorTransacao(extra))) return 'vendedor ou valor não localizado';
+        if (m === 'efetivadas' && !extra.vendedor && !extra.semDigitador) return 'vendedor não localizado';
+        // Acesso ao APP: "Sim" não muda mais; "Não"/N/A são consultados de novo (o cliente pode ter entrado no app).
+        // Ficar vazio não é falha (site da Paymobi fechado): a proposta segue, e o aviso do fim da fila explica.
+        if (m === 'efetivadas' && extra.acessoApp !== 'Sim') await bpEtapa(base, id);
+        if (m === 'aprovadas' && ((!extra.vendedor && !extra.semDigitador) || !valorTransacao(extra))) return 'vendedor ou valor não localizado';
         if (m !== 'aprovadas') return null;
       }
       if (!GM_getValue('rodando', false)) return 'pausado';
@@ -3481,6 +3726,8 @@
           '. Clique em Continuar para seguir de onde parou.');
       }
       let aviso = 'Fila concluída.';
+      // Efetivadas: tenta de novo, de uma vez, o Acesso ao APP que ficou vazio (o site pode ter sido aberto no meio)
+      if (modo() === 'efetivadas') await bpCompletar();
       if (cfg('copiarAoConcluir')) {
         if (modo() === 'coleta' && cfg('auditoriaCompleta')) { copiarCompleta(); aviso = 'Fila concluída e resultado COPIADO. ' + AVISO_COMPLETA; }
         else if (modo() === 'valortransacao') aviso = 'Fila concluída e COPIADO. ' + copiarDiario(GM_getValue('diarioSaida', 'completo') === 'completo' ? 'linhas' : 'valores');
@@ -3494,7 +3741,12 @@
       const semVerif = cfg('ignorarCanceladasTestes') ? fila().filter(id => !ig[id] && !ver.has(id) && !(ex[id] && ex[id].cliente)) : [];
       const dRend = GM_getValue('dados', {});
       const semBiro = modo() === 'rendas' ? fila().filter(id => !ig[id] && dRend[id] && dRend[id].rendaBiro === '') : [];
+      const feSet = new Set(feitas());
+      const semAcesso = modo() === 'efetivadas' ? fila().filter(id => !ig[id] && feSet.has(id) && !(ex[id] && ex[id].acessoApp)) : [];
       msg(aviso +
+        (semAcesso.length ? '\nAcesso ao APP em branco (' + semAcesso.join(', ') + '): ' + (bpSiteAberto()
+          ? 'o Boleto+ não respondeu ou o CPF não foi lido (ver a etapa "acesso ao app" no diagnóstico).'
+          : 'abra o site paymobi.com.br logado em outra aba e gere de novo, ou preencha à mão.') : '') +
         (semBiro.length ? '\nSem renda do birô no motor (coluna F vazia): ' + semBiro.join(', ') : '') +
         (igLista.length ? '\nIgnoradas (teste/cancelada): ' + igLista.map(id => id + ' (' + ig[id] + ')').join(', ') : '') +
         (semVerif.length ? '\nNão conferidas como teste (fora da tabela da tela e sem nome no detalhe): ' + semVerif.join(', ') : '') +
@@ -4316,6 +4568,8 @@
       abrangencia: { rot: 'Abrangência (texto)', tipo: 'calc' },
       operacao: { rot: 'Operação (Resultado do atendimento)', tipo: 'calc' },
       data_entrada_txt: { rot: '" (data da entrada)" (quando preenchida)', tipo: 'calc' },
+      vencimento_contrato: { rot: 'Vencimentos do contrato (1ª a última)', tipo: 'texto', dica: 'Ex.: 20/04/2026 a 20/03/2027. Vem da CAC em "Aplicar cliente atual".' },
+      acao_negociou: { rot: 'Cliente negociou / solicitou negociar (Resultado)', tipo: 'calc' },
       operacao_maiusc: { rot: 'Operação em maiúsculas', tipo: 'calc' },
       acao_parcial: { rot: 'Pagamento parcial conforme o Resultado', tipo: 'calc' },
       valor_total_devido: { rot: 'Valor total devido', tipo: 'moeda' },
@@ -4352,10 +4606,10 @@
     const NG_MODALIDADES = {
       geral: { nome: 'Condições gerais (modelo anterior)' },
       entrada: {   // "Renegociação" (chave 'entrada' mantida pelo histórico): pedido do cliente + simulação; entrada opcional (some se vazia). Título no modelo do Fôlego
-        nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', 'parcela_atual', ...NG_ABR, 'dia_solicitado', 'valor_solicitado', 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
+        nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', 'valor_parcela', 'vencimento_contrato', 'parcelas_atraso', 'parcela_atual', ...NG_ABR, 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
         obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
-        rotulos: { valor_solicitado: 'Valor de parcela solicitado pelo cliente', valor_entrada: 'Valor da entrada (se houver)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas simuladas', valor_parcela_acordo: 'Valor da parcela simulada' },
-        texto: '*RENEGOCIAÇÃO — {{operacao_maiusc}}*\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\nCliente solicitou pagamento todo dia {{dia_solicitado}} e parcelas de {{valor_solicitado}}\nEntrada: {{valor_entrada}}{{?data_entrada_txt}}\nForam simuladas {{quantidade_parcelas}} parcelas de {{valor_parcela_acordo}}.\nVencimento: todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
+        rotulos: { valor_solicitado: 'Valor de parcela solicitado pelo cliente', valor_entrada: 'Valor da entrada (se houver)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas negociadas', valor_parcela_acordo: 'Valor da parcela negociada', valor_parcela: 'Valor da parcela do contrato' },
+        texto: '*RENEGOCIAÇÃO — {{operacao_maiusc}}*\n\nNome: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\nValor Parcela: {{valor_parcela}}\nVencimento: {{vencimento_contrato}}\nParcelas em Atraso: {{parcelas_atraso}}\n\n{{acao_negociou}}\nEntrada: {{valor_entrada}}\nValor: {{valor_parcela_acordo}}\nQuantidade de parcelas: {{quantidade_parcelas}}\nVencimento: Todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
         frases: (v, verbo) => { const e = (v('valor_entrada') ? '1 parcela de ' + v('valor_entrada') + ' como entrada' + (v('data_entrada') ? ' no dia ' + v('data_entrada') : '') + ', e ' : '') + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + (v('dia_vencimento') ? ', vencendo todo dia ' + v('dia_vencimento') : '');
           return { pedido: 'Cliente ' + verbo + ' ' + e, acordo: 'Prosseguimos com ' + e }; },
       },
@@ -4439,6 +4693,11 @@
         const sel = $('#mf-ng-frase-tipo'), r = sel ? sel.value : 'fechou';
         return r === 'solicitou' || r === 'nao' ? 'Cliente solicita pagar parcialmente' : 'Cliente pagou parcialmente';
       }
+      if (k === 'acao_negociou') {   // solicitado / não concluída: ainda é pedido
+        if (!ngNoAtendimento()) return '';
+        const sel = $('#mf-ng-frase-tipo'), r = sel ? sel.value : 'fechou';
+        return r === 'solicitou' || r === 'nao' ? 'Cliente solicitou negociar o contrato:' : 'Cliente negociou o contrato:';
+      }
       if (k === 'data_entrada_txt') return ngValores.data_entrada ? ' (' + ngValor('data_entrada') + ')' : '';
       if (k === 'quebra_acordo_txt') return ngValores.quebra_acordo ? ', após quebra de acordo' : '';
       if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
@@ -4512,7 +4771,7 @@
       m.campos.forEach(c => {
         const def = NG_CAMPOS[c];
         if (def.tipo === 'calc') return;
-        if (ngNoAtendimento() && AT_FIXOS.has(c) && !(ngCtx === 'renegociacao' && c === 'valor_parcela')) return;   // Renegociação não mostra o bloco Cobrança
+        if (ngNoAtendimento() && AT_FIXOS.has(c) && !(ngCtx === 'renegociacao' && (c === 'valor_parcela' || c === 'parcelas_atraso'))) return;   // Renegociação não mostra o bloco Cobrança
         const rot = (m.rotulos && m.rotulos[c]) || def.rot;
         const obrig = m.obrig.includes(c);
         const lab = ngCampoEl(c, rot, obrig);
@@ -5220,6 +5479,8 @@
         const aberta = parcelas.filter(p => p.saldo == null ? !/liquid/i.test(p.situacao) : p.saldo > 0).sort((a, b) => a.num - b.num)[0];
         if (aberta) put('parcelaAtual', String(aberta.num), 'Parcelas (1ª parcela com saldo em aberto)');
         // última parcela vencida = a de MAIOR número já vencida e não paga (dias de atraso > 0 e saldo em aberto); vai para "A partir da parcela"
+        const vencs = parcelas.map(p => p.venc).filter(Boolean).sort();
+        if (vencs.length) put('periodoVenc', ngData(vencs[0]) + ' a ' + ngData(vencs[vencs.length - 1]), 'Parcelas (vencimento da 1ª à última)');
         if (atraso.length) put('ultimaVencida', String(Math.max(...atraso.map(p => p.num))), 'Parcelas (maior número com dias de atraso > 0 e saldo em aberto)');
         // FPD: a 1ª parcela venceu e não foi paga integralmente
         if (p1.num === 1 && p1.venc) {
@@ -5427,6 +5688,7 @@
       CAC_EXIBIR.forEach(([rot, k]) => add(rot, res.campos[k], res.origem[k]));
       add('Parcela atual', res.campos.parcelaAtual, res.origem.parcelaAtual);
       add('Última parcela vencida', res.campos.ultimaVencida, res.origem.ultimaVencida);
+      add('Vencimentos do contrato', res.campos.periodoVenc, res.origem.periodoVenc);
       add('Total de parcelas', res.campos.totalParcelas, res.origem.totalParcelas);
       const info = document.createElement('div'); info.className = 'mf-info'; info.style.marginTop = '4px';
       info.textContent = 'Consultado em ' + res.consultadoEm + (res.conta ? ' com a conta ' + res.conta : '') + (res.posicaoGeral ? ' · Posição Geral aberta (protocolo ' + (res.protocolo || 'do sistema') + ')' : ' · sem Posição Geral') + '. Passe o mouse no valor para ver a origem.';
@@ -5735,6 +5997,489 @@
     ibDobra();
     ibMostrar();
 
+    /* ================= ANALISAR PROPOSTA (an) — SOMENTE LEITURA =================
+       Aba "Analisar proposta" (menu Mais): confere de uma vez o que costuma divergir ou ficar fora da política.
+       Fontes (nada é alterado no ER):
+         1. /MesaCredito/MesaAnaliseProposta: situação, data, digitador e valor da compra
+         2. /FilaPropostas/DetalhePropostaAnalise (itensAnalise): biometria, idade, MobFacil, registros internos
+         3. MobFacil: o resultado completo do motor (fluxo P1 = crédito; P2 = documentos e contato), lido na memória da
+            página do motor num iframe escondido (anMotorResumo/anResponder no iframe; GM 'anPedido' -> 'anMotor')
+         4. Fila de Propostas no dia da proposta (ibLista) + a lista guardada do Impeditivos BMP: ícone 🚫 do KYC da BMP
+       Cada conferência sai ✅ ok, ❌ problema, ⚠️ alerta ou ❔ não confirmado, sempre com o motivo. "Tudo certo" só
+       quando TODAS são ✅: o que não deu para confirmar nunca vira ok. */
+    const AN_ICONE = { ok: '✅', erro: '❌', alerta: '⚠️', nc: '❔' };
+    const AN_ORDEM = { erro: 0, alerta: 1, nc: 2, ok: 3 };
+    let anRodando = false, anTexto = '';
+    const anStatus = t => { $('#mf-an-st').textContent = t || ''; };
+    const anLetra = s => (String(s || '').trim().match(/^([A-Z])\s*-/) || [])[1] || '';   // "A - Aprovado" -> "A"
+    const anNum = v => { const x = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(x) ? null : x; };
+    const anReais = v => 'R$' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const anBase = () => ((document.getElementById('txtCaminhoSistema') || {}).value || '').replace(/\/$/, '');
+    async function anLerPagina(base, id) {
+      let html = '';
+      try { html = await (await fetch(base + '/MesaCredito/MesaAnaliseProposta?lngProposta=' + encodeURIComponent(id), { credentials: 'include' })).text(); }
+      catch (_) { return { erro: 'o ER não respondeu' }; }
+      if (erSemSessao(html)) return { erro: SESSAO_EXPIRADA };
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const r = rot => acharRotulo(doc, rot);
+      let dig = r('Digitador');
+      if (dig && /^(analista|analisada)/i.test(dig)) dig = null;   // <dd> vazio: o rótulo seguinte não é o digitador
+      if (dig) dig = dig.replace(/^\d+\s+/, '').replace(/\s+-\s+.*$/, '').trim();
+      return { sit: r('Situação'), data: ((r('Data da Proposta') || '').match(/\d{2}\/\d{2}\/\d{4}/) || [''])[0], dig, compra: r('Valor da Compra') };
+    }
+    async function anLerMotor(base, id) {
+      let html = '';
+      try { html = await (await fetch(base + '/MesaCredito/MesaAnaliseMobFacil?lngProposta=' + encodeURIComponent(id), { credentials: 'include' })).text(); }
+      catch (_) { return { erro: 'o ER não respondeu (página do MobFacil)' }; }
+      if (!html.trim()) return { erro: 'MobFacil indisponível' };
+      if (erSemSessao(html)) return { erro: SESSAO_EXPIRADA };
+      const src = (new DOMParser().parseFromString(html, 'text/html').querySelector('iframe') || {}).src;
+      if (!src) return { erro: 'a proposta não tem análise do MobFacil' };
+      const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      GM_deleteValue('anMotor');
+      GM_setValue('anPedido', { id: String(id), ts: Date.now(), nonce });
+      const fr = document.createElement('iframe');
+      fr.src = src;
+      fr.style.cssText = 'position:fixed;left:0;top:0;width:1100px;height:900px;opacity:0;pointer-events:none;border:0;z-index:-1';
+      document.body.appendChild(fr);
+      try {
+        const ini = Date.now();
+        while (Date.now() - ini < CONFIG.AN_ESPERA * 1000) {
+          await sleep(300);
+          const r = GM_getValue('anMotor', null);
+          if (r && r.pedido === nonce) return { motor: r };
+        }
+        return { erro: 'o MobFacil não respondeu em ' + CONFIG.AN_ESPERA + ' s' };
+      } finally { fr.remove(); GM_deleteValue('anPedido'); GM_deleteValue('anMotor'); }
+    }
+    // impeditivo do KYC da BMP: lista guardada do relatório Impeditivos BMP ou o ícone 🚫 na Fila do dia da proposta
+    // filas (opcional, análise em massa): cache das Filas por dia, para não ler a mesma Fila uma vez por proposta
+    async function anKyc(id, dataProp, sit, filas) {
+      const it = (ibBase().itens || {})[id];
+      if (it) return { st: 'erro', det: 'impeditivo da BMP' + (it.motivo ? ': ' + it.motivo : '') + ' (lista do relatório Impeditivos BMP)' };
+      if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dataProp || '')) return { st: 'nc', det: 'sem a data da proposta para procurar na Fila de Propostas' };
+      if (filas && !filas.has(dataProp)) filas.set(dataProp, ibLista(dataProp, dataProp));
+      const l = await (filas ? filas.get(dataProp) : ibLista(dataProp, dataProp));
+      if (l.erro) return { st: 'nc', det: 'não deu para ler a Fila de Propostas (' + l.erro + ')' };
+      const x = l.linhas.find(r => r.proposta === String(id));
+      if (x) return { st: 'erro', det: 'ícone 🚫 da BMP na Fila: ' + (x.motivo || 'sem motivo no ícone') };
+      if (!/efetiv|cancel/i.test(sit || '')) return { st: 'nc', det: 'sem o ícone 🚫 na Fila, mas a proposta ainda não foi efetivada (o KYC da BMP roda na efetivação)' };
+      const dias = Math.floor((Date.now() - ibTs(dataProp)) / 864e5);
+      return dias <= CONFIG.AN_KYC_DIAS ? { st: 'ok', det: 'sem o ícone 🚫 da BMP na Fila de Propostas' }
+        : { st: 'nc', det: 'sem o ícone 🚫 na Fila hoje, mas a proposta é de ' + dataProp + ' e o ícone some com o tempo: não dá para confirmar' };
+    }
+    // nome igual depois de tirar acento e espaço repetido ("WASHINGTON  MARTINS" x "WASHINGTON MARTINS")
+    const anNomeNorm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+    function anConferir(ctx) {
+      const L = [];
+      const add = (st, item, det) => L.push({ st, item, det: det || '' });
+      const m = ctx.motor, p1 = m && m.p1, p2 = m && m.p2;
+      const r1 = (p1 && p1.regras) || {}, r2 = (p2 && p2.regras) || {};
+      const reprovadaAntes = !!m && anLetra(m.statusFinal) === 'R';
+      const semMotor = 'sem o resultado do MobFacil (' + (ctx.motorErro || 'não lido') + ')';
+      const naoCalc = reprovadaAntes ? 'o MobFacil não calculou (a proposta foi reprovada antes)' : 'o MobFacil não trouxe essa validação';
+      // regra com "Status" ("A - Aprovado", "R - Reprovado", "L - Pendente loja", "P - Pendente mesa"): A = ok, R = problema;
+      // pendência (L/P) = naoA (problema por padrão; função = decide pela letra)
+      const porStatus = (item, rg, detFn, naoA, campo) => {
+        if (!m) return add('nc', item, semMotor);
+        if (!rg) return add('nc', item, naoCalc);
+        const l = anLetra(rg[campo || 'Status']);
+        const st = l === 'A' ? 'ok' : !l ? 'nc' : l === 'R' ? 'erro' : typeof naoA === 'function' ? naoA(l) : naoA || 'erro';
+        add(st, item, (detFn && detFn(rg)) || rg[campo || 'Status'] || 'sem status');
+      };
+      const motivoCom = re => ((m && m.motivos) || []).find(x => re.test(x)) || '';
+
+      // 1. política de faixa (CONFIG.FAIXAS): score x valor e quantidade de restrições
+      const IP = 'Política de faixa (score x restrições)';
+      const nf = anNumeros(m);
+      if (!p1) add('nc', IP, semMotor);
+      else if (!nf.fx) add('nc', IP, 'score não encontrado no MobFacil');
+      else if (nf.fx.valor == null) add('erro', IP, 'score ' + nf.sc + ' = faixa ' + nf.fx.faixa + ' (até ' + nf.fx.ate + '): reprova sempre (Score Baixo)');
+      else if (nf.v == null || nf.q == null) add('nc', IP, 'score ' + nf.sc + ' = faixa ' + nf.fx.faixa + ', mas o MobFacil não trouxe o valor/quantidade de restrições');
+      else {
+        const fora = [];
+        if (nf.v > nf.fx.valor) fora.push('valor ' + anReais(nf.v) + ' acima do limite de ' + anReais(nf.fx.valor));
+        if (nf.q > nf.fx.qtd) fora.push(nf.q + ' restrições, acima do limite de ' + nf.fx.qtd);
+        add(fora.length ? 'erro' : 'ok', IP, 'score ' + nf.sc + ' = faixa ' + nf.fx.faixa + ': ' + (fora.length ? fora.join(' e ')
+          : anReais(nf.v) + ' (até ' + anReais(nf.fx.valor) + ') e ' + nf.q + ' restrição(ões) (até ' + nf.fx.qtd + ')'));
+      }
+      // 1b. a decisão do MobFacil no crédito confere com a política da equipe? (o motor pode usar limite antigo/errado:
+      //     reprovar com o crédito dentro da política ou aprovar com ele fora)
+      add(...anDecisaoMotor(m, nf));
+      // 2. Receita Federal e requisitos do birô
+      const vc = r1.validacaoCadastral || r2.validacaoCadastral || null;
+      const simil = rg => 'similaridade ' + (rg.Similaridade || '?') + '%' + (rg.DadoBiro && rg.DadoProposta && rg.DadoBiro !== rg.DadoProposta
+        ? ' (proposta: ' + rg.DadoProposta + ' · Receita: ' + rg.DadoBiro + ')' : '');
+      // Nome e nascimento: o lado da "proposta" é o dado ATUAL do ER (aba Cliente), não o que o MobFacil recebeu: a loja pode
+      // corrigir depois da análise sem o motor rodar de novo (ex.: 5585 GIOVANE -> GIOVANI, 5591 28/05 -> 28/06). Sem a aba
+      // Cliente, vale o que o MobFacil recebeu. A Receita é sempre o DadoBiro do MobFacil.
+      const cli = ctx.cliente && ctx.cliente.ok ? ctx.cliente : null;
+      const vn = vc && vc.ValidacaoNome;
+      const INOME = 'Nome x Receita Federal';
+      const nomeProp = (cli && cli.nome) || (vn && vn.DadoProposta) || '';
+      const corrigido = (antes, agora) => antes && agora && anNomeNorm(antes) !== anNomeNorm(agora) ? ' · corrigido no ER depois da análise do MobFacil (o MobFacil recebeu ' + antes + ')' : '';
+      if (vn && vn.DadoBiro && nomeProp) {
+        const a = anNomeNorm(nomeProp), b = anNomeNorm(vn.DadoBiro);
+        const doEr = !!(cli && cli.nome);
+        const det = (doEr ? 'ER: ' : 'proposta: ') + nomeProp + ' · Receita: ' + vn.DadoBiro + corrigido(vn.DadoProposta, doEr && cli.nome);
+        // igual (sem acento/espaço repetido) = ok; nome cortado no fim (o campo da proposta tem limite) = alerta; outro = divergência
+        if (a === b) add(nomeProp === vn.DadoBiro || anLetra(vn.Status) === 'A' || doEr ? 'ok' : 'alerta', INOME, (nomeProp === vn.DadoBiro ? 'igual à Receita' : 'igual à Receita (só espaço/acento)') + ' · ' + det);
+        else if (a.length >= 30 && b.startsWith(a)) add('alerta', INOME, 'nome cortado no fim na proposta · ' + det);
+        else add('erro', INOME, 'nome diferente da Receita · ' + det + (vn.Similaridade ? ' · similaridade ' + vn.Similaridade + '% no MobFacil' : ''));
+      } else porStatus(INOME, vn, simil);
+      const vd = vc && vc.ValidacaoDataDeNascimento;
+      const INASC = 'Data de nascimento x Receita Federal';
+      const nascProp = (cli && cli.nascimento) || (vd && vd.DadoProposta) || '';
+      if (vd && /^\d{2}\/\d{2}\/\d{4}$/.test(vd.DadoBiro || '') && /^\d{2}\/\d{2}\/\d{4}$/.test(nascProp)) {
+        const det = (cli && cli.nascimento ? 'ER: ' : 'proposta: ') + nascProp + ' · Receita: ' + vd.DadoBiro +
+          (cli && cli.nascimento && vd.DadoProposta && vd.DadoProposta !== cli.nascimento ? ' · corrigido no ER depois da análise do MobFacil (o MobFacil recebeu ' + vd.DadoProposta + ')' : '');
+        add(nascProp === vd.DadoBiro ? 'ok' : 'erro', INASC, (nascProp === vd.DadoBiro ? 'igual à Receita · ' : 'data diferente da Receita · ') + det);
+      } else porStatus(INASC, vd, simil);
+      // o MobFacil analisou o CPF da proposta? (CPF da aba Cliente x CPF enviado ao motor)
+      const cpfMotor = String(((p2 && p2.dados) || (p1 && p1.dados) || {}).PROP_CPF || '').replace(/\D/g, '');
+      if (m && cli && cli.cpf && cpfMotor) add(cli.cpf === cpfMotor ? 'ok' : 'erro', 'CPF analisado pelo MobFacil', cli.cpf === cpfMotor ? 'o mesmo da proposta' : 'diferente: o MobFacil analisou ' + cacCpfFmt(cpfMotor) + ', a proposta é ' + cacCpfFmt(cli.cpf));
+      const rb = r1.requisitosBiroValores || {};
+      porStatus('CPF regular na Receita Federal', p1 && rb.SituacaoCpf, rg => rg.SituacaoCPF);
+      porStatus('Sem marcação de óbito', p1 && rb.MarcacaoObito, rg => rg.MarcacaoObitoBiro);
+      const rq = r1.requisitosBasicosValores || {};
+      if (!m) add('nc', 'Idade (18 a 75 anos)', semMotor);
+      else if (!rq.IdadeMinima || !rq.IdadeMaxima) add('nc', 'Idade (18 a 75 anos)', naoCalc);
+      else add(anLetra(rq.IdadeMinima.Status) === 'A' && anLetra(rq.IdadeMaxima.Status) === 'A' ? 'ok' : 'erro', 'Idade (18 a 75 anos)', (rq.IdadeMinima.DadoInformado || '?') + ' anos');
+      porStatus('Renda mínima', rq.RendaMinima, rg => 'renda informada R$' + (rg.DadoInformado || '?') + ' · ' + (rg.Regra || ''));
+      const rv = r1.validaRendavalores;
+      if (!m) add('nc', 'Renda validada no birô', semMotor);
+      else if (!rv) add('nc', 'Renda validada no birô', naoCalc);
+      else add(rv.RendaValidada ? 'ok' : 'alerta', 'Renda validada no birô', (rv.RendaValidada ? 'validada' : 'NÃO validada') +
+        (rv.Variacao != null ? ' (variação ' + rv.Variacao + '%' + (rv.BiroSelecionado ? ', ' + rv.BiroSelecionado : '') + ')' : ''));
+      // parcela calculada x máximo mensal (o MobFacil só alerta)
+      const lc = r1.limiteCreditoValores;
+      const pc = lc && anNum(lc.parceladoMensalCalculado), pm = lc && anNum(lc.parceladoMensal);
+      // o MobFacil só manda a parcela calculada quando ela passa do máximo (visto em 26 propostas de 24-25/11/2026):
+      // sem ela e sem a mensagem de alerta de parcela = dentro do máximo
+      if (!m) add('nc', 'Parcela x máximo mensal', semMotor);
+      else if (!lc) add('nc', 'Parcela x máximo mensal', naoCalc);
+      else if (pc == null && !motivoCom(/parcela/i)) add('ok', 'Parcela x máximo mensal', 'sem alerta de parcela no MobFacil' + (pm != null ? ' (máximo mensal ' + anReais(pm) + ')' : ''));
+      else if (pc == null || pm == null) add('nc', 'Parcela x máximo mensal', 'o MobFacil alertou a parcela, mas não trouxe o valor calculado: ' + motivoCom(/parcela/i));
+      else add(pc > pm ? 'alerta' : 'ok', 'Parcela x máximo mensal', 'parcela ' + anReais(pc) + (pc > pm ? ' acima do' : ' dentro do') + ' máximo de ' + anReais(pm));
+      // aparelho: pendente mesa (ex.: IMEI/modelo não cadastrado) = alerta; reprovado = problema
+      const ap = r1.validaAparelho || r2.validaAparelho;
+      porStatus('Aparelho disponível para crédito', ap, rg => [motivoCom(/aparelho|imei/i) || rg.Regra, rg.LimitesFinanciamento ? 'limite R$' + rg.LimitesFinanciamento : ''].filter(Boolean).join(' · '), 'alerta');
+      // 3. documentos e contato (fluxo P2: só depois do cadastro completo)
+      if (m && !p2) {
+        add('nc', 'Documentos e contato (fluxo P2)', reprovadaAntes ? 'a proposta foi reprovada antes da validação de documentos e contato'
+          : 'a proposta ainda não passou pela validação de documentos e contato do MobFacil (cadastro completo)');
+      } else {
+        // tipos: "Documentos Iguais" (L) = problema; "para análise da mesa" (P, ex.: segundo documento NA) = alerta
+        porStatus('Tipos de documento', r2.validaTipoDoc, rg => (rg.Mensagem || rg.Regra || '') + ' (' + [rg.TipoDocumento1, rg.TipoDocumento2].filter(Boolean).join(' e ') + ')',
+          l => (l === 'P' ? 'alerta' : 'erro'));
+        // CPF e nome no conjunto dos documentos: frente e verso dividem os dados (ex.: RG frente com o nome, verso com o CPF)
+        const docs = (r2.validaDocumentos || {}).ValidaDoc;
+        const ID = 'Documento x proposta (CPF e nome no documento)';
+        if (!m) add('nc', ID, semMotor);
+        else if (!Array.isArray(docs) || !docs.length) add('nc', ID, 'o MobFacil não trouxe a validação dos documentos');
+        else {
+          const cpfOk = docs.some(d => d.CpfEncontrado === 'Sim'), nomeOk = docs.some(d => d.NomeEncontrado === 'Sim');
+          const reprov = docs.filter(d => anLetra(d.StatusDocumento) && anLetra(d.StatusDocumento) !== 'A');
+          const det = docs.map((d, i) => 'doc ' + (i + 1) + ' (' + (d.TipoDocumento || '?') + '): CPF ' + (d.CpfEncontrado || '?') + ', nome ' + (d.NomeEncontrado || '?') +
+            (d.MensagemErro ? ', ' + d.MensagemErro : '')).join(' · ');
+          add(reprov.length || !cpfOk || !nomeOk ? 'erro' : 'ok', ID, (!cpfOk ? 'CPF não encontrado em nenhum documento · ' : '') + (!nomeOk ? 'nome não encontrado em nenhum documento · ' : '') + det);
+        }
+        porStatus('Foto x documento (facematch)', r2.validaFacematch, rg => rg.Mensagem);
+        porStatus('Biometria', r2.validaBiometria, rg => 'score ' + (rg.Score != null ? rg.Score : '?') + (rg.Tipo ? ' · ' + rg.Tipo : ''));
+        // contato: o MobFacil só alerta, não reprova
+        const tel = ((r2.validaTelefones || {}).Telefones || [])[0];
+        porStatus('Telefone 1 nos birôs', tel, rg => (rg.TelefoneInformado || 'não informado') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'TelefoneValidado');
+        porStatus('E-mail nos birôs', r2.validaEmails, rg => (rg.EmailInformado || 'não informado') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'EmailValidado');
+        porStatus('Endereço nos birôs', r2.validaEnderecos, rg => [rg.EnderecoInformado, rg.NumeroInformado, rg.CidadeInformado, rg.UFInformado].filter(Boolean).join(', ') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'EnderecoValidado');
+      }
+      // 4. resultado do MobFacil: aprovado = ok (os alertas já estão nas conferências acima); pendente = alerta; reprovado = problema
+      if (!m) add('nc', 'Resultado do MobFacil', semMotor);
+      else {
+        const msgs = (m.motivos || []).filter(x => !/^Pendente: Aguarde/i.test(x));
+        const l = anLetra(m.statusFinal);
+        add(l === 'A' ? 'ok' : l === 'R' ? 'erro' : 'alerta', 'Resultado do MobFacil' + (m.reanalise ? ' (reanálise)' : ''),
+          (m.statusFinal || 'sem status') + (msgs.length ? ' · ' + msgs.join(' · ') : ''));
+      }
+      // 5. itens da análise da proposta no ER (biometria, idade, MobFacil, registros internos...)
+      if (ctx.itensErro) add('nc', 'Itens da análise da proposta (ER)', 'não deu para ler (' + ctx.itensErro + ')');
+      else if (!(ctx.itens || []).length) add('nc', 'Itens da análise da proposta (ER)', 'a proposta não tem itens de análise');
+      else ctx.itens.forEach(x => add(/aprovad/i.test(x.sit) ? 'ok' : /reprovad/i.test(x.sit) ? 'erro' : 'alerta', 'Análise ER: ' + x.nome,
+        x.sit + (x.parecer ? ' · ' + (x.parecer.length > 220 ? x.parecer.slice(0, 220) + '…' : x.parecer) : '')));
+      // 6. KYC da BMP
+      add(ctx.kyc.st, 'Impeditivo da BMP (KYC)', ctx.kyc.det);
+      return L;
+    }
+    // política da equipe pelo score e restrições: 'dentro' | 'fora' | null (sem dados)
+    function anPolitica(nf) {
+      if (!nf.fx) return null;
+      if (nf.fx.valor == null) return 'fora';
+      if (nf.v == null || nf.q == null) return null;
+      return nf.v > nf.fx.valor || nf.q > nf.fx.qtd ? 'fora' : 'dentro';
+    }
+    // decisão do MobFacil no CRÉDITO: calculaRisco (restrições) e classificacaoRiscoDeCredito (ponto de corte do score).
+    // R = reprovou, P/L = mandou para a mesa/loja, A = aprovou. Compara com a política da equipe.
+    const AN_DEC = 'Decisão do MobFacil (crédito) x política da equipe';
+    function anDecisaoMotor(m, nf) {
+      if (!m || !m.p1) return ['nc', AN_DEC, 'sem o resultado do MobFacil'];
+      const r1 = m.p1.regras || {};
+      const lr = anLetra((r1.calculaRisco || {}).Status), ls = anLetra((r1.classificacaoRiscoDeCredito || {}).Status);
+      const dec = lr === 'R' || ls === 'R' ? 'R' : lr === 'P' || lr === 'L' || ls === 'P' || ls === 'L' ? 'P' : lr === 'A' && (!ls || ls === 'A') ? 'A' : '';
+      const pol = anPolitica(nf);
+      if (!dec) return ['nc', AN_DEC, 'o MobFacil não trouxe a decisão de crédito (restrições/score)'];
+      if (!pol) return ['nc', AN_DEC, 'sem score ou restrições para comparar com a política'];
+      // limite que o MobFacil usou (da mensagem de faixa), para mostrar a diferença
+      const msgF = ((m.motivos || []).concat(m.p1.motivos || [])).find(x => /faixa\s+\S+\s+acima\s+do\s+limite/i.test(x)) || '';
+      const lim = msgF.match(/faixa\s+(\S+).*?Restritivo\s*=\s*R?\$?\s*([\d.,]+)\s*,\s*Qtde\s*=\s*(\d+)/i);
+      const usado = lim ? ' (o MobFacil usou faixa ' + lim[1] + ': R$' + lim[2] + ' e ' + lim[3] + ')' : '';
+      const tab = 'faixa ' + nf.fx.faixa + ' da equipe' + (nf.fx.valor != null ? ': até ' + anReais(nf.fx.valor) + ' e ' + nf.fx.qtd + ' restrição(ões)' : ': reprova sempre') +
+        (nf.v != null ? '; atual ' + anReais(nf.v) + ' e ' + nf.q : '');
+      const verbo = { R: 'reprovou', P: 'mandou para a mesa', A: 'aprovou' }[dec];
+      if (dec === 'R' && pol === 'dentro') return ['erro', AN_DEC, 'o MobFacil REPROVOU pelo crédito, mas está DENTRO da política (' + tab + ')' + usado];
+      if (dec === 'A' && pol === 'fora') return ['erro', AN_DEC, 'o MobFacil APROVOU o crédito, mas está FORA da política (' + tab + ')'];
+      if (dec === 'P' && pol === 'dentro') return ['alerta', AN_DEC, 'o MobFacil mandou para a mesa pelo crédito, mas está dentro da política (' + tab + ')' + usado];
+      return ['ok', AN_DEC, 'confere: o MobFacil ' + verbo + ' e a política diz ' + pol + ' (' + tab + ')'];
+    }
+    // score, faixa e restrições do motor (para a política, a planilha e a conferência no formato da equipe)
+    function anNumeros(m) {
+      const r1 = (m && m.p1 && m.p1.regras) || {};
+      const sc = anNum((r1.classificacaoRiscoDeCredito || {}).valorScore), cr = r1.calculaRisco || {};
+      return { sc, fx: sc != null ? faixaDe(null, sc) : null, v: anNum(cr.ValorRestritivos), q: anNum(cr.QuantidadeRestritivos) };
+    }
+    function anContar(lista) { const c = { ok: 0, erro: 0, alerta: 0, nc: 0 }; lista.forEach(x => { c[x.st]++; }); return c; }
+    function anVeredito(lista) {
+      const c = anContar(lista);
+      const extras = [c.alerta ? c.alerta + ' alerta(s)' : '', c.nc ? c.nc + ' não confirmada(s)' : ''].filter(Boolean).join(' e ');
+      return c.erro ? '❌ ' + c.erro + ' problema(s): fora da política ou com divergência' + (extras ? ' (e ' + extras + ')' : '')
+        : extras ? '⚠️ Nenhum problema encontrado, mas há ' + extras + ': confira à mão antes de dar como certo'
+        : '✅ Tudo certo: as ' + lista.length + ' conferências passaram';
+    }
+    // tipo da proposta pela situação (Fila ou página): reprovada, efetivada, aprovada (não efetivada) ou outra
+    const anTipo = sit => (ehReprovada(sit) ? 'rep' : /efetiv/i.test(sit || '') ? 'efe' : /cancel/i.test(sit || '') ? 'outra' : /\bapr\b|aprov/i.test(sit || '') ? 'apr' : 'outra');
+    // conferência da análise em massa: o que a análise diz sobre a decisão tomada na proposta
+    //   reprovada: confere se há problema de política/divergência (fora o próprio "reprovado" do MobFacil); senão, reprovada
+    //   dentro da política (conferir: ex.: reprovada com o limite antigo do MobFacil)
+    //   efetivada/aprovada: problema = aprovada fora da política ou com divergência
+    function anConferencia(r) {
+      if (r.erroGeral) return { nivel: 'nc', txt: '❔ Não analisada: ' + r.erroGeral };
+      // problemas de política/divergência (fora o próprio "reprovado" do MobFacil e a comparação da decisão dele)
+      const pol = r.lista.filter(x => x.st === 'erro' && !/^Resultado do MobFacil|^Análise ER: MOBFACIL|^Decisão do MobFacil/i.test(x.item));
+      const motorErrou = r.lista.some(x => x.item === AN_DEC && x.st === 'erro');
+      const tipo = anTipo(r.sitFila || r.pag.sit);
+      const c = anContar(r.lista);
+      if (tipo === 'rep') {
+        if (motorErrou && !pol.length) return { nivel: 'erro', txt: '❌ Reprovada pelo crédito, mas DENTRO da política da equipe: o MobFacil reprovou errado' };
+        if (pol.length) return { nivel: 'ok', txt: '✅ Reprovação confere: ' + pol.map(x => x.item).join(', ') + (motorErrou ? ' (o crédito estava dentro da política)' : '') };
+        if (!r.motor) return { nivel: 'nc', txt: '❔ Reprovada, sem o resultado do MobFacil para conferir' };
+        return { nivel: 'alerta', txt: '⚠️ Reprovada, mas nenhum motivo de política foi encontrado: conferir' };
+      }
+      if (c.erro) return { nivel: 'erro', txt: '❌ ' + (tipo === 'efe' ? 'Efetivada' : tipo === 'apr' ? 'Aprovada' : 'Proposta') + ' com problema: ' + r.lista.filter(x => x.st === 'erro').map(x => x.item).join(', ') };
+      if (c.alerta) return { nivel: 'alerta', txt: '⚠️ Sem problema, com alertas: ' + r.lista.filter(x => x.st === 'alerta').map(x => x.item).join(', ') };
+      if (c.nc) return { nivel: 'nc', txt: '❔ Sem problema encontrado, mas ' + c.nc + ' conferência(s) não confirmada(s)' };
+      return { nivel: 'ok', txt: '✅ Tudo certo' };
+    }
+    function anCabecalho(r) {
+      const d1 = (r.motor && r.motor.p1 && r.motor.p1.dados) || {}, d2 = (r.motor && r.motor.p2 && r.motor.p2.dados) || {};
+      const c = r.cliente && r.cliente.ok ? r.cliente : {};   // dados atuais do ER (aba Cliente) primeiro
+      const cpf = c.cpf || d2.PROP_CPF || d1.PROP_CPF || '';
+      return [['Proposta', r.id], ['Cliente', c.nome || d2.PROP_NOME || d1.PROP_NOME || r.cliFila || NA], ['CPF', cpf ? cacCpfFmt(cpf) : NA], ['Data', r.dataProp || NA],
+        ['Situação no ER', r.pag.sit || r.sitFila || NA], ['Digitador', r.pag.dig || NA], ['Valor da compra', r.pag.compra || NA]];
+    }
+    const anItensHtml = lista => [...lista].sort((a, b) => AN_ORDEM[a.st] - AN_ORDEM[b.st]).map(x => '<div class="mf-an-item mf-an-' + x.st + '"><span>' + AN_ICONE[x.st] +
+      '</span><div><b>' + esc(x.item) + '</b><br><span class="mf-an-det">' + esc(x.det) + '</span></div></div>').join('');
+    function anMostrar(r) {
+      const cab = anCabecalho(r), ver = anVeredito(r.lista);
+      const ord = [...r.lista].sort((a, b) => AN_ORDEM[a.st] - AN_ORDEM[b.st]);
+      $('#mf-an-cab').innerHTML = cab.map(([k, v]) => '<div><b>' + esc(k) + ':</b> ' + esc(v) + '</div>').join('');
+      $('#mf-an-veredito').textContent = ver;
+      $('#mf-an-lista').innerHTML = anItensHtml(r.lista);
+      $('#mf-an-res').style.display = '';
+      anTexto = ['*ANÁLISE DA PROPOSTA ' + r.id + '*', '', ...cab.map(([k, v]) => k + ': ' + v), '', ver, '',
+        ...ord.map(x => AN_ICONE[x.st] + ' ' + x.item + ': ' + x.det)].join('\n');
+    }
+    // análise de UMA proposta (a tela de uma e a em massa usam a mesma). fila: cache das Filas por dia (KYC), na massa
+    async function anAnalisarUm(base, id, avisar, filas) {
+      avisar('lendo a proposta no ER');
+      const pag = await anLerPagina(base, id);
+      if (pag.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
+      avisar('lendo a análise da proposta');
+      const an = await itensAnalise(base, id);
+      if (an.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
+      avisar('lendo os dados atuais do cliente no ER');
+      const cliente = await dadosCliente(base, id);   // nome, CPF e nascimento como estão AGORA (podem ter sido corrigidos)
+      if (cliente.motivo === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
+      avisar('lendo o resultado do MobFacil (até ' + CONFIG.AN_ESPERA + ' s)');
+      const mt = await anLerMotor(base, id);
+      if (mt.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
+      const p1 = mt.motor && mt.motor.p1, p2 = mt.motor && mt.motor.p2;
+      const dataProp = (p1 && p1.data) || (p2 && p2.data) || pag.data || '';
+      avisar('procurando impeditivo da BMP na Fila');
+      const kyc = await anKyc(id, dataProp, pag.sit, filas);
+      const lista = anConferir({ itens: an.itens, itensErro: an.erro, motor: mt.motor, motorErro: mt.erro, kyc, cliente });
+      return { id, pag: pag.erro ? {} : pag, pagErro: pag.erro || '', motor: mt.motor || null, motorErro: mt.erro || '', dataProp, lista, cliente };
+    }
+    async function anAnalisar() {
+      if (anRodando) return;
+      const id = String($('#mf-an-id').value || '').replace(/\D/g, '');
+      if (!id) return anStatus('Digite o número da proposta.');
+      const base = anBase();
+      if (!base) return anStatus('Abra o ER (com o sistema carregado) para analisar.');
+      anRodando = true; $('#mf-an-ir').disabled = true; $('#mf-an-massa').disabled = true; $('#mf-an-res').style.display = 'none'; anTexto = '';
+      try {
+        const r = await anAnalisarUm(base, id, t => anStatus('Proposta ' + id + ': ' + t + '...'));
+        if (r.erro === SESSAO_EXPIRADA) return anStatus('A sessão do ER expirou: entre de novo e analise outra vez.');
+        anMostrar(r);
+        anStatus(r.pagErro ? 'Atenção: a página da proposta não abriu (' + r.pagErro + '); situação, digitador e valor ficaram N/A.' : '');
+      } catch (e) {
+        anStatus('A análise parou com erro: ' + ((e && e.message) || e) + '. Nada foi alterado; tente de novo.');
+      } finally { anRodando = false; $('#mf-an-ir').disabled = false; $('#mf-an-massa').disabled = false; }
+    }
+    $('#mf-an-ir').addEventListener('click', () => anAnalisar());
+    $('#mf-an-id').addEventListener('keydown', e => { if (e.key === 'Enter') anAnalisar(); });
+    $('#mf-an-copiar').addEventListener('click', () => {
+      if (!anTexto) return msg('Analise uma proposta primeiro.');
+      GM_setClipboard(anTexto, 'text');
+      msg('Análise da proposta copiada.');
+    });
+
+    /* ---------- análise em massa ----------
+       Lista de propostas (digitada ou buscada na Fila por período e tipo) analisada uma por uma, com a mesma análise.
+       Resultado por proposta: a conferência da decisão (anConferencia) e os detalhes (clique para abrir).
+       Cópias: resumo (texto), planilha (colunas) e a conferência no formato da equipe ("5545 - Score 602, Faixa C, R$2238,64
+       (Intervalo: 552 a 674)"). Os resultados ficam só nesta aba (memória). */
+    let anMassa = [], anParar = false;
+    const anMStatus = t => { $('#mf-an-mst').textContent = t || ''; };
+    const AN_TIPOS = { rep: 'Reprovadas', efe: 'Efetivadas', apr: 'Aprovadas (não efetivadas)', todas: 'Reprovadas, efetivadas e aprovadas' };
+    // linhas da Fila de Propostas no período (data de inclusão): { id, sit, cli }. Mais de 500 no período: lê dia a dia
+    async function anFila(iniIso, fimIso) {
+      const ler = async (ini, fim) => {
+        const r = await cacReq('/FilaPropostas/FilaPropostasLista', { strDados: JSON.stringify({ strDataInicial: ini, strDataFinal: fim, strLojista: '', strLoja: '', strProduto: '',
+          strSituacao: '00', strPontoAtendimento: '', strPromotora: '', strPromotoraFilial: '', strVisualizacao: 'N', strNomePesquisa: '', strSituacaoDocumentos: '',
+          strPagamento: '', strConveniada: '', strStatusAssinatura: '', strParceiro: '', lstPlanos: [], strCodigoEmprestimo: '', strDataVencimentoLiberacaoInicial: '',
+          strDataVencimentoLiberacaoFinal: '', strTipoData: 'INCLUSAO', strAnalista: '' }) });
+        if (r.erro) return { erro: 'o ER não respondeu (' + r.erro + ')' };
+        if (ehLogin(r.texto)) return { erro: SESSAO_EXPIRADA };
+        const doc = cacDoc(r.texto), t = doc.querySelector('#tabPropostasLista');
+        if (!t) return /n[ãa]o foi localizada/i.test(doc.body.textContent) ? { linhas: [] } : { erro: 'a resposta não trouxe a Fila de Propostas' };
+        const ths = [...t.querySelectorAll('thead th')].map(th => limpoTxt(th.textContent).toLowerCase());
+        const col = (n, p) => { const i = ths.findIndex(x => x.startsWith(n)); return i >= 0 ? i : p; };
+        const ci = { sit: col('sit', 2), cli: col('cliente', 3) };
+        return { linhas: [...t.querySelectorAll('tbody tr')].map(tr => {
+          const alvo = tr.querySelector('[onclick*="MostraDetalheProposta"]');
+          const id = ((alvo && alvo.getAttribute('onclick') || '').match(/MostraDetalheProposta\(\s*['"]?(\d+)/) || [])[1] || '';
+          const c = [...tr.cells];
+          return id ? { id, sit: limpoTxt(c[ci.sit] && c[ci.sit].textContent), cli: limpoTxt(c[ci.cli] && c[ci.cli].textContent) } : null;
+        }).filter(Boolean) };
+      };
+      const tudo = await ler(ibIsoBr(iniIso), ibIsoBr(fimIso));
+      if (tudo.erro || tudo.linhas.length < 500 || iniIso === fimIso) return tudo;
+      const linhas = [];
+      for (let d = new Date(iniIso + 'T12:00:00'); d <= new Date(fimIso + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+        const iso = d.toISOString().slice(0, 10), r = await ler(ibIsoBr(iso), ibIsoBr(iso));
+        if (r.erro) return r;
+        linhas.push(...r.linhas);
+      }
+      return { linhas };
+    }
+    async function anBuscarFila() {
+      const ini = $('#mf-an-ini').value, fim = $('#mf-an-fim').value, tipo = $('#mf-an-tipo').value;
+      if (!ini || !fim) return anMStatus('Escolha o período (De e Até).');
+      anMStatus('Lendo a Fila de Propostas de ' + ibIsoBr(ini) + ' a ' + ibIsoBr(fim) + '...');
+      const f = await anFila(ini, fim);
+      if (f.erro) return anMStatus(f.erro === SESSAO_EXPIRADA ? 'A sessão do ER expirou: entre de novo.' : 'Não deu para ler a Fila: ' + f.erro + '.');
+      const sel = f.linhas.filter(l => { const t = anTipo(l.sit); return tipo === 'todas' ? t !== 'outra' : t === tipo; });
+      anMassaFila = Object.fromEntries(sel.map(l => [l.id, l]));
+      $('#mf-an-ids').value = sel.map(l => l.id).join('\n');
+      anMStatus(sel.length + ' proposta(s) ' + AN_TIPOS[tipo].toLowerCase() + ' no período (de ' + f.linhas.length + ' na Fila). Clique em "Analisar todas".');
+    }
+    let anMassaFila = {};
+    async function anAnalisarMassa() {
+      if (anRodando) return;
+      const ids = [...new Set(String($('#mf-an-ids').value || '').split(/\D+/).filter(Boolean))];
+      if (!ids.length) return anMStatus('Cole os números das propostas ou busque na Fila.');
+      const base = anBase();
+      if (!base) return anMStatus('Abra o ER (com o sistema carregado) para analisar.');
+      anRodando = true; anParar = false; anMassa = [];
+      $('#mf-an-massa').disabled = true; $('#mf-an-ir').disabled = true; $('#mf-an-parar').disabled = false;
+      const filas = new Map();
+      const t0 = Date.now();
+      try {
+        for (const [i, id] of ids.entries()) {
+          if (anParar) break;
+          const fl = anMassaFila[id] || {};
+          let r;
+          try {
+            r = await anAnalisarUm(base, id, t => anMStatus('Proposta ' + id + ' (' + (i + 1) + ' de ' + ids.length + '): ' + t + '...'), filas);
+          } catch (e) { r = { id, erroGeral: 'erro na análise (' + ((e && e.message) || e) + ')', pag: {}, lista: [] }; }
+          if (r.erro === SESSAO_EXPIRADA) { anMStatus('A sessão do ER expirou na proposta ' + id + ': ' + anMassa.length + ' de ' + ids.length + ' analisadas. Entre de novo e analise as que faltaram.'); break; }
+          r.sitFila = fl.sit || ''; r.cliFila = fl.cli || '';
+          r.conf = anConferencia(r);
+          anMassa.push(r);
+          anMassaDesenhar();
+        }
+        if (anMassa.length === ids.length) anMStatus(ids.length + ' proposta(s) analisada(s) em ' + Math.round((Date.now() - t0) / 1000) + ' s.');
+        else if (anParar) anMStatus('Parado: ' + anMassa.length + ' de ' + ids.length + ' analisadas.');
+      } finally {
+        anRodando = false;
+        $('#mf-an-massa').disabled = false; $('#mf-an-ir').disabled = false; $('#mf-an-parar').disabled = true;
+      }
+    }
+    const AN_NIVEL = { erro: 0, alerta: 1, nc: 2, ok: 3 };
+    function anMassaDesenhar() {
+      const c = { erro: 0, alerta: 0, nc: 0, ok: 0 };
+      anMassa.forEach(r => { c[r.conf.nivel]++; });
+      $('#mf-an-mres').style.display = anMassa.length ? '' : 'none';
+      $('#mf-an-mqtd').textContent = '(' + anMassa.length + ')';
+      $('#mf-an-mresumo').textContent = ['❌ ' + c.erro + ' com problema', '⚠️ ' + c.alerta + ' para conferir', '❔ ' + c.nc + ' não confirmada(s)', '✅ ' + c.ok + ' ok'].join(' · ');
+      const ord = [...anMassa].sort((a, b) => AN_NIVEL[a.conf.nivel] - AN_NIVEL[b.conf.nivel] || Number(a.id) - Number(b.id));
+      $('#mf-an-mlista').innerHTML = ord.map(r => {
+        const cab = anCabecalho(r), nome = cab[1][1], sit = cab[4][1], nf = anNumeros(r.motor);
+        const num = nf.fx ? ' · score ' + nf.sc + ' (' + nf.fx.faixa + ')' + (nf.v != null ? ' · ' + anReais(nf.v) + ' / ' + nf.q : '') : '';
+        return '<details class="mf-an-massa"><summary><b>' + esc(r.id) + '</b> ' + esc(nome) + ' · ' + esc(sit) + esc(num) + '<br>' + esc(r.conf.txt) + '</summary>' +
+          (r.lista.length ? anItensHtml(r.lista) : '') + '</details>';
+      }).join('');
+    }
+    const anMassaOrd = () => [...anMassa].sort((a, b) => AN_NIVEL[a.conf.nivel] - AN_NIVEL[b.conf.nivel] || Number(a.id) - Number(b.id));
+    function anMassaTexto() {
+      const linhas = anMassaOrd().map(r => {
+        const cab = anCabecalho(r);
+        const det = r.lista.filter(x => x.st === 'erro' || x.st === 'alerta').map(x => '   ' + AN_ICONE[x.st] + ' ' + x.item + ': ' + x.det);
+        return [r.id + ' - ' + cab[1][1] + ' (' + cab[4][1] + ')', '   ' + r.conf.txt, ...det].join('\n');
+      });
+      return ['*ANÁLISE DE PROPOSTAS* (' + anMassa.length + ')', $('#mf-an-mresumo').textContent, '', ...linhas].join('\n\n').replace(/\n\n\n+/g, '\n\n');
+    }
+    function anMassaPlanilha() {
+      const H = ['Proposta', 'Cliente', 'CPF', 'Data', 'Situação', 'Score', 'Faixa', 'Valor restrições', 'Qtd restrições', 'Conferência', 'Problemas', 'Alertas', 'Não confirmados'];
+      const cel = t => String(t == null ? '' : t).replace(/[\t\r\n]+/g, ' ');
+      const lin = anMassaOrd().map(r => {
+        const cab = anCabecalho(r), nf = anNumeros(r.motor);
+        const so = st => r.lista.filter(x => x.st === st).map(x => x.item + ': ' + x.det).join(' | ');
+        return [r.id, cab[1][1], cab[2][1], cab[3][1], cab[4][1], nf.sc != null ? nf.sc : NA, nf.fx ? nf.fx.faixa : NA,
+          nf.v != null ? String(nf.v).replace('.', ',') : NA, nf.q != null ? nf.q : NA, r.conf.txt, so('erro'), so('alerta'), so('nc')].map(cel).join('\t');
+      });
+      return [H.join('\t'), ...lin].join('\n');
+    }
+    // formato da equipe: "5545 - Score 602, Faixa C, R$2238,64 (Intervalo: 552 a 674)"
+    function anMassaConferencia() {
+      const todasRep = anMassa.every(r => anTipo(r.sitFila || r.pag.sit) === 'rep');
+      const lin = anMassa.slice().sort((a, b) => Number(a.id) - Number(b.id)).map(r => {
+        const nf = anNumeros(r.motor);
+        if (!nf.fx) return r.id + ' - N/A (sem o score do MobFacil)';
+        return r.id + ' - Score ' + nf.sc + ', Faixa ' + nf.fx.faixa + ', ' + (nf.v != null ? 'R$' + String(nf.v).replace('.', ',') : 'R$ N/A') +
+          ' (Intervalo: ' + nf.fx.de + ' a ' + nf.fx.ate + ')';
+      });
+      return [(todasRep ? 'CONFERÊNCIA DE REPROVAÇÕES:' : 'CONFERÊNCIA DE PROPOSTAS:'), ...lin].join('\n');
+    }
+    $('#mf-an-ini').value = ibIsoDias(-1);
+    $('#mf-an-fim').value = ibIsoDias(0);
+    $('#mf-an-buscar').addEventListener('click', () => { if (!anRodando) anBuscarFila(); });
+    $('#mf-an-massa').addEventListener('click', () => anAnalisarMassa());
+    $('#mf-an-parar').addEventListener('click', () => { anParar = true; anMStatus('Parando depois da proposta atual...'); });
+    $('#mf-an-ids').addEventListener('input', () => { anMassaFila = {}; });
+    const anCopiarMassa = (fn, o) => () => { if (!anMassa.length) return msg('Analise as propostas primeiro.'); GM_setClipboard(fn(), 'text'); msg(o + ' copiado (' + anMassa.length + ' proposta(s)).'); };
+    $('#mf-an-mcopiar').addEventListener('click', anCopiarMassa(anMassaTexto, 'Resumo'));
+    $('#mf-an-mplan').addEventListener('click', anCopiarMassa(anMassaPlanilha, 'Planilha (cole na célula A1)'));
+    $('#mf-an-mconf').addEventListener('click', anCopiarMassa(anMassaConferencia, 'Conferência no formato da equipe'));
+
     /* ---- Gerador: frases de uma linha para a planilha (colunas "Pedido do cliente" e "Acordo Realizado") ----
        "fechou" = acordo fechado; "solicitou" = simulação para ver se é viável. Só usa o que foi digitado. */
     function ngFrases(tipo) {
@@ -6029,6 +6774,99 @@
       });
     }
 
+    /* ---- débito atualizado: calculadora de encargos das parcelas em atraso (só em memória, nada é salvo) ----
+       Reproduz o "Registro de Pagamento de Fatura" do ER, por parcela:
+         encargos de mora = parcela × [(1 + remunMes)^(dias/30) − 1]  (juros do contrato, compostos pro rata dia)
+                          + parcela × moraMes ÷ 30 × dias              (juros de mora, simples)
+         multa            = parcela × multa (fixa, fora da base dos juros)
+       Taxas calibradas em 23/11/2026 com 3 telas do ER (contrato de R$ 274,92; 18, 141 e 263 dias): batem ao centavo.
+       Se o ER mostrar outro valor em outro contrato/produto, conferir as taxas antes de mudar a fórmula. */
+    const AT_ENCARGOS = { remunMes: 0.13842539, moraMes: 0.0099984, multa: 0.02 };
+    let atDebResultado = null;   // último cálculo (em memória): { linhas, tot, pgto }
+    const atDebDias = (venc, pgto) => Math.round((Date.parse(pgto + 'T00:00:00Z') - Date.parse(venc + 'T00:00:00Z')) / 864e5);
+    // uma parcela (valores em centavos)
+    function atDebParcela(valor, venc, pgto, t = AT_ENCARGOS) {
+      const dias = Math.max(0, atDebDias(venc, pgto));
+      if (!dias) return { venc, dias: 0, valor, encargos: 0, multa: 0, total: valor };
+      const encargos = Math.round(valor * (Math.pow(1 + t.remunMes, dias / 30) - 1) + valor * t.moraMes / 30 * dias);
+      const multa = Math.round(valor * t.multa);
+      return { venc, dias, valor, encargos, multa, total: valor + encargos + multa };
+    }
+    // N parcelas mensais no mesmo dia do vencimento mais antigo (dia 31 em mês curto: último dia do mês, como atSomarMeses)
+    function atDebCalcular(valor, qtd, vencIni, pgto) {
+      const linhas = [];
+      for (let i = 0; i < qtd; i++) { const v = atSomarMeses(vencIni, i); if (v <= pgto) linhas.push(atDebParcela(valor, v, pgto)); }
+      const tot = linhas.reduce((s, l) => ({ valor: s.valor + l.valor, encargos: s.encargos + l.encargos, multa: s.multa + l.multa, total: s.total + l.total }), { valor: 0, encargos: 0, multa: 0, total: 0 });
+      return { linhas, tot, pgto };
+    }
+    const atDebMoeda = c => (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    function atDebLimpar() {
+      ['#mf-at-deb-valor', '#mf-at-deb-qtd', '#mf-at-deb-venc'].forEach(x => { $(x).value = ''; });
+      $('#mf-at-deb-pgto').value = lbHoje();
+      $('#mf-at-deb-res').innerHTML = ''; $('#mf-at-deb-usar').style.display = 'none';
+      atDebResultado = null;
+    }
+    // traz da ficha (Cobrança): só os campos vazios, a não ser que tudo=true
+    function atDebTrazer(tudo) {
+      const par = [['#mf-at-deb-valor', ngValores.valor_parcela], ['#mf-at-deb-qtd', ngValores.parcelas_atraso], ['#mf-at-deb-venc', ngValores.vencimento_antigo]];
+      let n = 0;
+      par.forEach(([sel, v]) => { if (v && String(v).trim() && (tudo || !$(sel).value.trim())) { $(sel).value = String(v).trim(); n++; } });
+      if (!$('#mf-at-deb-pgto').value) $('#mf-at-deb-pgto').value = lbHoje();
+      return n;
+    }
+    function atDebDesenhar(r) {
+      const caixa = $('#mf-at-deb-res'); caixa.innerHTML = '';
+      const tab = document.createElement('table'); tab.className = 'mf-deb-tab';
+      const lin = (cels, tag, cls) => { const tr = document.createElement('tr'); if (cls) tr.className = cls; cels.forEach(c => { const e = document.createElement(tag); e.textContent = c; tr.appendChild(e); }); tab.appendChild(tr); };
+      lin(['Vencimento', 'Dias', 'Parcela', 'Encargos', 'Multa', 'Total'], 'th');
+      r.linhas.forEach(l => lin([ngData(l.venc), String(l.dias), atDebMoeda(l.valor), atDebMoeda(l.encargos), atDebMoeda(l.multa), atDebMoeda(l.total)], 'td'));
+      lin(['Total (' + r.linhas.length + ')', '', atDebMoeda(r.tot.valor), atDebMoeda(r.tot.encargos), atDebMoeda(r.tot.multa), atDebMoeda(r.tot.total)], 'td', 'mf-deb-tot');
+      const saldo = document.createElement('div'); saldo.className = 'mf-ng-saldo'; saldo.style.marginTop = '6px';
+      saldo.textContent = 'Débito em ' + ngData(r.pgto) + ': ' + ngReais(r.tot.total);
+      caixa.append(tab, saldo);
+    }
+    function atDebResumo(r) {
+      return 'Débito atualizado em ' + ngData(r.pgto) + ' (' + r.linhas.length + ' parcela(s) em atraso)\n' +
+        r.linhas.map(l => ngData(l.venc) + ' — ' + l.dias + ' dias — parcela ' + ngReais(l.valor) + ' + encargos ' + ngReais(l.encargos) + ' + multa ' + ngReais(l.multa) + ' = ' + ngReais(l.total)).join('\n') +
+        '\n\nTotal das parcelas: ' + ngReais(r.tot.valor) + '\nEncargos de mora: ' + ngReais(r.tot.encargos) + '\nMulta: ' + ngReais(r.tot.multa) + '\nTotal atualizado: ' + ngReais(r.tot.total);
+    }
+    $('#mf-at-deb-pgto').value = lbHoje();
+    $('#mf-at-g-debito').addEventListener('toggle', () => { if ($('#mf-at-g-debito').open) atDebTrazer(false); });
+    $('#mf-at-deb-trazer').onclick = () => {
+      const n = atDebTrazer(true);
+      msg(n ? 'Dados da Cobrança trazidos (' + n + ' campo(s)).' : 'A Cobrança está vazia. Use "Aplicar cliente atual" ou digite os valores.');
+    };
+    $('#mf-at-deb-calcular').onclick = () => {
+      atDebTrazer(false);
+      const valor = ngCentavos($('#mf-at-deb-valor').value), qtdTxt = $('#mf-at-deb-qtd').value.trim(), venc = $('#mf-at-deb-venc').value, pgto = $('#mf-at-deb-pgto').value;
+      const falta = [];
+      if (valor == null || valor <= 0) falta.push('Valor da parcela');
+      if (!/^\d+$/.test(qtdTxt) || +qtdTxt < 1 || +qtdTxt > 120) falta.push('Parcelas em atraso (1 a 120)');
+      if (!venc) falta.push('Vencimento mais antigo');
+      if (!pgto) falta.push('Data do pagamento');
+      if (falta.length) return msg('Preencha antes de calcular:\n- ' + falta.join('\n- '));
+      if (venc > pgto) return msg('O vencimento mais antigo (' + ngData(venc) + ') é depois da data do pagamento (' + ngData(pgto) + '): nada em atraso.');
+      const r = atDebCalcular(valor, +qtdTxt, venc, pgto);
+      atDebResultado = r;
+      atDebDesenhar(r);
+      $('#mf-at-deb-usar').style.display = '';
+      const fora = +qtdTxt - r.linhas.length;
+      msg('Débito calculado: ' + ngReais(r.tot.total) + ' em ' + ngData(pgto) + '.' + (fora ? ' ' + fora + ' parcela(s) vencem depois da data do pagamento e ficaram de fora.' : '') + ' Confira no ER antes de fechar.');
+    };
+    $('#mf-at-deb-copiar').onclick = () => {
+      if (!atDebResultado) return msg('Calcule o débito antes de copiar.');
+      GM_setClipboard(atDebResumo(atDebResultado), 'text');
+      msg('Resumo do débito copiado.');
+    };
+    $('#mf-at-deb-usar').onclick = () => {
+      if (!atDebResultado) return msg('Calcule o débito antes.');
+      const v = (atDebResultado.tot.total / 100).toFixed(2).replace('.', ',');
+      ngValores.valor_total_juros = v;
+      const inp = painel.querySelector('#mf-ng-campos [data-campo="valor_total_juros"]');
+      if (inp) { inp.value = v; inp.dispatchEvent(new Event('input', { bubbles: true })); }   // recalcula o saldo restante
+      msg('Valor total com juros = ' + ngReais(atDebResultado.tot.total) + '.' + (inp ? '' : ' O campo aparece na modalidade Campanha do Fôlego e na mensagem Retorno ao cliente — Campanha do Fôlego.'));
+    };
+
     /* ---- cópia para a planilha ---- */
     const atTexto = k => ({ pedido: $('#mf-ng-f-pedido').value, acordo: $('#mf-ng-f-acordo').value, parcela: $('#mf-ng-f-parcela').value }[k] || '').replace(/\s*\n\s*/g, ' ').trim();
     function atValidar() {
@@ -6096,6 +6934,7 @@
       if ((ngTemDados() || atPlano.length) && !confirm('Começar um novo atendimento? Os dados digitados serão apagados (o que já foi registrado no histórico continua lá).')) return;
       Object.keys(ngValores).forEach(k => delete ngValores[k]);
       atPlano = []; atPlanoAuto = {};
+      atDebLimpar();   // calculadora de débito: não leva o cálculo do cliente anterior
       ['#mf-ng-f-pedido', '#mf-ng-f-acordo', '#mf-ng-f-parcela', '#mf-at-msg-texto', '#mf-ng-texto'].forEach(x => { $(x).value = ''; });
       $('#mf-at-msg-caixa').style.display = 'none';
       atDesenhar(); msg('Pronto para um novo atendimento.');
@@ -6109,7 +6948,7 @@
       const novos = {
         nome: c.nome, proposta: c.proposta, cpf: c.cpf, imei: c.imei, data_proposta: atIso(c.dataProposta), filial: c.filial, atendente: c.vendedor,
         valor_parcela: c.valorParcela ? bsReais(c.valorParcela) : '', fpd: c.fpd, parcelas_atraso: num(c.parcelasAtraso), dias_atraso: num(c.diasAtraso),
-        vencimento_antigo: atIso(c.vencMaisAntigo), parcela_atual: num(c.parcelaAtual),
+        vencimento_antigo: atIso(c.vencMaisAntigo), parcela_atual: num(c.parcelaAtual), vencimento_contrato: c.periodoVenc || '',
       };
       // "A partir da parcela" = última parcela vencida do contrato (sem parcela vencida: a 1ª em aberto)
       const pIni = c.ultimaVencida || c.parcelaAtual;
@@ -6122,6 +6961,7 @@
       let n = 0;
       Object.entries(novos).forEach(([k, v]) => { if (v) { ngValores[k] = v; n++; } });
       if (novos.parcela_inicial && !ngValores.abrangencia_tipo) ngValores.abrangencia_tipo = 'apartir';
+      atDebLimpar(); atDebTrazer(true);   // calculadora de débito: dados do cliente aplicado, sem o cálculo anterior
       atDesenhar();   // fica na tela atual (Negociação, Renegociação ou Mensagens)
       mostrarAba('neg');
       msg('Dados de ' + (c.nome || 'cliente') + ' aplicados (' + n + ' campo(s)).' + (ngCtx === 'mensagens' ? ' Revise e gere o texto.' : ' O número de contato não vem da proposta: digite o que o cliente usou.'));
@@ -6511,7 +7351,7 @@
        A organização das abas é a mesma nas duas aparências (v12): Atendimento · Histórico · Agenda (Lembretes | Timers)
        · Relatórios · Mais ▾ (Consulta CAC, CCBs, Contas, Configurações). As páginas e botões de aba são os mesmos de
        sempre (nada duplicado). A aparência só muda o visual: data-ui="nova" (CSS escopado, ⓘ, chip da conta) ou "antiga". */
-    const UI_MAIS = [['cac', 'Consulta CAC'], ['ccb', 'CCBs'], ['cta', 'Contas'], ['cfg', 'Configurações']];
+    const UI_MAIS = [['ana', 'Analisar proposta'], ['cac', 'Consulta CAC'], ['ccb', 'CCBs'], ['cta', 'Contas'], ['cfg', 'Configurações']];
     const uiAtual = () => painel.dataset.ui;
     // menu "Mais ▾" e o botão "Agenda" (Pagamentos | Timers)
     const abas = $('.mf-abas');
@@ -6571,7 +7411,7 @@
       const a = GM_getValue('abaPainel', 'neg');
       btAgenda.classList.toggle('ativa', a === 'lem' || a === 'tim');
       btMais.classList.toggle('ativa', UI_MAIS.some(([x]) => x === a));
-      btMais.textContent = ({ cac: 'CAC', ccb: 'CCBs', cta: 'Contas', cfg: 'Config.' }[a] || 'Mais') + ' ▾';   // curto: cabe na linha das abas
+      btMais.textContent = ({ ana: 'Analisar', cac: 'CAC', ccb: 'CCBs', cta: 'Contas', cfg: 'Config.' }[a] || 'Mais') + ' ▾';   // curto: cabe na linha das abas
       btMais.title = (UI_MAIS.find(([x]) => x === a) || [, 'Mais opções'])[1];
       menu.querySelectorAll('button').forEach(b => b.classList.toggle('ativa', b.dataset.vai === a));
       const n = ['#mf-lb-badge', '#mf-tm-badge'].reduce((s, sel) => s + ($(sel).style.display === 'none' ? 0 : +$(sel).textContent || 0), 0);
@@ -7443,7 +8283,7 @@
     }
 
     const BS_CAMPOS = [['nome', 'Nome'], ['cpf', 'CPF'], ['proposta', 'Proposta'], ['situacao', 'Situação da proposta'], ['telefone', 'Telefone do cadastro (proposta)'], ['email', 'E-mail'],
-      ['valorParcela', 'Valor da parcela'], ['parcelaAtual', 'Parcela atual'], ['ultimaVencida', 'Última parcela vencida'], ['totalParcelas', 'Total de parcelas'], ['entrada', 'Entrada'], ['valorCompra', 'Valor da compra'], ['vendedor', 'Vendedor'], ['imei', 'IMEI'], ['loja', 'Loja'],
+      ['valorParcela', 'Valor da parcela'], ['parcelaAtual', 'Parcela atual'], ['ultimaVencida', 'Última parcela vencida'], ['periodoVenc', 'Vencimentos do contrato'], ['totalParcelas', 'Total de parcelas'], ['entrada', 'Entrada'], ['valorCompra', 'Valor da compra'], ['vendedor', 'Vendedor'], ['imei', 'IMEI'], ['loja', 'Loja'],
       ['dataProposta', 'Data da proposta'], ['filial', 'Filial (CAC)'], ['fpd', 'FPD'], ['parcelasAtraso', 'Parcelas em atraso'], ['diasAtraso', 'Dias de atraso'], ['vencMaisAntigo', 'Vencimento mais antigo']];
     function bsMostrar() {
       const st = bsGet(), caixa = $('#mf-bs-res');
@@ -9032,8 +9872,68 @@
     };
   }
 
+  /* ================= BOLETO+ (bp): ACESSO AO APP — paymobi.com.br, SOMENTE LEITURA =================
+     Relatório de Efetivadas, coluna "Acesso ao APP": se o cliente já fez o primeiro acesso no app do Boleto+.
+     O dado está no site da Paymobi (Boleto+ > Relatório de usuários), que só responde com o login do site e um ticket
+     anti-robô que o próprio site resolve. Por isso a consulta roda AQUI, dentro da página, com o cliente do próprio site
+     (CustomersService.fetchBoletoPlusCustomers, o mesmo da busca manual por CPF): nada de token sai do site.
+       ER  -> GM 'bpPedido'   { id, ts, cpfs }               (pedido do relatório de Efetivadas)
+       site-> GM 'bpResposta' { id, ts, itens: {cpf: {acesso, em} | {ausente} | {erro}}, erro }
+       site-> GM 'bpVivo'     ts a cada CONFIG.BP_BATIDA s   (o ER só espera resposta se o site estiver aberto)
+     Não mostra nada no site e não muda nada nele. */
+  function iniciarBoletoPlus() {
+    // a parte que roda no mundo da página (importa o módulo do próprio site); conversa com o script por eventos do DOM
+    const codigo = `
+      import { CustomersService } from '/views/services/CustomersService.js';
+      document.addEventListener('mfBpConsulta', async (ev) => {
+        let ped = {}; try { ped = JSON.parse(ev.detail); } catch (_) { return; }
+        let us = {}; try { us = JSON.parse(localStorage.getItem('userStorage') || '{}'); } catch (_) {}
+        const token = us.token || (us.user && us.user.token);
+        const fin = (us.user && (us.user.financeiraId || (us.user.financeira && us.user.financeira.id))) || us.financeiraId || (us.financeira && us.financeira.id);
+        const itens = {}; let erro = '';
+        if (!token) erro = 'login';
+        else for (const cpf of ped.cpfs || []) {
+          try {
+            const r = await CustomersService.fetchBoletoPlusCustomers({ financeiraId: fin || undefined, customerDocument: cpf, page: 1, pageSize: 10, bearerToken: token });
+            if (r.status === 'UNAUTHORIZED') { erro = 'login'; break; }
+            if (r.status !== 'SUCCESS') { itens[cpf] = { erro: String(r.status) }; continue; }
+            const c = (r.data.customers || []).find(x => String(x.customerDocument || '').replace(/\\D/g, '') === cpf);
+            itens[cpf] = c ? { acesso: !!c.boletoPlusFirstAccess, em: c.boletoPlusFirstAccessAt || null } : { ausente: true };
+          } catch (e) { itens[cpf] = { erro: 'rede' }; }
+        }
+        document.dispatchEvent(new CustomEvent('mfBpResposta', { detail: JSON.stringify({ id: ped.id, itens, erro }) }));
+      });`;
+    const sc = document.createElement('script');
+    sc.type = 'module';
+    sc.textContent = codigo;
+    (document.head || document.documentElement).appendChild(sc);
+
+    let ocupado = '', ultimo = '', ocupadoDesde = 0;
+    document.addEventListener('mfBpResposta', ev => {
+      let r = {}; try { r = JSON.parse(ev.detail); } catch (_) { return; }
+      if (!r.id) return;
+      GM_setValue('bpResposta', { id: r.id, ts: Date.now(), itens: r.itens || {}, erro: r.erro || '' });
+      if (ocupado === r.id) ocupado = '';
+    });
+    const bater = () => GM_setValue('bpVivo', Date.now());
+    bater();
+    setInterval(bater, CONFIG.BP_BATIDA * 1000);
+    setInterval(() => {
+      if (ocupado && Date.now() - ocupadoDesde < CONFIG.BP_ESPERA * 1000) return;   // sem resposta da página: libera
+      ocupado = '';
+      const p = GM_getValue('bpPedido', null);
+      if (!p || !p.id || p.id === ultimo || !Array.isArray(p.cpfs)) return;
+      if (Date.now() - (p.ts || 0) > CONFIG.BP_ESPERA * 1000) return;   // pedido velho: o ER já desistiu
+      const r = GM_getValue('bpResposta', null);
+      if (r && r.id === p.id) { ultimo = p.id; return; }                 // outra aba do site já respondeu
+      ultimo = ocupado = p.id; ocupadoDesde = Date.now();
+      document.dispatchEvent(new CustomEvent('mfBpConsulta', { detail: JSON.stringify({ id: p.id, cpfs: p.cpfs }) }));
+    }, CONFIG.BP_POLL);
+  }
+
   /* ================= INÍCIO ================= */
   if (location.hostname.endsWith('mobfacil.com.br')) iniciarMotor();
   else if (location.hostname === 'app.tallos.com.br') { if (window.top === window) iniciarRD(); }
+  else if (location.hostname === 'paymobi.com.br') { if (window.top === window) iniciarBoletoPlus(); }
   else if (window.top === window) iniciarPainel();
 })();

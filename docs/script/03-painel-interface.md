@@ -48,7 +48,7 @@ No fim do `<style>` do painel há um bloco só de CSS, todo escopado em `#mf-p[d
 
 ```
 ┌─────────────────────────────────────┐
-│ ■ PaymobiFin - Assistente  v13.37.0 │  ← barra de título (arrastar, minimizar)
+│ ■ PaymobiFin - Assistente  v13.42.1 │  ← barra de título (arrastar, minimizar)
 ├─────────────────────────────────────┤
 │ Atendimento | Histórico | Agenda | Relatórios | Mais ▾ │  ← abas
 ├─────────────────────────────────────┤
@@ -88,7 +88,9 @@ A fila é uma lista de IDs de propostas armazenada em `GM_getValue('fila')`. O f
 
 **Reprovada antes do MobFacil (Auditoria e Reprovadas):** antes de abrir o motor, `itensAnalise` lê os itens da análise da proposta (`/FilaPropostas/DetalhePropostaAnalise`, o popover "Análise da Proposta" da Fila). Se algum item foi REPROVADO e não há item MOBFACIL (ex.: IDADE com o parecer "IDADE INDEFINIDA"), o MobFacil nem foi consultado e o motor não tem a árvore: o painel não espera o motor e grava qtd, valor, score e consultas vazios (saem **N/A**), o CPF da aba Cliente e o motivo no formato do MobFacil ("Reprovar: IDADE INDEFINIDA", que a coluna R mostra como "Idade"). Antes, a proposta esperava o tempo máximo do motor e ficava como "auditoria incompleta". Na linha completa, a coluna Q (Manual/Auto) sai N/A quando a proposta não tem os dados da Mesa.
 
-**Reprovação por faixa de risco (política nova do MobFacil):** o score define a faixa e cada faixa tem os seus limites de restritivos. A base é a tabela da equipe em `CONFIG.FAIXAS` (21/11/2026): A 816–1000, B 675–815 (R$ 4.000 e 10 restritivos), C 552–674 (R$ 2.000 e 10), D 392–551 (R$ 1.000 e 10), E 002–391 e F 001 (sem limite de restritivos). A mensagem vem numa linha só, ex.: "(P1) Reprovar: faixa E acima do limite permitido (Restritivo=R$0, Qtde=0, Passagens=0) (atual: R$1360, 1, 0)". `motivosLista` ignora os limites da mensagem (a faixa E veio com R$ 0 e 0, considerado erro do MobFacil) e compara o atual com a tabela: A–D = "Valor de restrições acima do limite" (acima do valor da faixa) e/ou "Quantidade de restrições acima do limite" (acima de 10); E e F = "Score Baixo". "Passagens" não entra (decisão da equipe: não é motivo de reprovação). Se nada passar da tabela, a mensagem fica como veio ("Faixa X acima do limite permitido"). Sem mensagem do MobFacil, a coluna R usa a mesma tabela pela faixa do score (antes eram os cortes fixos R$ 4.000, 10 e score 390).
+**Reprovação por faixa de risco (política do MobFacil):** o score define a faixa e cada faixa tem os seus limites de restritivos. A base é a tabela da equipe em `CONFIG.FAIXAS` (atualizada em 25/11/2026): A 816–1000 e B 675–815 (até R$ 4.000 e 10 restritivos), C 552–674 (R$ 3.000 e 10), D 467–551 (R$ 2.000 e 10), E 391–466 (R$ 300 e 2) e F 0–390 (reprova sempre: "Score Baixo"). Passar de qualquer um dos dois limites da faixa reprova. A mensagem vem numa linha só, ex.: "(P1) Reprovar: faixa E acima do limite permitido (Restritivo=R$0, Qtde=0, Passagens=0) (atual: R$1360, 1, 0)". `motivosLista` ignora os limites da mensagem e compara o atual com a tabela: A–E = "Valor de restrições acima do limite" (acima do valor da faixa) e/ou "Quantidade de restrições acima do limite" (acima da quantidade da faixa); F = "Score Baixo". "Passagens" não entra (decisão da equipe: não é motivo de reprovação). Se nada passar da tabela, a mensagem fica como veio ("Faixa X acima do limite permitido"). Sem mensagem do MobFacil, a coluna R usa a mesma tabela pela faixa do score. **A faixa sai sempre do score pela tabela da equipe**; a letra da mensagem só vale sem score. Tabela anterior (21/11 a 24/11/2026): C R$ 2.000, D 392–551 com R$ 1.000, E e F sem limite (Score Baixo).
+
+**Reprovada manualmente na Mesa:** quando a análise vai para a mesa, o MobFacil não manda "Reprovar", e sim "(P1) Derivar mesa: faixa D acima do limite permitido (...) (atual: R$10956,91, 12, 0)", e o analista é quem reprova. Sem nenhum "Reprovar", `motivosReprov` monta o motivo pelas restrições e pelo score lidos do motor (`calculaRisco` e `classificacaoRiscoDeCredito`), com a mesma tabela. Isso vale para o relatório Reprovadas e para a coluna R. Dentro dos limites, o motivo fica em branco e N/A, porque não dá para saber o motivo do analista. Antes, as manuais saíam sempre em branco e N/A (ex.: 5520, 5531 e 5533).
 
 ### Modos de operação
 
@@ -120,7 +122,7 @@ A função `relatorioCols(m, id, d, processada)` monta as colunas de resultado p
 | Auditoria | Proposta, Nome, CPF, IMEI, Qtd Restritivos, Valor Restritivos, Score, Consultas, Motivo Reprovação |
 | Diário | Propostas do dia com resultado |
 | Reprovadas | Apenas propostas reprovadas: situação com "REP", "REPR" ou "REPROV" (ex.: "17 - PRE PROP REP", "07 - REPR AUT"), a mesma regra de `ehReprovada` |
-| Efetivadas | Apenas propostas aprovadas e efetivadas |
+| Efetivadas | Apenas propostas aprovadas e efetivadas: Proposta, Cliente, Vendedor, Acesso ao APP, Hora, Loja |
 | Aprovadas | Propostas aprovadas (com CPF) |
 
 **Diário: visão geral do dia** (`diarioTudo`, padrão ligado; Configurações, ao lado de "Ignorar canceladas e testes"):
@@ -130,6 +132,14 @@ A função `relatorioCols(m, id, d, processada)` monta as colunas de resultado p
 - **Aviso ao lado de "Ler da tela"** (`#mf-filtro`): no Diário com a opção ligada mostra "Incluindo canceladas (sem testes)", e a dica do mouse cita as em digitação. Nos outros relatórios continua "Ignorando canceladas e testes". Com "Ignorar canceladas e testes" desligado, "Incluindo canceladas e testes" em qualquer relatório.
 
 **Valor de transação (Diário e Aprovadas):** `valorTransacao()` usa o "Valor da Compra" da Operação de Crédito (`extra.compra`). O "Valor" do bloco Garantias (`extra.valor`) é o valor cadastrado do aparelho e, nas aprovações automáticas, vem simbólico (R$ 0,01, R$ 1,00...); ele só entra quando a página não tem Valor da Compra. Sem nenhum dos dois, N/A. A escolha é feita na hora de montar o relatório, então vale também para propostas já coletadas.
+
+**Proposta sem digitador (Efetivadas e Aprovadas):** proposta incluída pela integração (no histórico, a inclusão é do usuário WEBAPI, ex.: 5558) não tem vendedor de loja: a página mostra o rótulo "Digitador" com o valor vazio (`<dt>Digitador</dt><dd> </dd>`). `buscarDetalhe` marca `extra.semDigitador`; o vendedor sai N/A e a proposta não fica como falha (antes a fila parava em "3 de 4" e o Continuar não destravava). Só vale com o `<dd>` vazio de verdade: rótulo não encontrado continua sendo falha. Proposta lida por uma versão anterior sem vendedor é lida de novo.
+
+**Efetivadas: Acesso ao APP (Boleto+, prefixo `bp`):** a coluna diz se o cliente já fez o primeiro acesso no app do Boleto+, como o Relatório de usuários do Boleto+ no site da Paymobi (Boleto+ > Relatório de usuários). Antes era preenchida à mão.
+- **De onde vem:** o site `paymobi.com.br` só responde com o login do próprio site e um ticket anti-robô que ele mesmo resolve. Por isso o script também roda em `paymobi.com.br` (`@include`, autorizado em 24/11/2026), mas só para responder ao ER: `iniciarBoletoPlus` põe na página um módulo que usa o cliente do próprio site (`CustomersService.fetchBoletoPlusCustomers`, o mesmo da busca manual por CPF). Nenhum token sai do site, e nada aparece nem muda nele.
+- **Conversa entre as abas (GM):** o ER grava `bpPedido` `{ id, ts, cpfs }`; o site responde em `bpResposta` `{ id, ts, itens, erro }` e grava `bpVivo` a cada `CONFIG.BP_BATIDA` s. Sem batida há `CONFIG.BP_VIVO` s, o ER considera o site fechado e não espera; com o site aberto, espera até `CONFIG.BP_ESPERA` s por consulta.
+- **Na coleta (`bpEtapa`, modo Efetivadas):** depois do vendedor, lê o CPF na aba Cliente (`dadosCliente`, guardado em `extra.cpfCliente`) e consulta o Boleto+. O resultado fica em `extra.acessoApp` (e `extra.acessoAppEm`, a data do primeiro acesso). "Sim" não é consultado de novo; "Não" e N/A são, porque o cliente pode ter entrado no app. No fim da fila, `bpCompletar` consulta de uma vez as que ficaram sem resposta (ex.: o site foi aberto no meio).
+- **Texto:** "Sim" (já fez o primeiro acesso), "Não", N/A (o CPF não está no Boleto+). Vazio = não consultado; não é falha. O aviso do fim da fila lista essas propostas e diz para abrir `paymobi.com.br` logado em outra aba e gerar de novo, ou preencher à mão.
 
 ### Relatório de Pendências (`pd`, bloco "RELATÓRIO DE PENDÊNCIAS")
 
