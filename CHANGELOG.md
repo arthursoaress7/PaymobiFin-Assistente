@@ -1,5 +1,19 @@
 # Changelog
 
+## [v13.43.0] — 2026-11-25
+
+### ✨ Novas funcionalidades
+
+- feat: lista de clientes para a negativação pefin (#172) (5df6bf9)
+
+### 🐛 Correções
+
+- fix: valor da dívida pefin soma as parcelas em aberto, vencidas e a vencer (#173) (720fba3)
+
+### 🔧 Outros
+
+- docs: taxas da calculadora de débito aprovadas como base padrão (#170) (73ccc14)
+
 ## [v13.42.2] — 2026-11-25
 
 ### 🐛 Correções
