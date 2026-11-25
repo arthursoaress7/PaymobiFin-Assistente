@@ -1,5 +1,15 @@
 # Changelog
 
+## [v13.42.2] — 2026-11-25
+
+### 🐛 Correções
+
+- fix: renegociação explica que o plano usa os valores do Acordo (#168) (1c603c3)
+
+### 🔧 Outros
+
+- refactor: bloco Renegociação sem os campos repetidos do Acordo (#166) (71e96df)
+
 ## [v13.42.1] — 2026-11-25
 
 ### 🐛 Correções
