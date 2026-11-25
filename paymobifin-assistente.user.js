@@ -61,17 +61,20 @@
     CORTE_VALOR: 4000,      // reprova se valor de restrições > 4000
     CORTE_QTD: 10,          // reprova se quantidade de restrições > 10
     // Política por faixa de risco (score): limites de valor e quantidade de restritivos de cada faixa (tabela da equipe,
-    // 21/11/2026). E e F não têm limite de restritivos: o motivo é o score (Score Baixo).
+    // 25/11/2026). Passar de qualquer um dos dois limites reprova. F (score até 390) reprova sempre: o motivo é o score (Score Baixo).
     FAIXAS: [
       { faixa: 'A', de: 816, ate: 1000, valor: 4000, qtd: 10 },
       { faixa: 'B', de: 675, ate: 815, valor: 4000, qtd: 10 },
-      { faixa: 'C', de: 552, ate: 674, valor: 2000, qtd: 10 },
-      { faixa: 'D', de: 392, ate: 551, valor: 1000, qtd: 10 },
-      { faixa: 'E', de: 2, ate: 391, valor: null, qtd: null },
-      { faixa: 'F', de: 1, ate: 1, valor: null, qtd: null },
+      { faixa: 'C', de: 552, ate: 674, valor: 3000, qtd: 10 },
+      { faixa: 'D', de: 467, ate: 551, valor: 2000, qtd: 10 },
+      { faixa: 'E', de: 391, ate: 466, valor: 300, qtd: 2 },
+      { faixa: 'F', de: 0, ate: 390, valor: null, qtd: null },
     ],
     VAZIAS_APOS_ID: 3,      // colunas entre a Proposta e a Qtd Restritivos (Nome, CPF, IMEI)
     TIMEOUT_CCB: 20,        // s máximos esperando cada resposta do sistema no download de CCB
+    // Analisar proposta (aba do menu Mais)
+    AN_ESPERA: 35,          // s máximos esperando o MobFacil (iframe escondido) devolver o resultado do motor
+    AN_KYC_DIAS: 3,         // dias: depois disso, "sem ícone 🚫 da BMP na Fila" não confirma mais (o ícone some com o tempo)
     // Acesso ao APP (Boleto+) no relatório de Efetivadas: o site paymobi.com.br aberto e logado responde ao ER
     BP_POLL: 1000,          // ms: o site da Paymobi confere se o ER pediu consulta
     BP_BATIDA: 10,          // s entre os "estou aberto" do site da Paymobi
@@ -465,8 +468,60 @@
     console.log('[PaymobiFin]', r.id, atual);
   }
 
+  /* ---------- Analisar proposta: resultado completo do motor, lido na memória da página (sem cliques na árvore) ----------
+     A página do motor busca o JSON da análise uma vez (POST /api/visualizador, token de uso único) e o guarda no estado
+     do React ({ "Resumo proposta", "Exibir fluxos": { fluxos_P1, fluxos_P2 } }). Aqui só lemos esse estado e devolvemos
+     um resumo: as regras de cada fluxo, as mensagens e os dados enviados (sem fotos/documentos nem os dados dos birôs). */
+  function anMotorResumo() {
+    let root = null, k = null;
+    try { root = PAGINA.document.getElementById('__next'); k = root && Object.keys(root).find(x => x.startsWith('__reactContainer')); } catch (_) { return null; }
+    if (!k) return null;
+    const temDados = v => (v && typeof v === 'object' && v['Exibir fluxos'] ? v : v && v.data && v.data['Exibir fluxos'] ? v.data : null);
+    let f = root[k];
+    if (f && f.stateNode && f.stateNode.current) f = f.stateNode.current;
+    const pilha = [f];
+    let achado = null, n = 0;
+    while (pilha.length && !achado && n++ < 20000) {
+      const x = pilha.pop();
+      if (!x) continue;
+      for (let h = x.memoizedState, i = 0; h && i < 40 && !achado; h = h.next, i++) {
+        try { achado = temDados(h.memoizedState) || temDados(h.memoizedState && h.memoizedState.data); } catch (_) {}
+      }
+      if (x.sibling) pilha.push(x.sibling);
+      if (x.child) pilha.push(x.child);
+    }
+    if (!achado) return null;
+    const fl = achado['Exibir fluxos'] || {};
+    const fluxo = nome => {
+      const z = (fl[nome] || [])[0];
+      if (!z) return null;
+      const ins = ((z.DadosProposta || {}).Submit || {}).Inputs || [];
+      return { id: String(z.IdProposta || ''), data: z.DataProposta || '', status: z.StatusFinalPuro || '', motivos: z.MotivoStatus || [],
+        regras: z.RegrasDeNegocios || {}, dados: Object.fromEntries(ins.filter(x => !/BASE64|ID_BIOMETRIA/.test(x.Name)).map(x => [x.Name, x.Value])) };
+    };
+    const rs = achado['Resumo proposta'] || {};
+    return JSON.parse(JSON.stringify({ statusFinal: rs.statusFinal || '', motivos: rs.motivoStatus || [], p1: fluxo('fluxos_P1'), p2: fluxo('fluxos_P2') }));
+  }
+  // responde ao pedido da aba "Analisar proposta" (GM 'anPedido' -> 'anMotor'), só se a página for a proposta pedida
+  function anResponder() {
+    const ini = Date.now();
+    const t = setInterval(() => {
+      const acabou = Date.now() - ini > CONFIG.AN_ESPERA * 1000;
+      const ped = GM_getValue('anPedido', null);
+      if (!ped || !ped.id || Date.now() - (ped.ts || 0) > CONFIG.AN_ESPERA * 1000) { if (acabou) clearInterval(t); return; }
+      let r = null;
+      try { r = anMotorResumo(); } catch (_) {}
+      if (!r) { if (acabou) clearInterval(t); return; }
+      clearInterval(t);
+      const id = (r.p1 && r.p1.id) || (r.p2 && r.p2.id) || '';
+      if (id !== String(ped.id)) return;   // é o iframe de outra proposta (ex.: a coleta rodando ao mesmo tempo)
+      GM_setValue('anMotor', { ...r, id, ts: Date.now(), pedido: ped.nonce });
+    }, 300);
+  }
+
   /* ================= IFRAME DO MOTOR (enviamotor.mobfacil.com.br) ================= */
   function iniciarMotor() {
+    anResponder();
     // Em aba escondida o navegador não executa requestAnimationFrame, e a árvore (antd) usa isso para abrir os nós.
     // Só enquanto a aba estiver escondida, troca por um setTimeout equivalente. Com a aba visível nada muda.
     try {
@@ -1103,7 +1158,14 @@
         #mf-p .mf-grupo{padding:4px 14px;border-bottom:1px solid #e2e8f0}
         /* navegação (as duas aparências): Atendimento · Histórico · Agenda · Relatórios · Mais ▾ */
         #mf-p .mf-abas button[data-aba=ccb],#mf-p .mf-abas button[data-aba=cac],#mf-p .mf-abas button[data-aba=cta],
-        #mf-p .mf-abas button[data-aba=lem],#mf-p .mf-abas button[data-aba=tim],#mf-p .mf-abas button[data-aba=cfg]{display:none}
+        #mf-p .mf-abas button[data-aba=lem],#mf-p .mf-abas button[data-aba=tim],#mf-p .mf-abas button[data-aba=cfg],#mf-p .mf-abas button[data-aba=ana]{display:none}
+        #mf-p .mf-an-cab{font-size:12.5px;line-height:1.5;margin-bottom:8px}
+        #mf-p .mf-an-veredito{font-weight:700;font-size:13px;margin:6px 0 8px}
+        #mf-p .mf-an-item{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid #e2e8f0;font-size:12.5px;line-height:1.4}
+        #mf-p .mf-an-item>span{flex:none;width:20px;text-align:center}
+        #mf-p .mf-an-det{color:#475569;word-break:break-word}
+        #mf-p[data-ui=nova] .mf-an-item{border-top-color:var(--mf-borda,#334155)}
+        #mf-p[data-ui=nova] .mf-an-det{color:var(--mf-txt2,#94a3b8)}
         #mf-p .mf-ui-menu{position:absolute;right:4px;top:100%;z-index:5;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px #0003;padding:4px;min-width:170px;display:none}
         #mf-p .mf-ui-menu.aberto{display:block}
         #mf-p .mf-ui-menu button{display:block;width:100%;text-align:left;background:transparent;color:#1e293b;padding:8px 10px;border-radius:6px;font-size:13px;border:0}
@@ -1148,7 +1210,7 @@
         #mf-p[data-ui=nova] .mf-abas button:hover:not(:disabled){background:#f8fafc}
         #mf-p[data-ui=nova] .mf-abas button.ativa{color:#1d4ed8;border-bottom-color:#2563eb;background:transparent}
         #mf-p[data-ui=nova] .mf-abas button[data-aba=ccb],#mf-p[data-ui=nova] .mf-abas button[data-aba=cac],#mf-p[data-ui=nova] .mf-abas button[data-aba=cta],
-        #mf-p[data-ui=nova] .mf-abas button[data-aba=lem],#mf-p[data-ui=nova] .mf-abas button[data-aba=tim],#mf-p[data-ui=nova] .mf-abas button[data-aba=cfg]{display:none}
+        #mf-p[data-ui=nova] .mf-abas button[data-aba=lem],#mf-p[data-ui=nova] .mf-abas button[data-aba=tim],#mf-p[data-ui=nova] .mf-abas button[data-aba=cfg],#mf-p[data-ui=nova] .mf-abas button[data-aba=ana]{display:none}
         #mf-p[data-ui=nova] .mf-ui-menu{position:absolute;right:6px;top:100%;z-index:5;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 24px #0f172a26;padding:4px;min-width:170px;display:none}
         #mf-p[data-ui=nova] .mf-ui-menu.aberto{display:block}
         #mf-p[data-ui=nova] .mf-ui-menu button{display:block;width:100%;text-align:left;background:transparent;color:#1e293b;font-weight:500;padding:8px 10px;border-radius:6px;border:0}
@@ -1465,6 +1527,7 @@
         #mf-p[data-ui=nova] .mf-abas>button[data-ui-aba=mais]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1.5'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1.5'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=cac],#mf-p[data-ui=nova] .mf-abas>button[data-aba=cac]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=ccb],#mf-p[data-ui=nova] .mf-abas>button[data-aba=ccb]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z'/%3E%3Cpath d='M14 2v5h6M12 18v-6M9 15l3 3 3-3'/%3E%3C/svg%3E")}
+        #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=ana],#mf-p[data-ui=nova] .mf-abas>button[data-aba=ana]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='8' y='2' width='8' height='4' rx='1'/%3E%3Cpath d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/%3E%3Cpath d='m9 14 2 2 4-4'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=cta],#mf-p[data-ui=nova] .mf-abas>button[data-aba=cta]{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] .mf-ui-menu button[data-vai=cfg],#mf-p[data-ui=nova] .mf-abas>button[data-aba=cfg],#mf-p[data-ui=nova] .mf-ui-icone{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/%3E%3C/svg%3E")}
         #mf-p[data-ui=nova] #mf-tam{--mf-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'/%3E%3C/svg%3E")}
@@ -1773,6 +1836,7 @@
           <button data-aba="cac">Consulta CAC</button>
           <button data-aba="ccb">CCBs</button>
           <button data-aba="cta">Contas</button>
+          <button data-aba="ana">Analisar proposta</button>
           <button data-aba="cfg">Configurações</button>
         </div>
 
@@ -1918,6 +1982,27 @@
               <button id="mf-cac-limpar" class="cinza mf-cheia">Nova consulta</button>
             </div>
             <div class="mf-info" style="margin-top:6px">O resultado fica só nesta aba do navegador (some ao fechar a aba) e não é enviado a lugar nenhum.</div>
+          </div>
+        </div>
+
+        <div data-pag="ana">
+          <div class="mf-sec">
+            <div class="mf-tit">Analisar proposta (somente leitura)</div>
+            <div class="mf-linha" style="margin-bottom:6px">
+              <input id="mf-an-id" type="text" inputmode="numeric" placeholder="Número da proposta" autocomplete="off" style="flex:1">
+              <button id="mf-an-ir" class="azul" style="padding:8px 12px">Analisar</button>
+            </div>
+            <div id="mf-an-st" class="mf-info"></div>
+            <div class="mf-info" style="margin-top:6px">Confere a política de faixa (score x restrições), a Receita Federal (nome, nascimento, CPF, óbito),
+              idade, renda, aparelho, documentos (tipos, CPF e nome no documento, facematch, biometria), contato, as mensagens do MobFacil,
+              os itens da análise do ER e o impeditivo da BMP (KYC). O que não der para confirmar aparece como ❔, nunca como ok. Nada é alterado no ER.</div>
+          </div>
+          <div class="mf-sec" id="mf-an-res" style="display:none">
+            <div class="mf-tit">Resultado</div>
+            <div id="mf-an-cab" class="mf-an-cab"></div>
+            <div id="mf-an-veredito" class="mf-an-veredito"></div>
+            <div id="mf-an-lista"></div>
+            <button id="mf-an-copiar" class="cinza mf-cheia" style="margin-top:8px;width:100%">Copiar resumo</button>
           </div>
         </div>
 
@@ -2251,7 +2336,7 @@
 
     /* ---------- abas ---------- */
     const mostrarAba = a => {
-      if (!['rel', 'ccb', 'cac', 'cta', 'neg', 'his', 'lem', 'tim', 'cfg'].includes(a)) a = 'neg';
+      if (!['rel', 'ccb', 'cac', 'cta', 'neg', 'his', 'lem', 'tim', 'cfg', 'ana'].includes(a)) a = 'neg';
       painel.querySelectorAll('[data-pag]').forEach(p => { p.style.display = p.dataset.pag === a ? 'block' : 'none'; });
       painel.querySelectorAll('.mf-abas button').forEach(b => b.classList.toggle('ativa', b.dataset.aba === a));
       painel.dataset.abaAtiva = a;   // só para o visual (CSS) saber qual aba está aberta
@@ -2764,10 +2849,9 @@
     // Política por faixa de risco (score A–F, cada faixa com os seus limites de restritivos), mensagem única do MobFacil:
     //  "(P1) Reprovar: faixa E acima do limite permitido (Restritivo=R$0, Qtde=0, Passagens=0) (atual: R$1360, 1, 0)"
     // vira uma mensagem por motivo, no formato das antigas, com os limites da TABELA DA EQUIPE (CONFIG.FAIXAS), não os da
-    // mensagem (a faixa E veio com R$0/0, considerado erro do MobFacil): A–D = valor acima do limite da faixa e/ou
-    // quantidade acima de 10; E e F (sem limite de restritivos) = score baixo. "Passagens" não entra (não é motivo).
-    // A faixa sai do SCORE pela tabela da equipe (o MobFacil põe, por exemplo, o 397 na faixa E; na tabela ele é D);
-    // a letra da mensagem só vale quando não há score.
+    // mensagem: A–E = valor acima do limite da faixa e/ou quantidade acima do limite da faixa (E: R$300 e 2);
+    // F (score até 390, sem limite) = score baixo. "Passagens" não entra (não é motivo).
+    // A faixa sai do SCORE pela tabela da equipe; a letra da mensagem só vale quando não há score.
     // Sem dar para decidir: fica como veio.
     const faixaDe = (letra, score) => CONFIG.FAIXAS.find(x => letra ? x.faixa === String(letra).toUpperCase() : score != null && score >= x.de && score <= x.ate) || null;
     function motivosLista(reprov, score) {
@@ -5866,6 +5950,221 @@
     ibDobra();
     ibMostrar();
 
+    /* ================= ANALISAR PROPOSTA (an) — SOMENTE LEITURA =================
+       Aba "Analisar proposta" (menu Mais): confere de uma vez o que costuma divergir ou ficar fora da política.
+       Fontes (nada é alterado no ER):
+         1. /MesaCredito/MesaAnaliseProposta: situação, data, digitador e valor da compra
+         2. /FilaPropostas/DetalhePropostaAnalise (itensAnalise): biometria, idade, MobFacil, registros internos
+         3. MobFacil: o resultado completo do motor (fluxo P1 = crédito; P2 = documentos e contato), lido na memória da
+            página do motor num iframe escondido (anMotorResumo/anResponder no iframe; GM 'anPedido' -> 'anMotor')
+         4. Fila de Propostas no dia da proposta (ibLista) + a lista guardada do Impeditivos BMP: ícone 🚫 do KYC da BMP
+       Cada conferência sai ✅ ok, ❌ problema, ⚠️ alerta ou ❔ não confirmado, sempre com o motivo. "Tudo certo" só
+       quando TODAS são ✅: o que não deu para confirmar nunca vira ok. */
+    const AN_ICONE = { ok: '✅', erro: '❌', alerta: '⚠️', nc: '❔' };
+    const AN_ORDEM = { erro: 0, alerta: 1, nc: 2, ok: 3 };
+    let anRodando = false, anTexto = '';
+    const anStatus = t => { $('#mf-an-st').textContent = t || ''; };
+    const anLetra = s => (String(s || '').trim().match(/^([A-Z])\s*-/) || [])[1] || '';   // "A - Aprovado" -> "A"
+    const anNum = v => { const x = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(x) ? null : x; };
+    const anReais = v => 'R$' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const anBase = () => ((document.getElementById('txtCaminhoSistema') || {}).value || '').replace(/\/$/, '');
+    async function anLerPagina(base, id) {
+      let html = '';
+      try { html = await (await fetch(base + '/MesaCredito/MesaAnaliseProposta?lngProposta=' + encodeURIComponent(id), { credentials: 'include' })).text(); }
+      catch (_) { return { erro: 'o ER não respondeu' }; }
+      if (erSemSessao(html)) return { erro: SESSAO_EXPIRADA };
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const r = rot => acharRotulo(doc, rot);
+      let dig = r('Digitador');
+      if (dig && /^(analista|analisada)/i.test(dig)) dig = null;   // <dd> vazio: o rótulo seguinte não é o digitador
+      if (dig) dig = dig.replace(/^\d+\s+/, '').replace(/\s+-\s+.*$/, '').trim();
+      return { sit: r('Situação'), data: ((r('Data da Proposta') || '').match(/\d{2}\/\d{2}\/\d{4}/) || [''])[0], dig, compra: r('Valor da Compra') };
+    }
+    async function anLerMotor(base, id) {
+      let html = '';
+      try { html = await (await fetch(base + '/MesaCredito/MesaAnaliseMobFacil?lngProposta=' + encodeURIComponent(id), { credentials: 'include' })).text(); }
+      catch (_) { return { erro: 'o ER não respondeu (página do MobFacil)' }; }
+      if (!html.trim()) return { erro: 'MobFacil indisponível' };
+      if (erSemSessao(html)) return { erro: SESSAO_EXPIRADA };
+      const src = (new DOMParser().parseFromString(html, 'text/html').querySelector('iframe') || {}).src;
+      if (!src) return { erro: 'a proposta não tem análise do MobFacil' };
+      const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      GM_deleteValue('anMotor');
+      GM_setValue('anPedido', { id: String(id), ts: Date.now(), nonce });
+      const fr = document.createElement('iframe');
+      fr.src = src;
+      fr.style.cssText = 'position:fixed;left:0;top:0;width:1100px;height:900px;opacity:0;pointer-events:none;border:0;z-index:-1';
+      document.body.appendChild(fr);
+      try {
+        const ini = Date.now();
+        while (Date.now() - ini < CONFIG.AN_ESPERA * 1000) {
+          await sleep(300);
+          const r = GM_getValue('anMotor', null);
+          if (r && r.pedido === nonce) return { motor: r };
+        }
+        return { erro: 'o MobFacil não respondeu em ' + CONFIG.AN_ESPERA + ' s' };
+      } finally { fr.remove(); GM_deleteValue('anPedido'); GM_deleteValue('anMotor'); }
+    }
+    // impeditivo do KYC da BMP: lista guardada do relatório Impeditivos BMP ou o ícone 🚫 na Fila do dia da proposta
+    async function anKyc(id, dataProp, sit) {
+      const it = (ibBase().itens || {})[id];
+      if (it) return { st: 'erro', det: 'impeditivo da BMP' + (it.motivo ? ': ' + it.motivo : '') + ' (lista do relatório Impeditivos BMP)' };
+      if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dataProp || '')) return { st: 'nc', det: 'sem a data da proposta para procurar na Fila de Propostas' };
+      const l = await ibLista(dataProp, dataProp);
+      if (l.erro) return { st: 'nc', det: 'não deu para ler a Fila de Propostas (' + l.erro + ')' };
+      const x = l.linhas.find(r => r.proposta === String(id));
+      if (x) return { st: 'erro', det: 'ícone 🚫 da BMP na Fila: ' + (x.motivo || 'sem motivo no ícone') };
+      if (!/efetiv|cancel/i.test(sit || '')) return { st: 'nc', det: 'sem o ícone 🚫 na Fila, mas a proposta ainda não foi efetivada (o KYC da BMP roda na efetivação)' };
+      const dias = Math.floor((Date.now() - ibTs(dataProp)) / 864e5);
+      return dias <= CONFIG.AN_KYC_DIAS ? { st: 'ok', det: 'sem o ícone 🚫 da BMP na Fila de Propostas' }
+        : { st: 'nc', det: 'sem o ícone 🚫 na Fila hoje, mas a proposta é de ' + dataProp + ' e o ícone some com o tempo: não dá para confirmar' };
+    }
+    function anConferir(ctx) {
+      const L = [];
+      const add = (st, item, det) => L.push({ st, item, det: det || '' });
+      const m = ctx.motor, p1 = m && m.p1, p2 = m && m.p2;
+      const r1 = (p1 && p1.regras) || {}, r2 = (p2 && p2.regras) || {};
+      const semMotor = 'sem o resultado do MobFacil (' + (ctx.motorErro || 'não lido') + ')';
+      const semP2 = 'a proposta ainda não passou pela validação de documentos e contato do MobFacil (fluxo P2)';
+      // regra com "Status" ("A - Aprovado", "R - Reprovado", "L - Pendente loja"...): A = ok; o resto = naoA
+      const porStatus = (item, rg, fonte, detFn, naoA, campo) => {
+        if (!m) return add('nc', item, semMotor);
+        if (!fonte) return add('nc', item, semP2);
+        if (!rg) return add('nc', item, 'o MobFacil não trouxe essa validação');
+        const l = anLetra(rg[campo || 'Status']);
+        add(l === 'A' ? 'ok' : !l ? 'nc' : naoA || 'erro', item, (detFn && detFn(rg)) || rg[campo || 'Status'] || 'sem status');
+      };
+
+      // 1. política de faixa (CONFIG.FAIXAS): score x valor e quantidade de restrições
+      const IP = 'Política de faixa (score x restrições)';
+      if (!p1) add('nc', IP, semMotor);
+      else {
+        const sc = anNum((r1.classificacaoRiscoDeCredito || {}).valorScore), cr = r1.calculaRisco || {};
+        const v = anNum(cr.ValorRestritivos), q = anNum(cr.QuantidadeRestritivos);
+        const fx = sc != null ? faixaDe(null, sc) : null;
+        if (!fx) add('nc', IP, 'score não encontrado no MobFacil');
+        else if (fx.valor == null) add('erro', IP, 'score ' + sc + ' = faixa ' + fx.faixa + ' (até ' + fx.ate + '): reprova sempre (Score Baixo)');
+        else if (v == null || q == null) add('nc', IP, 'score ' + sc + ' = faixa ' + fx.faixa + ', mas o MobFacil não trouxe o valor/quantidade de restrições');
+        else {
+          const fora = [];
+          if (v > fx.valor) fora.push('valor ' + anReais(v) + ' acima do limite de ' + anReais(fx.valor));
+          if (q > fx.qtd) fora.push(q + ' restrições, acima do limite de ' + fx.qtd);
+          add(fora.length ? 'erro' : 'ok', IP, 'score ' + sc + ' = faixa ' + fx.faixa + ': ' + (fora.length ? fora.join(' e ')
+            : anReais(v) + ' (até ' + anReais(fx.valor) + ') e ' + q + ' restrição(ões) (até ' + fx.qtd + ')'));
+        }
+      }
+      // 2. Receita Federal e requisitos do birô
+      const vc = r1.validacaoCadastral || r2.validacaoCadastral || null;
+      const simil = rg => 'similaridade ' + (rg.Similaridade || '?') + '%' + (rg.DadoBiro && rg.DadoProposta && rg.DadoBiro !== rg.DadoProposta
+        ? ' (proposta: ' + rg.DadoProposta + ' · Receita: ' + rg.DadoBiro + ')' : '');
+      porStatus('Nome x Receita Federal', vc && vc.ValidacaoNome, p1 || p2, simil);
+      porStatus('Data de nascimento x Receita Federal', vc && vc.ValidacaoDataDeNascimento, p1 || p2, simil);
+      const rb = r1.requisitosBiroValores || {};
+      porStatus('CPF regular na Receita Federal', rb.SituacaoCpf, p1, rg => rg.SituacaoCPF);
+      porStatus('Sem marcação de óbito', rb.MarcacaoObito, p1, rg => rg.MarcacaoObitoBiro);
+      const rq = r1.requisitosBasicosValores || {};
+      if (!p1) add('nc', 'Idade (18 a 75 anos)', semMotor);
+      else if (!rq.IdadeMinima || !rq.IdadeMaxima) add('nc', 'Idade (18 a 75 anos)', 'o MobFacil não trouxe essa validação');
+      else add(anLetra(rq.IdadeMinima.Status) === 'A' && anLetra(rq.IdadeMaxima.Status) === 'A' ? 'ok' : 'erro', 'Idade (18 a 75 anos)', (rq.IdadeMinima.DadoInformado || '?') + ' anos');
+      porStatus('Renda mínima', rq.RendaMinima, p1, rg => 'renda informada R$' + (rg.DadoInformado || '?') + ' · ' + (rg.Regra || ''));
+      const rv = r1.validaRendavalores;
+      if (!p1) add('nc', 'Renda validada no birô', semMotor);
+      else if (!rv) add('nc', 'Renda validada no birô', 'o MobFacil não trouxe a validação de renda');
+      else add(rv.RendaValidada ? 'ok' : 'alerta', 'Renda validada no birô', (rv.RendaValidada ? 'validada' : 'NÃO validada') +
+        (rv.Variacao != null ? ' (variação ' + rv.Variacao + '%' + (rv.BiroSelecionado ? ', ' + rv.BiroSelecionado : '') + ')' : ''));
+      porStatus('Aparelho disponível para crédito', r1.validaAparelho || r2.validaAparelho, p1 || p2, rg => (rg.Regra || '') + (rg.SituacaoCodigoLojista ? ' · ' + rg.SituacaoCodigoLojista : ''));
+      // 3. documentos (fluxo P2)
+      porStatus('Tipos de documento', r2.validaTipoDoc, p2, rg => (rg.Mensagem || rg.Regra || '') + ' (' + [rg.TipoDocumento1, rg.TipoDocumento2].filter(Boolean).join(' e ') + ')');
+      const docs = (r2.validaDocumentos || {}).ValidaDoc;
+      const ID = 'Documento x proposta (CPF e nome no documento)';
+      if (!m) add('nc', ID, semMotor);
+      else if (!p2) add('nc', ID, semP2);
+      else if (!Array.isArray(docs) || !docs.length) add('nc', ID, 'o MobFacil não trouxe a validação dos documentos');
+      else {
+        const ruins = docs.filter(d => d.CpfEncontrado !== 'Sim' || d.NomeEncontrado !== 'Sim' || anLetra(d.StatusDocumento) !== 'A');
+        add(ruins.length ? 'erro' : 'ok', ID, docs.map((d, i) => 'doc ' + (i + 1) + ' (' + (d.TipoDocumento || '?') + '): CPF ' + (d.CpfEncontrado || '?') +
+          ', nome ' + (d.NomeEncontrado || '?') + (d.MensagemErro ? ', ' + d.MensagemErro : '')).join(' · '));
+      }
+      porStatus('Foto x documento (facematch)', r2.validaFacematch, p2, rg => rg.Mensagem);
+      porStatus('Biometria', r2.validaBiometria, p2, rg => 'score ' + (rg.Score != null ? rg.Score : '?') + (rg.Tipo ? ' · ' + rg.Tipo : ''));
+      // 4. contato (fluxo P2): o MobFacil só alerta, não reprova
+      const tel = ((r2.validaTelefones || {}).Telefones || [])[0];
+      porStatus('Telefone 1 nos birôs', tel, p2, rg => (rg.TelefoneInformado || 'não informado') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'TelefoneValidado');
+      porStatus('E-mail nos birôs', r2.validaEmails, p2, rg => (rg.EmailInformado || 'não informado') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'EmailValidado');
+      porStatus('Endereço nos birôs', r2.validaEnderecos, p2, rg => [rg.EnderecoInformado, rg.NumeroInformado, rg.CidadeInformado, rg.UFInformado].filter(Boolean).join(', ') + ' · ' + (rg.QtdeBirosValidado || 0) + ' birô(s)', 'alerta', 'EnderecoValidado');
+      // 5. resultado e mensagens do MobFacil (reprovações, derivações e alertas, ex.: parcela acima do máximo)
+      if (!m) add('nc', 'Resultado do MobFacil', semMotor);
+      else {
+        const msgs = (m.motivos || []).filter(x => !/^Pendente: Aguarde/i.test(x));
+        const l = anLetra(m.statusFinal);
+        add(l === 'A' && !msgs.some(x => /alerta|derivar|reprovar/i.test(x)) ? 'ok' : l === 'R' ? 'erro' : 'alerta', 'Resultado do MobFacil',
+          (m.statusFinal || 'sem status') + (msgs.length ? ' · ' + msgs.join(' · ') : ''));
+      }
+      // 6. itens da análise da proposta no ER (biometria, idade, MobFacil, registros internos...)
+      if (ctx.itensErro) add('nc', 'Itens da análise da proposta (ER)', 'não deu para ler (' + ctx.itensErro + ')');
+      else if (!(ctx.itens || []).length) add('nc', 'Itens da análise da proposta (ER)', 'a proposta não tem itens de análise');
+      else ctx.itens.forEach(x => add(/aprovad/i.test(x.sit) ? 'ok' : /reprovad/i.test(x.sit) ? 'erro' : 'alerta', 'Análise ER: ' + x.nome,
+        x.sit + (x.parecer ? ' · ' + (x.parecer.length > 220 ? x.parecer.slice(0, 220) + '…' : x.parecer) : '')));
+      // 7. KYC da BMP
+      add(ctx.kyc.st, 'Impeditivo da BMP (KYC)', ctx.kyc.det);
+      return L;
+    }
+    function anMostrar(id, pag, motor, dataProp, lista) {
+      const d1 = (motor && motor.p1 && motor.p1.dados) || {}, d2 = (motor && motor.p2 && motor.p2.dados) || {};
+      const cpf = d2.PROP_CPF || d1.PROP_CPF || '';
+      const cab = [['Proposta', id], ['Cliente', d2.PROP_NOME || d1.PROP_NOME || NA], ['CPF', cpf ? cacCpfFmt(cpf) : NA], ['Data', dataProp || NA],
+        ['Situação no ER', pag.sit || NA], ['Digitador', pag.dig || NA], ['Valor da compra', pag.compra || NA]];
+      const c = { ok: 0, erro: 0, alerta: 0, nc: 0 };
+      lista.forEach(x => { c[x.st]++; });
+      const extras = [c.alerta ? c.alerta + ' alerta(s)' : '', c.nc ? c.nc + ' não confirmada(s)' : ''].filter(Boolean).join(' e ');
+      const ver = c.erro ? '❌ ' + c.erro + ' problema(s): fora da política ou com divergência' + (extras ? ' (e ' + extras + ')' : '')
+        : extras ? '⚠️ Nenhum problema encontrado, mas há ' + extras + ': confira à mão antes de dar como certo'
+        : '✅ Tudo certo: as ' + lista.length + ' conferências passaram';
+      const ord = [...lista].sort((a, b) => AN_ORDEM[a.st] - AN_ORDEM[b.st]);
+      $('#mf-an-cab').innerHTML = cab.map(([k, v]) => '<div><b>' + esc(k) + ':</b> ' + esc(v) + '</div>').join('');
+      $('#mf-an-veredito').textContent = ver;
+      $('#mf-an-lista').innerHTML = ord.map(x => '<div class="mf-an-item mf-an-' + x.st + '"><span>' + AN_ICONE[x.st] + '</span><div><b>' + esc(x.item) +
+        '</b><br><span class="mf-an-det">' + esc(x.det) + '</span></div></div>').join('');
+      $('#mf-an-res').style.display = '';
+      anTexto = ['*ANÁLISE DA PROPOSTA ' + id + '*', '', ...cab.map(([k, v]) => k + ': ' + v), '', ver, '',
+        ...ord.map(x => AN_ICONE[x.st] + ' ' + x.item + ': ' + x.det)].join('\n');
+    }
+    async function anAnalisar() {
+      if (anRodando) return;
+      const id = String($('#mf-an-id').value || '').replace(/\D/g, '');
+      if (!id) return anStatus('Digite o número da proposta.');
+      const base = anBase();
+      if (!base) return anStatus('Abra o ER (com o sistema carregado) para analisar.');
+      const caiu = () => anStatus('A sessão do ER expirou: entre de novo e analise outra vez.');
+      anRodando = true; $('#mf-an-ir').disabled = true; $('#mf-an-res').style.display = 'none'; anTexto = '';
+      try {
+        anStatus('Lendo a proposta ' + id + ' no ER...');
+        const pag = await anLerPagina(base, id);
+        if (pag.erro === SESSAO_EXPIRADA) return caiu();
+        anStatus('Lendo a análise da proposta...');
+        const an = await itensAnalise(base, id);
+        if (an.erro === SESSAO_EXPIRADA) return caiu();
+        anStatus('Lendo o resultado do MobFacil (até ' + CONFIG.AN_ESPERA + ' s)...');
+        const mt = await anLerMotor(base, id);
+        if (mt.erro === SESSAO_EXPIRADA) return caiu();
+        const p1 = mt.motor && mt.motor.p1, p2 = mt.motor && mt.motor.p2;
+        const dataProp = (p1 && p1.data) || (p2 && p2.data) || pag.data || '';
+        anStatus('Procurando impeditivo da BMP na Fila de Propostas...');
+        const kyc = await anKyc(id, dataProp, pag.sit);
+        anMostrar(id, pag.erro ? {} : pag, mt.motor, dataProp, anConferir({ itens: an.itens, itensErro: an.erro, motor: mt.motor, motorErro: mt.erro, kyc }));
+        anStatus(pag.erro ? 'Atenção: a página da proposta não abriu (' + pag.erro + '); situação, digitador e valor ficaram N/A.' : '');
+      } catch (e) {
+        anStatus('A análise parou com erro: ' + ((e && e.message) || e) + '. Nada foi alterado; tente de novo.');
+      } finally { anRodando = false; $('#mf-an-ir').disabled = false; }
+    }
+    $('#mf-an-ir').addEventListener('click', () => anAnalisar());
+    $('#mf-an-id').addEventListener('keydown', e => { if (e.key === 'Enter') anAnalisar(); });
+    $('#mf-an-copiar').addEventListener('click', () => {
+      if (!anTexto) return msg('Analise uma proposta primeiro.');
+      GM_setClipboard(anTexto, 'text');
+      msg('Análise da proposta copiada.');
+    });
+
     /* ---- Gerador: frases de uma linha para a planilha (colunas "Pedido do cliente" e "Acordo Realizado") ----
        "fechou" = acordo fechado; "solicitou" = simulação para ver se é viável. Só usa o que foi digitado. */
     function ngFrases(tipo) {
@@ -6737,7 +7036,7 @@
        A organização das abas é a mesma nas duas aparências (v12): Atendimento · Histórico · Agenda (Lembretes | Timers)
        · Relatórios · Mais ▾ (Consulta CAC, CCBs, Contas, Configurações). As páginas e botões de aba são os mesmos de
        sempre (nada duplicado). A aparência só muda o visual: data-ui="nova" (CSS escopado, ⓘ, chip da conta) ou "antiga". */
-    const UI_MAIS = [['cac', 'Consulta CAC'], ['ccb', 'CCBs'], ['cta', 'Contas'], ['cfg', 'Configurações']];
+    const UI_MAIS = [['ana', 'Analisar proposta'], ['cac', 'Consulta CAC'], ['ccb', 'CCBs'], ['cta', 'Contas'], ['cfg', 'Configurações']];
     const uiAtual = () => painel.dataset.ui;
     // menu "Mais ▾" e o botão "Agenda" (Pagamentos | Timers)
     const abas = $('.mf-abas');
@@ -6797,7 +7096,7 @@
       const a = GM_getValue('abaPainel', 'neg');
       btAgenda.classList.toggle('ativa', a === 'lem' || a === 'tim');
       btMais.classList.toggle('ativa', UI_MAIS.some(([x]) => x === a));
-      btMais.textContent = ({ cac: 'CAC', ccb: 'CCBs', cta: 'Contas', cfg: 'Config.' }[a] || 'Mais') + ' ▾';   // curto: cabe na linha das abas
+      btMais.textContent = ({ ana: 'Analisar', cac: 'CAC', ccb: 'CCBs', cta: 'Contas', cfg: 'Config.' }[a] || 'Mais') + ' ▾';   // curto: cabe na linha das abas
       btMais.title = (UI_MAIS.find(([x]) => x === a) || [, 'Mais opções'])[1];
       menu.querySelectorAll('button').forEach(b => b.classList.toggle('ativa', b.dataset.vai === a));
       const n = ['#mf-lb-badge', '#mf-tm-badge'].reduce((s, sel) => s + ($(sel).style.display === 'none' ? 0 : +$(sel).textContent || 0), 0);
