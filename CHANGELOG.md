@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.42.0] — 2026-11-25
+
+### ✨ Novas funcionalidades
+
+- feat: análise de propostas em massa e conferência da decisão do MobFacil (#158) (befd7be)
+
 ## [v13.41.0] — 2026-11-25
 
 ### ✨ Novas funcionalidades
