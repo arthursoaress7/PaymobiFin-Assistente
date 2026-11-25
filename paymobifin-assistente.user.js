@@ -5757,7 +5757,8 @@
          3. CAC pelo CPF, como cacAbrir sem a Posição Geral: CentralPesquisaCliente, BuscaCartao (abre protocolo, ver P4.12),
             CentralCompras e DetalheCompra -> parcelas do contrato mais atrasado
        Vencimento = parcela vencida mais antiga não paga; término = vencimento da última parcela;
-       valor = soma das parcelas vencidas e não pagas pelo valor ORIGINAL da parcela (sem juros, encargos nem multa).
+       valor = soma das parcelas em aberto (vencidas + a vencer) pelo valor ORIGINAL da parcela, sem juros, encargos nem
+       multa; parcelas pagas (liquidadas, saldo zero) ficam de fora.
        A lista fica só em memória (pfLista): nada é gravado no armazenamento do script, em log ou no Pusher. */
     const PF_NATUREZA_PADRAO = 'CB - CDC BENS';
     const PF_CAMPOS = [
@@ -5805,13 +5806,16 @@
       return c;
     }
 
-    // parcelas do CAC -> vencimento mais antigo, término e valor (centavos) = soma do valor original das parcelas vencidas
-    // e não pagas (sem juros); "hoje" (AAAA-MM-DD) só registra a data da consulta
+    // parcelas do CAC -> vencimento mais antigo, término e valor (centavos) = soma do valor original de todas as parcelas
+    // em aberto (vencidas + a vencer), sem juros; pagas ficam de fora. "hoje" (AAAA-MM-DD) só registra a data da consulta
     function pfDivida(parcelas, hoje) {
-      const vencidas = parcelas.filter(p => p.venc && p.dias > 0 && (p.saldo == null || p.saldo > 0));
+      const aberta = p => (p.saldo == null ? !/liquid/i.test(p.situacao) : p.saldo > 0);
+      const emAberto = parcelas.filter(aberta);
+      const vencidas = emAberto.filter(p => p.venc && p.dias > 0);
       const vencs = parcelas.map(p => p.venc).filter(Boolean).sort();
-      const valor = vencidas.reduce((s, p) => s + (p.valor != null ? p.valor : (p.saldo || 0)), 0);
-      return { vencimento: vencidas.map(p => p.venc).sort()[0] || '', termino: vencs[vencs.length - 1] || '', valor, qtd: vencidas.length, calculadoEm: hoje };
+      const valor = emAberto.reduce((s, p) => s + (p.valor != null ? p.valor : (p.saldo || 0)), 0);
+      return { vencimento: vencidas.map(p => p.venc).sort()[0] || '', termino: vencs[vencs.length - 1] || '', valor,
+        qtd: vencidas.length, aVencer: emAberto.length - vencidas.length, calculadoEm: hoje };
     }
 
     // valor de um campo: para leitura (formatado) ou no formato do arquivo
@@ -5901,8 +5905,8 @@
         doc: cpf, nome: cad.nome || nomesMesa[0] || '', nascimento: pfIsoDeBR(cad.nascimento), cep: cad.cep, logradouro: cad.logradouro,
         numero: cad.numero, complemento: cad.complemento, bairro: cad.bairro, cidade: cad.cidade, uf: cad.uf,
         natureza: $('#mf-pf-natureza').value.trim() || PF_NATUREZA_PADRAO,
-        vencimento: div ? div.vencimento : '', termino: div ? div.termino : '', valor: div && div.qtd ? div.valor : null,
-        qtdVencidas: div ? div.qtd : 0, calculadoEm: hoje,
+        vencimento: div ? div.vencimento : '', termino: div ? div.termino : '', valor: div && div.valor ? div.valor : null,
+        qtdVencidas: div ? div.qtd : 0, qtdAVencer: div ? div.aVencer : 0, calculadoEm: hoje,
         proposta: prop.proposta, situacao: prop.situacao, contrato: cac.contrato || '', avisos,
       } };
     }
@@ -5949,11 +5953,11 @@
           const l = document.createElement('div'); l.className = 'mf-cac-lin';
           const a = document.createElement('span'); a.textContent = r;
           const b = document.createElement('b'); b.textContent = pfValor(it, k) || '—';
-          if (k === 'valor' && it.valor != null) b.title = it.qtdVencidas + ' parcela(s) vencida(s) e não paga(s), pelo valor original da parcela (sem juros)';
+          if (k === 'valor' && it.valor != null) b.title = it.qtdVencidas + ' vencida(s) + ' + it.qtdAVencer + ' a vencer, pelo valor original da parcela (sem juros; pagas ficam de fora)';
           l.append(a, b); card.appendChild(l);
         });
         const info = document.createElement('div'); info.className = 'mf-info'; info.style.marginTop = '4px';
-        info.textContent = 'Proposta ' + it.proposta + (it.situacao ? ' (' + it.situacao.replace(/^\d+\s*-\s*/, '') + ')' : '') + (it.contrato ? ' · contrato CAC ' + it.contrato : '') + ' · ' + it.qtdVencidas + ' parcela(s) vencida(s) · consultado em ' + ngData(it.calculadoEm);
+        info.textContent = 'Proposta ' + it.proposta + (it.situacao ? ' (' + it.situacao.replace(/^\d+\s*-\s*/, '') + ')' : '') + (it.contrato ? ' · contrato CAC ' + it.contrato : '') + ' · em aberto: ' + it.qtdVencidas + ' vencida(s) + ' + it.qtdAVencer + ' a vencer · consultado em ' + ngData(it.calculadoEm);
         card.appendChild(info);
         it.avisos.forEach(t => { const w = document.createElement('div'); w.className = 'mf-info'; w.style.color = '#b45309'; w.textContent = '⚠ ' + t; card.appendChild(w); });
         const bt = document.createElement('div'); bt.className = 'mf-linha'; bt.style.cssText = 'gap:6px;margin-top:6px';

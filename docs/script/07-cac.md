@@ -118,7 +118,7 @@ Seção **Negativação PEFIN** abaixo do resultado do CAC. Monta a lista de cli
 | Natureza da dívida | Campo da seção, padrão `CB - CDC BENS` (vale para a lista inteira; não é gravado) |
 | Data de vencimento | CAC: vencimento da parcela vencida **mais antiga** com saldo em aberto (dias de atraso > 0) |
 | Data de término do contrato | CAC: vencimento da **última** parcela do contrato |
-| Valor total da dívida | CAC: soma das parcelas vencidas e não pagas pelo **valor original da parcela**, sem juros, encargos nem multa (decisão de 25/11/2026). Parcela paga em parte entra pelo valor original |
+| Valor total da dívida | CAC: soma de **todas as parcelas em aberto (vencidas + a vencer)** pelo **valor original da parcela**, sem juros, encargos nem multa. Parcelas pagas (liquidadas ou com saldo zero) ficam de fora; parcela paga em parte entra pelo valor original (decisões de 25/11/2026) |
 
 **CAC (`pfCac`):** as mesmas requisições do `cacAbrir`, sem a Posição Geral: `CentralPesquisaCliente` pelo CPF, `BuscaCartao`, `CentralCompras` e `DetalheCompra` (até 3 produtos e 5 contratos; só contratos do mesmo CPF). Com vários contratos, usa o mais atrasado e avisa os outros. **Cada cliente abre um protocolo de atendimento no ER** (`BuscaCartao`, ver P4.12). Se o CAC pedir a confirmação de identidade, o cliente fica sem os dados da dívida.
 
