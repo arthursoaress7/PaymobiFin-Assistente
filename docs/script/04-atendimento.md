@@ -103,7 +103,7 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 
 | Modalidade | Linhas sugeridas |
 |---|---|
-| Renegociação (`entrada`) | Mensagem do grupo no formato da equipe (19/11/2026): título no padrão do Fôlego, `*RENEGOCIAÇÃO — {{operacao_maiusc}}*` (ex.: `*RENEGOCIAÇÃO — ACORDO SOLICITADO*`), cliente/CPF, parcela atual e abrangência, o pedido do cliente ("Cliente solicitou pagamento todo dia X e parcelas de R$ Y" — campos `dia_solicitado` e `valor_solicitado`), a entrada (opcional: some se vazia; data entre parênteses via `data_entrada_txt`), "Foram simuladas N parcelas de R$ Z." e "Vencimento: todo dia D". Obrigatórios: nome, quantidade e valor da parcela simulada |
+| Renegociação (`entrada`) | Mensagem do grupo no formato de 24/11/2026: título `*RENEGOCIAÇÃO — {{operacao_maiusc}}*`; dados do contrato (Nome, CPF, Proposta, Valor Parcela, Vencimento = `vencimento_contrato` "1ª a última", Parcelas em Atraso); "Cliente negociou o contrato:" (`acao_negociou`; com Resultado = solicitou / não concluída: "Cliente solicitou negociar o contrato:") + Entrada (opcional), Valor, Quantidade de parcelas e "Vencimento: Todo dia D". `vencimento_contrato` e `parcelas_atraso` vêm da CAC em "Aplicar cliente atual" (`periodoVenc`); na tela Renegociação, Valor da parcela e Parcelas em atraso aparecem no bloco da modalidade. Obrigatórios: nome, quantidade e valor da parcela negociada. Frases da planilha sem mudança |
 | PIX semanal / Automático | N pagamentos semanais (+ entrada se informada) |
 | Campanha do Fôlego | 2 linhas: valor agora + saldo restante |
 
