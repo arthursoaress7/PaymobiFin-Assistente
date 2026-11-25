@@ -2099,6 +2099,7 @@
             <details class="mf-grupo" id="mf-at-g-reneg" data-grupo="at-reneg" open><summary>Renegociação</summary>
               <div id="mf-at-reneg" class="mf-grade"></div>
               <div class="mf-tit" style="margin-top:10px">Plano de parcelas</div>
+              <div class="mf-info" style="margin-bottom:6px">Entrada, data da entrada, quantidade e valor das parcelas vêm do bloco Acordo. Aqui ficam só a periodicidade e o 1º vencimento; depois de montar, dá para ajustar cada linha.</div>
               <div id="mf-at-plano-cfg" class="mf-grade"></div>
               <button id="mf-at-plano-gerar" class="azul" style="width:100%;margin-top:6px">Montar parcelas</button>
               <div id="mf-at-plano" style="margin-top:6px"></div>
