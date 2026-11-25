@@ -89,9 +89,7 @@ docs/script/10-navegacao-busca.md
 docs/script/11-rd-encerramento.md
 docs/script/12-desbloqueios.md
 docs/script/13-rotas-er.md         ← rotas do ER e do motor usadas pelo script
-docs/script/14-analisar-proposta.md ← aba Analisar proposta (conferência de uma proposta)
 PRIORIDADES.md                      ← prioridades funcionais
-docs/BRANCHES-IMPLEMENTACOES-POSSIVEIS.md ← branches guardadas (plano de API etc.); não integrar nem apagar
 README.md
 .github/SETUP.md                    ← configurações para o proprietário
 ```

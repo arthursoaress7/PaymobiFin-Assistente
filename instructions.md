@@ -518,7 +518,6 @@ Documentar novas chaves aqui antes de usar. Renomear sem migração quebra dados
 | `docs/script/<módulo>.md` | Mudança de comportamento, nova função |
 | `docs/script/13-rotas-er.md` | Rota do ER ou do motor passa a ser usada, muda ou deixa de ser usada |
 | `PRIORIDADES.md` | Tarefa iniciada, concluída ou com decisão nova |
-| `docs/BRANCHES-IMPLEMENTACOES-POSSIVEIS.md` | Branch guardada como possível implementação, retomada, integrada ou apagada |
 | `CHANGELOG.md` | Gerado automaticamente no PR de release (`release-pr.yml`) |
 | `.github/SETUP.md` | Mudança nos workflows ou requisitos de configuração |
 | Locais de versão listados no item 12 | Sempre que o `@version` mudar (mesmo commit/PR) |
