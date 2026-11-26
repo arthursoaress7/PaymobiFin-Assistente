@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.45.0] — 2026-11-26
+
+### ✨ Novas funcionalidades
+
+- feat: opção do formato antigo no relatório de Reprovadas (#178) (75a7dd3)
+
 ## [v13.44.0] — 2026-11-26
 
 ### ✨ Novas funcionalidades
