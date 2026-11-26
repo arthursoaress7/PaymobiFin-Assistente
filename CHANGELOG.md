@@ -1,5 +1,15 @@
 # Changelog
 
+## [v13.47.0] — 2026-11-26
+
+### ✨ Novas funcionalidades
+
+- feat: Renegociação com os mesmos campos para o solicitado e o liberado pelo sistema (#190) (2d51410)
+
+### 🔧 Outros
+
+- chore: mantém as URLs de teste da development (185587a)
+
 ## [v13.46.1] — 2026-11-26
 
 ### 🐛 Correções
