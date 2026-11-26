@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.47.0
+// @version      13.48.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -31,7 +31,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.47.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.48.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -2076,6 +2076,7 @@
                 <option value="rep">Reprovadas</option>
                 <option value="efe">Efetivadas</option>
                 <option value="apr">Aprovadas (não efetivadas)</option>
+                <option value="man">Aprovadas manualmente (efetivadas e não efetivadas)</option>
               </select>
               <button id="mf-an-buscar" class="cinza" style="padding:8px 12px">Buscar na Fila</button>
             </div>
@@ -2097,6 +2098,7 @@
               <button id="mf-an-mplan" class="cinza">Copiar planilha</button>
             </div>
             <button id="mf-an-mconf" class="cinza" style="width:100%;margin-top:6px">Copiar conferência (formato da equipe)</button>
+            <button id="mf-an-mman" class="cinza" style="width:100%;margin-top:6px" title="Só as aprovadas manualmente: CPF, Nome Cliente, N° Proposta, Ponto Atendimento, Vendedor, DataInclusao, Analista, Motivo Derivação, Motivo Aprovação (colunas A a I, sem cabeçalho)">Copiar Excel (aprovadas manualmente)</button>
           </div>
         </div>
 
@@ -6709,12 +6711,129 @@
       if (c.nc) return { nivel: 'nc', txt: '❔ Sem problema encontrado, mas ' + c.nc + ' conferência(s) não confirmada(s)' };
       return { nivel: 'ok', txt: '✅ Tudo certo' };
     }
+    /* ---------- aprovação manual: histórico, motivo da derivação e motivo da aprovação ----------
+       Histórico (aba Histórico da Mesa): INCLUSAO* = inclusão; APROVADA = aprovada por um analista (manual); só
+       APROVADOR = aprovação automática; EFETIVACAO = efetivação. Usuário "ROBERTOTAS I ROBERTO MASTER" -> "ROBERTO MASTER". */
+    // "LOGIN I NOME" / "LOGIN E NOME" (o login pode ter espaço: "CAIO MESA E CAIO MESA" -> "CAIO MESA")
+    const anUsuario = s => { const x = String(s || '').match(/^(.+?)\s+[IE]\s+(.+)$/); return (x ? x[2] : String(s || '')).trim(); };
+    async function anHistorico(base, id) {
+      let html = '';
+      try { html = await (await fetch(base + '/MesaCredito/MesaAnaliseHistorico?lngProposta=' + encodeURIComponent(id), { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } })).text(); }
+      catch (_) { return { erro: 'o ER não respondeu (histórico)' }; }
+      if (erSemSessao(html)) return { erro: SESSAO_EXPIRADA };
+      const rows = [...new DOMParser().parseFromString(html, 'text/html').querySelectorAll('table tbody tr')].map(tr => [...tr.children].map(td => limpoTxt(td.textContent)));
+      const dt = r => (r && ((r[1] || '').match(/\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(:\d{2})?/) || [])[0]) || '';
+      const inc = rows.find(r => /^INCLUSAO/i.test(r[0]));
+      const man = rows.filter(r => /^APROVADA/i.test(r[0])).pop();
+      const aut = rows.filter(r => /^APROVADOR/i.test(r[0])).pop();
+      const efe = rows.filter(r => /^EFETIVA/i.test(r[0])).pop();
+      return { ok: rows.length > 0, inclusao: dt(inc), manual: !!man, aprovQuando: dt(man || aut), aprovPor: man ? anUsuario(man[2]) : aut ? 'Automática' : '', efetivacao: dt(efe) };
+    }
+    // ponto de atendimento como na Fila ("XPANSE NEGOCIOS LTDA - CAMPO LIMPO"), pela formalização da proposta
+    async function anPontoAtendimento(base, id) {
+      try {
+        const h = await (await fetch(base + '/FilaPropostas/DetalhePropostaFormalizacao?lngProposta=' + encodeURIComponent(id), { credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } })).text();
+        if (erSemSessao(h)) return { erro: SESSAO_EXPIRADA };
+        const v = acharRotulo(new DOMParser().parseFromString(h, 'text/html'), 'Ponto de Atendimento');
+        return { loja: v ? v.replace(/\s*\(\d+\)\s*$/, '').trim() : '' };
+      } catch (_) { return { loja: '' }; }
+    }
+    // motivos que levaram a proposta para a mesa/loja (mensagens "Derivar"/"Reprovar" do MobFacil), sem repetir P1/P2/reanálise
+    function anDerivacoes(m) {
+      if (!m) return [];
+      const todas = [].concat(m.motivos || [], (m.p1 && m.p1.motivos) || [], (m.p2 && m.p2.motivos) || []);
+      const out = [], vistos = new Set();
+      const par = c => (c.match(/\(([^)]*)\)/) || [])[1] || '';
+      todas.filter(x => /derivar|reprovar/i.test(x)).forEach(x => {
+        const c = x.replace(/^\s*\((?:P\d+|Rean[áa]lise)\)\s*/i, '').replace(/^(Derivar\s+(?:mesa|loja)|Reprovar)\s*[:\-–]\s*/i, '').trim();
+        let cat, txt;
+        if (/tipos de documento/i.test(c)) { cat = 'doc'; txt = 'Documentação: ' + (((c.match(/msg=([^)]+)/i) || [])[1]) || c).trim(); }
+        else if (/nome e cpf nos documentos/i.test(c)) { cat = 'doc'; txt = 'Documento: nome/CPF não conferidos no documento' + (par(c) ? ' (' + par(c) + ')' : ''); }
+        else if (/nome divergente/i.test(c)) { cat = 'nome'; const s = (c.match(/sim=([\d,.]+)/i) || [])[1]; txt = 'Nome divergente da Receita' + (s ? ' (similaridade ' + s + '%)' : ''); }
+        else if (/nascimento divergente/i.test(c)) { cat = 'nasc'; txt = 'Nascimento divergente da Receita' + (par(c) ? ' (' + par(c) + ')' : ''); }
+        else if (/faixa\s+\S+\s+acima/i.test(c)) {
+          cat = 'credito';
+          const f = c.match(/faixa\s+(\S+)/i), at = c.match(/atual\s*[:=]\s*R?\$?\s*([\d.,]+)\s*,\s*(\d+)/i);
+          txt = 'Crédito: faixa ' + (f ? f[1] : '?') + ' acima do limite do MobFacil' + (at ? ' (atual R$' + at[1] + ' e ' + at[2] + ')' : '');
+        }
+        else if (/ponto de corte/i.test(c)) { cat = 'credito'; txt = 'Score abaixo do ponto de corte'; }
+        else if (/imei|aparelho/i.test(c)) { cat = 'imei'; const i = (c.match(/imei=(\d+)/i) || [])[1]; txt = 'IMEI/modelo de aparelho não cadastrado no MobFacil' + (i ? ' (IMEI ' + i + ')' : ''); }
+        else { cat = 'outro'; txt = c.charAt(0).toUpperCase() + c.slice(1); }
+        const k = cat + '|' + txt.toLowerCase();
+        if (!vistos.has(k)) { vistos.add(k); out.push({ cat, txt }); }
+      });
+      return out;
+    }
+    // por que a mesa pôde aprovar: para cada motivo da derivação, o que a análise confirma (⚠️ = não resolvido / não confirmado)
+    //   documento: CPF e nome encontrados no conjunto dos documentos, facematch e biometria ok
+    //   nome / nascimento: o dado atual do ER bate com a Receita (corrigido depois do MobFacil)
+    //   crédito: dentro da política da equipe (CONFIG.FAIXAS), mesmo acima do limite do MobFacil (ex.: passagens, limite antigo)
+    //   IMEI/modelo: conferido à mão (planilha e site da Paymobi)
+    function anMotivoAprovacao(r) {
+      const der = r.derivacoes || [], cats = new Set(der.map(x => x.cat));
+      const m = r.motor;
+      if (!m) return '⚠️ Sem o resultado do MobFacil para conferir';
+      const p1 = m.p1, p2 = m.p2, r1 = (p1 && p1.regras) || {}, r2 = (p2 && p2.regras) || {};
+      const vc = r1.validacaoCadastral || r2.validacaoCadastral || {};
+      const cli = r.cliente && r.cliente.ok ? r.cliente : null;
+      const out = [];
+      if (cats.has('doc')) {
+        const docs = (r2.validaDocumentos || {}).ValidaDoc || [];
+        const face = anLetra((r2.validaFacematch || {}).Status), bio = anLetra((r2.validaBiometria || {}).Status);
+        // o que a mesa confere é o CPF no documento (com foto e biometria ok); o nome que o MobFacil não leu no documento
+        // não impede (ex.: 5491, cpf=True, nome=False). Sem o CPF em nenhum documento = pendência.
+        const cpfOk = docs.some(d => d.CpfEncontrado === 'Sim'), nomeOk = docs.some(d => d.NomeEncontrado === 'Sim');
+        const falta = [];
+        if (!docs.length) falta.push('sem a validação dos documentos');
+        else if (!cpfOk) falta.push('CPF não encontrado no documento');
+        if (face && face !== 'A') falta.push('facematch: ' + (r2.validaFacematch.Mensagem || r2.validaFacematch.Status));
+        if (bio && bio !== 'A') falta.push('biometria: ' + r2.validaBiometria.Status);
+        out.push(falta.length ? '⚠️ Documento com pendência: ' + falta.join(', ')
+          : 'Documento conferido: CPF confere no documento' + (nomeOk ? ', nome confere' : ' (o nome não foi lido pelo MobFacil)') +
+            (face === 'A' ? ', facematch ok' : '') + (bio === 'A' ? ', biometria ok' : ''));
+      }
+      if (cats.has('nome')) {
+        const vn = vc.ValidacaoNome || {}, nome = (cli && cli.nome) || vn.DadoProposta || '', a = anNomeNorm(nome), b = anNomeNorm(vn.DadoBiro);
+        // nome incompleto/abreviado: todas as palavras da proposta aparecem, na mesma ordem, no nome da Receita
+        // (ex.: 5508, "LOUISIANA CASTILHO" x "LOUISIANA CASTILHO REGO")
+        const pa = a.split(' '), pb = b.split(' ');
+        let k = 0; pb.forEach(w => { if (k < pa.length && w === pa[k]) k++; });
+        const faltam = k === pa.length && pb.length > pa.length ? pb.filter(w => !pa.includes(w)) : null;
+        out.push(!a || !b ? '⚠️ Nome: sem dados para conferir'
+          : a === b ? (anNomeNorm(vn.DadoProposta) !== a ? 'Nome corrigido no ER (igual à Receita)' : 'Nome igual à Receita (diferença só de espaço/acento)')
+          : a.length >= 30 && b.startsWith(a) ? 'Nome cortado na proposta (o resto confere com a Receita)'
+          : faltam ? 'Nome incompleto na proposta (falta ' + faltam.join(' ') + '; o resto confere com a Receita: ' + vn.DadoBiro + ')'
+          : '⚠️ Nome continua divergente da Receita (ER: ' + nome + ' · Receita: ' + vn.DadoBiro + ')');
+      }
+      if (cats.has('nasc')) {
+        const vd = vc.ValidacaoDataDeNascimento || {}, n = (cli && cli.nascimento) || vd.DadoProposta || '';
+        out.push(!n || !vd.DadoBiro ? '⚠️ Nascimento: sem dados para conferir'
+          : n === vd.DadoBiro ? (vd.DadoProposta && vd.DadoProposta !== n ? 'Nascimento corrigido no ER (igual à Receita)' : 'Nascimento igual à Receita')
+          : '⚠️ Nascimento continua divergente da Receita (ER: ' + n + ' · Receita: ' + vd.DadoBiro + ')');
+      }
+      if (cats.has('credito')) {
+        const nf = anNumeros(m), pol = anPolitica(nf);
+        const lim = nf.fx ? 'faixa ' + nf.fx.faixa + (nf.fx.valor != null ? ': até ' + anReais(nf.fx.valor) + ' e ' + nf.fx.qtd + '; atual ' + anReais(nf.v) + ' e ' + nf.q : ': reprova sempre') : '';
+        out.push(pol === 'dentro' ? 'Crédito dentro da política da equipe (' + lim + ')' : pol === 'fora' ? '⚠️ Crédito FORA da política da equipe (' + lim + ')' : '⚠️ Crédito: sem score/restrições para conferir');
+      }
+      if (cats.has('imei')) out.push('⚠️ IMEI/modelo não cadastrado no MobFacil: conferir na planilha e no site da Paymobi');
+      der.filter(x => x.cat === 'outro').forEach(x => out.push('⚠️ ' + x.txt + ': conferir'));
+      if (!der.length) out.push('Sem derivação do MobFacil: aprovada na mesa sem pendência apontada pelo motor');
+      return out.join(' / ');
+    }
     function anCabecalho(r) {
       const d1 = (r.motor && r.motor.p1 && r.motor.p1.dados) || {}, d2 = (r.motor && r.motor.p2 && r.motor.p2.dados) || {};
       const c = r.cliente && r.cliente.ok ? r.cliente : {};   // dados atuais do ER (aba Cliente) primeiro
       const cpf = c.cpf || d2.PROP_CPF || d1.PROP_CPF || '';
-      return [['Proposta', r.id], ['Cliente', c.nome || d2.PROP_NOME || d1.PROP_NOME || r.cliFila || NA], ['CPF', cpf ? cacCpfFmt(cpf) : NA], ['Data', r.dataProp || NA],
-        ['Situação no ER', r.pag.sit || r.sitFila || NA], ['Digitador', r.pag.dig || NA], ['Valor da compra', r.pag.compra || NA]];
+      const h = r.hist || {};
+      // as 7 primeiras posições são usadas pela massa/planilha (cliente = 1, CPF = 2, data = 3, situação = 4): novos itens vão no fim
+      const cab = [['Proposta', r.id], ['Cliente', c.nome || d2.PROP_NOME || d1.PROP_NOME || r.cliFila || NA], ['CPF', cpf ? cacCpfFmt(cpf) : NA], ['Data', r.dataProp || NA],
+        ['Situação no ER', r.pag.sit || r.sitFila || NA], ['Digitador', r.pag.dig || NA], ['Valor da compra', r.pag.compra || NA],
+        ['Ponto de atendimento', r.loja || NA], ['Inclusão', h.inclusao || NA],
+        ['Aprovação', h.manual ? 'manual: ' + (h.aprovPor || NA) + (h.aprovQuando ? ' em ' + h.aprovQuando : '') : h.aprovPor === 'Automática' ? 'automática' + (h.aprovQuando ? ' em ' + h.aprovQuando : '') : NA]];
+      if ((r.derivacoes || []).length) cab.push(['Motivo da derivação', r.derivacoes.map(x => x.txt).join(' / ')]);
+      if (h.manual) cab.push(['Motivo da aprovação', r.motivoAprov || NA]);
+      return cab;
     }
     const anItensHtml = lista => [...lista].sort((a, b) => AN_ORDEM[a.st] - AN_ORDEM[b.st]).map(x => '<div class="mf-an-item mf-an-' + x.st + '"><span>' + AN_ICONE[x.st] +
       '</span><div><b>' + esc(x.item) + '</b><br><span class="mf-an-det">' + esc(x.det) + '</span></div></div>').join('');
@@ -6736,9 +6855,9 @@
       avisar('lendo a análise da proposta');
       const an = await itensAnalise(base, id);
       if (an.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
-      avisar('lendo os dados atuais do cliente no ER');
-      const cliente = await dadosCliente(base, id);   // nome, CPF e nascimento como estão AGORA (podem ter sido corrigidos)
-      if (cliente.motivo === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
+      avisar('lendo os dados atuais do cliente, o histórico e o ponto de atendimento no ER');
+      const [cliente, hist, pa] = await Promise.all([dadosCliente(base, id), anHistorico(base, id), anPontoAtendimento(base, id)]);   // nome, CPF e nascimento como estão AGORA
+      if (cliente.motivo === SESSAO_EXPIRADA || hist.erro === SESSAO_EXPIRADA || pa.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
       avisar('lendo o resultado do MobFacil (até ' + CONFIG.AN_ESPERA + ' s)');
       const mt = await anLerMotor(base, id);
       if (mt.erro === SESSAO_EXPIRADA) return { id, erro: SESSAO_EXPIRADA };
@@ -6747,7 +6866,10 @@
       avisar('procurando impeditivo da BMP na Fila');
       const kyc = await anKyc(id, dataProp, pag.sit, filas);
       const lista = anConferir({ itens: an.itens, itensErro: an.erro, motor: mt.motor, motorErro: mt.erro, kyc, cliente });
-      return { id, pag: pag.erro ? {} : pag, pagErro: pag.erro || '', motor: mt.motor || null, motorErro: mt.erro || '', dataProp, lista, cliente };
+      const r = { id, pag: pag.erro ? {} : pag, pagErro: pag.erro || '', motor: mt.motor || null, motorErro: mt.erro || '', dataProp, lista, cliente,
+        hist: hist.erro ? {} : hist, loja: pa.loja || '', derivacoes: anDerivacoes(mt.motor) };
+      if (r.hist.manual) r.motivoAprov = anMotivoAprovacao(r);
+      return r;
     }
     async function anAnalisar() {
       if (anRodando) return;
@@ -6780,7 +6902,7 @@
        (Intervalo: 552 a 674)"). Os resultados ficam só nesta aba (memória). */
     let anMassa = [], anParar = false;
     const anMStatus = t => { $('#mf-an-mst').textContent = t || ''; };
-    const AN_TIPOS = { rep: 'Reprovadas', efe: 'Efetivadas', apr: 'Aprovadas (não efetivadas)', todas: 'Reprovadas, efetivadas e aprovadas' };
+    const AN_TIPOS = { rep: 'Reprovadas', efe: 'Efetivadas', apr: 'Aprovadas (não efetivadas)', man: 'Aprovadas manualmente', todas: 'Reprovadas, efetivadas e aprovadas' };
     // linhas da Fila de Propostas no período (data de inclusão): { id, sit, cli }. Mais de 500 no período: lê dia a dia
     async function anFila(iniIso, fimIso) {
       const ler = async (ini, fim) => {
@@ -6818,7 +6940,18 @@
       anMStatus('Lendo a Fila de Propostas de ' + ibIsoBr(ini) + ' a ' + ibIsoBr(fim) + '...');
       const f = await anFila(ini, fim);
       if (f.erro) return anMStatus(f.erro === SESSAO_EXPIRADA ? 'A sessão do ER expirou: entre de novo.' : 'Não deu para ler a Fila: ' + f.erro + '.');
-      const sel = f.linhas.filter(l => { const t = anTipo(l.sit); return tipo === 'todas' ? t !== 'outra' : t === tipo; });
+      let sel = f.linhas.filter(l => { const t = anTipo(l.sit); return tipo === 'todas' ? t !== 'outra' : tipo === 'man' ? t === 'efe' || t === 'apr' : t === tipo; });
+      // aprovadas manualmente: a situação da Fila não diz quem aprovou (a efetivada perde o "APROV MAN"): confere no histórico
+      if (tipo === 'man') {
+        const base = anBase(), man = [];
+        for (let i = 0; i < sel.length; i += 6) {
+          anMStatus('Conferindo no histórico quais foram aprovadas por um analista (' + Math.min(i + 6, sel.length) + ' de ' + sel.length + ')...');
+          const parte = sel.slice(i, i + 6), hs = await Promise.all(parte.map(l => anHistorico(base, l.id)));
+          if (hs.some(h => h.erro === SESSAO_EXPIRADA)) return anMStatus('A sessão do ER expirou: entre de novo.');
+          parte.forEach((l, k) => { if (hs[k].manual) man.push(l); });
+        }
+        sel = man;
+      }
       anMassaFila = Object.fromEntries(sel.map(l => [l.id, l]));
       $('#mf-an-ids').value = sel.map(l => l.id).join('\n');
       anMStatus(sel.length + ' proposta(s) ' + AN_TIPOS[tipo].toLowerCase() + ' no período (de ' + f.linhas.length + ' na Fila). Clique em "Analisar todas".');
@@ -6865,7 +6998,8 @@
       const ord = [...anMassa].sort((a, b) => AN_NIVEL[a.conf.nivel] - AN_NIVEL[b.conf.nivel] || Number(a.id) - Number(b.id));
       $('#mf-an-mlista').innerHTML = ord.map(r => {
         const cab = anCabecalho(r), nome = cab[1][1], sit = cab[4][1], nf = anNumeros(r.motor);
-        const num = nf.fx ? ' · score ' + nf.sc + ' (' + nf.fx.faixa + ')' + (nf.v != null ? ' · ' + anReais(nf.v) + ' / ' + nf.q : '') : '';
+        const num = (nf.fx ? ' · score ' + nf.sc + ' (' + nf.fx.faixa + ')' + (nf.v != null ? ' · ' + anReais(nf.v) + ' / ' + nf.q : '') : '') +
+          (r.hist && r.hist.manual ? ' · aprovada por ' + (r.hist.aprovPor || NA) : '');
         return '<details class="mf-an-massa"><summary><b>' + esc(r.id) + '</b> ' + esc(nome) + ' · ' + esc(sit) + esc(num) + '<br>' + esc(r.conf.txt) + '</summary>' +
           (r.lista.length ? anItensHtml(r.lista) : '') + '</details>';
       }).join('');
@@ -6911,6 +7045,23 @@
     $('#mf-an-mcopiar').addEventListener('click', anCopiarMassa(anMassaTexto, 'Resumo'));
     $('#mf-an-mplan').addEventListener('click', anCopiarMassa(anMassaPlanilha, 'Planilha (cole na célula A1)'));
     $('#mf-an-mconf').addEventListener('click', anCopiarMassa(anMassaConferencia, 'Conferência no formato da equipe'));
+    // Excel das aprovadas manualmente (colunas A a I, sem cabeçalho): CPF, Nome Cliente, N° Proposta, Ponto Atendimento,
+    // Vendedor, DataInclusao, Analista, Motivo Derivação, Motivo Aprovação
+    function anMassaExcelManual() {
+      const cel = t => String(t == null || t === '' ? NA : t).replace(/[\t\r\n]+/g, ' ');
+      return anMassa.filter(r => r.hist && r.hist.manual).sort((a, b) => Number(a.id) - Number(b.id)).map(r => {
+        const cab = anCabecalho(r);
+        return [cab[2][1], cab[1][1], r.id, r.loja, r.pag.dig, r.hist.inclusao, r.hist.aprovPor,
+          (r.derivacoes || []).map(x => x.txt).join(' / ') || 'Sem derivação do MobFacil', r.motivoAprov].map(cel).join('\t');
+      }).join('\n');
+    }
+    $('#mf-an-mman').addEventListener('click', () => {
+      if (!anMassa.length) return msg('Analise as propostas primeiro.');
+      const n = anMassa.filter(r => r.hist && r.hist.manual).length;
+      if (!n) return msg('Nenhuma das propostas analisadas foi aprovada manualmente (APROVADA no histórico).');
+      GM_setClipboard(anMassaExcelManual(), 'text');
+      msg('Excel das aprovadas manualmente copiado (' + n + ' de ' + anMassa.length + ' analisadas). Cole na coluna A, na primeira linha vazia.');
+    });
 
     /* ---- Gerador: frases de uma linha para a planilha (colunas "Pedido do cliente" e "Acordo Realizado") ----
        "fechou" = acordo fechado; "solicitou" = simulação para ver se é viável. Só usa o que foi digitado. */
