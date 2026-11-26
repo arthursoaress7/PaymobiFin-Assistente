@@ -8,9 +8,10 @@
 ## Como o fluxo funciona
 
 ```
-branch de tarefa → PR → development     validação + merge automático (Categoria A)
-development → PR de release → main       aberto/atualizado sozinho; merge manual (um clique)
+branch de tarefa → PR → development     validação + merge automático (Categoria A) — ambiente de teste
+development → PR de release → main       aberto/atualizado sozinho; merge manual (um clique); único caminho para a main
 main → tag + release                     automático; depois a main volta para a development sozinha
+                                         (branch chore/sync-main-*, mantendo as URLs de teste da development)
 ```
 
 Os passos abaixo fazem esse fluxo funcionar de ponta a ponta.

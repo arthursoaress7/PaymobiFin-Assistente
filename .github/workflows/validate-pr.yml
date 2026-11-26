@@ -3,7 +3,9 @@ name: Validate PR
 # Valida todo PR para main, development e feature/*. Em PRs rotineiros (Categoria A)
 # para development ou feature/*, faz o merge automático depois que a validação passa.
 #
-# - PR para a main: só de development, release/proxima ou hotfix/*. Nunca tem merge automático.
+# - PR para a main: só o PR de release (release/proxima). Nunca tem merge automático.
+# - URLs de atualização: PR para a main exige as da main (produção); PR para development ou
+#   feature/** exige as da development (ambiente de teste).
 # - Categoria B (workflows, scripts de CI, package.json, arquivo-ponte): a validação passa,
 #   mas o merge automático não acontece — o responsável integra manualmente.
 # - Rótulo "sem-auto-merge" no PR: desliga o merge automático daquele PR.
@@ -98,10 +100,10 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           case "$HEAD_REF" in
-            development|release/proxima|hotfix/*) echo "✅ Origem permitida para a main: $HEAD_REF" ;;
+            release/proxima) echo "✅ Origem permitida para a main: $HEAD_REF" ;;
             *)
-              echo "❌ PR para a main só a partir de development, release/proxima ou hotfix/*. Origem: $HEAD_REF"
-              echo "Abra o PR para a development (ou feature/*); a main recebe pelo PR de release."
+              echo "❌ A main só recebe o PR de release (release/proxima). Origem: $HEAD_REF"
+              echo "Abra o PR para a development (ambiente de teste); a main recebe pelo PR de release."
               exit 1 ;;
           esac
 
@@ -117,6 +119,8 @@ jobs:
       # 6. Integridade do script
       - name: Lint do script
         if: contains(steps.changed.outputs.files, 'paymobifin-assistente.user.js')
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
         run: |
           FILE="paymobifin-assistente.user.js"
 
@@ -124,15 +128,17 @@ jobs:
           if [ -z "$VERSION" ]; then echo "❌ @version não encontrado."; exit 1; fi
           echo "✅ @version: $VERSION"
 
-          URL_OFICIAL="https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/main/$FILE"
+          # main = produção; development e feature/** = ambiente de teste (development)
+          if [ "$BASE" = "main" ]; then AMBIENTE=main; else AMBIENTE=development; fi
+          URL_OFICIAL="https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/$AMBIENTE/$FILE"
           URLS=$(awk '$2 ~ /^@(downloadURL|updateURL)$/ { print $2 " " $3 }' "$FILE")
           QTD_OK=$(echo "$URLS" | awk -v u="$URL_OFICIAL" '$2 == u' | wc -l)
           if [ "$QTD_OK" -ne 2 ] || [ "$(echo "$URLS" | wc -l)" -ne 2 ]; then
-            echo "❌ @downloadURL ou @updateURL fora do endereço oficial (Categoria B)."
+            echo "❌ @downloadURL ou @updateURL fora do endereço esperado para a $BASE ($URL_OFICIAL)."
             echo "$URLS"
             exit 1
           fi
-          echo "✅ @downloadURL e @updateURL no endereço oficial."
+          echo "✅ @downloadURL e @updateURL apontando para a $AMBIENTE."
 
           grep -q "'use strict'" "$FILE" || { echo "❌ 'use strict' não encontrado."; exit 1; }
           grep -qP '^\(function \(\)' "$FILE" || { echo "❌ IIFE não encontrada."; exit 1; }
@@ -199,9 +205,12 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REPO: ${{ github.repository }}
         run: |
-          # sincronização main -> development: merge commit (mantém o histórico da main);
-          # tarefas: squash (um commit por PR)
-          if [ "$HEAD_REF" = "main" ]; then METODO=--merge; else METODO=--squash; fi
+          # sincronização main -> development (chore/sync-main-*): merge commit (mantém o
+          # histórico da main); tarefas: squash (um commit por PR)
+          case "$HEAD_REF" in
+            main|chore/sync-main-*) METODO=--merge ;;
+            *) METODO=--squash ;;
+          esac
           if gh pr merge "$PR" --repo "$REPO" $METODO --auto 2>/tmp/erro.txt; then
             echo "✅ Merge automático ativado no PR #$PR ($METODO)."
           else
