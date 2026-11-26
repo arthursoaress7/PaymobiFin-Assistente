@@ -1,5 +1,15 @@
 # Changelog
 
+## [v13.48.0] — 2026-11-26
+
+### ✨ Novas funcionalidades
+
+- feat: análise das aprovadas manualmente e cópia do Excel A-I (#193) (a3fa43b)
+
+### 🔧 Outros
+
+- chore: mantém as URLs de teste da development (b3d2e1a)
+
 ## [v13.47.0] — 2026-11-26
 
 ### ✨ Novas funcionalidades
