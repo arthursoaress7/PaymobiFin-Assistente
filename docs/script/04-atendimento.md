@@ -1,7 +1,7 @@
 # Módulo: Atendimento (Negociação e Renegociação)
 
-**Linhas:** 5537 – 5900  
-**Gerador de textos:** 4092 – 4590 (modelos, campos, `ngValor`, `ngMontar`); `ngFrases` logo antes do Atendimento  
+**Linhas:** 6920 – 7407  
+**Gerador de textos:** 4553 – 5057 (modelos, campos, `ngValor`, `ngMontar`); `ngFrases` logo antes do Atendimento  
 **Funções principais:** `atDesenhar()`, `atLinhas()`, `atMontarPlano()`, `ngGerarTextos()`, `ngFrases()`
 
 ---
@@ -60,6 +60,8 @@ Definidas em `NG_MODALIDADES`. Cada modalidade tem campos próprios, obrigatóri
 
 **Campanha do Fôlego — formato da mensagem (aprovado pela gestora, 17/11/2026):** título `*CAMPANHA DO FÔLEGO*` (negrito no WhatsApp); Cliente, CPF, Parcela(s) negociada(s), Valor Original da Parcela, Vencimento; "Cliente pagou parcialmente R$ X (data)."; "Valor total com juros"; dia e valor do restante. Campos da modalidade: `parcela_negociada` (digita-se o número: "3" sai "3° parcela", "8, 9 e 10" sai "8°, 9° e 10° parcelas"), `vencimento` ("Vencimento da parcela negociada"), valor/data do pagamento parcial e valor/dia do restante; Cliente, CPF e Valor original vêm dos blocos fixos (na Renegociação, que esconde o bloco Cobrança, o "Valor original da parcela" aparece na própria modalidade). Campo `valor_total_juros` ("Valor total com juros", obrigatório): o **valor do restante é calculado** = total com juros − valor pago parcialmente (`saldo: 'valor_total_juros'` em `ngSaldoHook`; fica só leitura enquanto os dois estão preenchidos; pagamento maior que o total dá erro). (Atualizado em 19/11/2026.)
 
+**Ida automática para o histórico (26/11/2026):** na Renegociação, Campanha do Fôlego com Resultado "fechou" vai sozinha para o histórico ao copiar a mensagem do grupo ou a linha da planilha (acordo em aberto; concluído depois na aba Histórico com "Cliente cumpriu"). Ver `05-historico.md`.
+
 **Quebra de acordo (opcional):** o checkbox **"Houve quebra de acordo"** (`quebra_acordo`, depois de "Dia do pagamento do restante", desmarcado por padrão) libera os campos do pagamento anterior (`valor_pago_anterior`, `data_pago_anterior`) e acrescenta à mensagem ", após quebra de acordo" e a linha "Anteriormente o cliente pagou R$ X (data) sobre o valor da parcela." Desmarcado, os campos ficam ocultos e não entram no texto mesmo que tenham sido preenchidos.
 
 **Trecho opcional nos modelos:** `{{?variavel}}` some quando vazio sem tirar a linha (ex.: `{{?quebra_acordo_txt}}`). `{{variavel}}` sem `?` continua tirando a linha quando vazio.
@@ -87,7 +89,7 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 
 ## Plano de parcelas (Renegociação)
 
-**Fonte única (26/11/2026):** a entrada, a data da entrada, a quantidade e o valor das parcelas do plano vêm sempre do bloco **Acordo**. `atPlanoCampos` copia esses valores para `plano_entrada_valor`, `plano_entrada_data`, `plano_qtd` e `plano_valor`, que não aparecem mais na tela (`AT_PLANO_TELA`). No bloco Renegociação ficam só a **Periodicidade** e o **1º vencimento das parcelas**, sugerido pela Data renegociação e pelo Dia de vencimento; o que for digitado à mão nesses dois fica. Para mudar uma parcela específica, edite a linha na tabela depois de "Montar parcelas". Sem quantidade ou valor, a mensagem aponta os campos do bloco Acordo.
+**Fonte única (26/11/2026):** a entrada, a data da entrada, a quantidade e o valor das parcelas do plano vêm sempre do bloco **Acordo**. Na Renegociação (`entrada`) vêm das **Condições aceitas** (vazia = solicitada): com a Data 1ª parcela, a 1ª linha é a entrada (valor da parcela, nessa data) e as outras N−1 começam no **Próximo vencimento** aceito, que vira o 1º vencimento das parcelas (18 parcelas = 18 linhas, `01/18` a `18/18`). `atPlanoCampos` copia esses valores para `plano_entrada_valor`, `plano_entrada_data`, `plano_qtd` e `plano_valor`, que não aparecem mais na tela (`AT_PLANO_TELA`). No bloco Renegociação ficam só a **Periodicidade** e o **1º vencimento das parcelas**, sugerido pela Data renegociação e pelo Dia de vencimento; o que for digitado à mão nesses dois fica. Para mudar uma parcela específica, edite a linha na tabela depois de "Montar parcelas". Sem quantidade ou valor, a mensagem aponta os campos do bloco Acordo.
 
 `atSugestao()` — sugere as linhas do plano com base na modalidade. Todas são editáveis antes de copiar.
 
@@ -105,7 +107,7 @@ A frase "Acordo Realizado" é idêntica à gerada na v11.38 (regressão validada
 
 | Modalidade | Linhas sugeridas |
 |---|---|
-| Renegociação (`entrada`) | Mensagem do grupo no formato de 24/11/2026: título `*RENEGOCIAÇÃO — {{operacao_maiusc}}*`; dados do contrato (Nome, CPF, Proposta, Valor Parcela, Vencimento = `vencimento_contrato` "1ª a última", Parcelas em Atraso); "Cliente negociou o contrato:" (`acao_negociou`; com Resultado = solicitou / não concluída: "Cliente solicitou negociar o contrato:") + Entrada (opcional), Valor, Quantidade de parcelas e "Vencimento: Todo dia D". `vencimento_contrato` e `parcelas_atraso` vêm da CAC em "Aplicar cliente atual" (`periodoVenc`); na tela Renegociação, Valor da parcela e Parcelas em atraso aparecem no bloco da modalidade. Obrigatórios: nome, quantidade e valor da parcela negociada. Frases da planilha sem mudança |
+| Renegociação (`entrada`) | **Formato de 26/11/2026 (etapa 1 do fluxo de renegociação: solicitação + revisão do grupo).** Mensagem do grupo: título `{{operacao}}` (ex.: "Acordo solicitado"); Cliente, CPF, Proposta; **"Condições solicitadas pelo cliente:"** Data da entrada, Parcelas, Valor de cada parcela, Próximo vencimento; **"Condições aceitas:"** os mesmos quatro itens, com o que o sistema aceitou, para a revisão do grupo. A **entrada é a 1ª das parcelas** (não há valor de entrada próprio): o campo `data_entrada` aparece como "Data 1ª parcela (entrada)". Campos das aceitas: `aceita_data_entrada`, `aceita_quantidade_parcelas`, `aceita_valor_parcela`, `aceita_proximo_vencimento` (`NG_ACEITAS`). Cada aceita **copia a solicitada enquanto não for alterada à mão** (`ngAceitasHook`); alterada, fica com fundo amarelo (`.mf-ng-dif`) e não acompanha mais a solicitada. Vazia vale a solicitada (`ngValor`). Frases da planilha: "Acordo Solicitado" = solicitadas, "Acordo Realizado" = aceitas ("Cliente solicitou 18 parcelas de R$ 170,00, sendo a 1ª (entrada) em 26/11/2026 e as demais a partir de 15/12/2026"). Obrigatórios: nome, Parcelas e Valor de cada parcela. Saíram da modalidade: Valor da entrada, Dia de vencimento e os dados do contrato da mensagem de 24/11/2026 (Valor Parcela, Vencimentos do contrato, Parcelas em atraso, Parcela atual). Textos personalizados em `negModelos` (`acordo:entrada`) continuam com o formato antigo: restaurar o padrão em Configurações |
 | PIX semanal / Automático | N pagamentos semanais (+ entrada se informada) |
 | Campanha do Fôlego | 2 linhas: valor agora + saldo restante |
 
@@ -238,6 +240,8 @@ O fluxo tem duas etapas e cada uma fica num lugar só:
 | `atSomarMeses(iso, n)` | Soma N meses a uma data ISO (respeitando últimos dias do mês) |
 | `atPlanoCampos()` | Retorna os campos do plano de parcelas |
 | `atValidar()` | Valida campos obrigatórios antes de registrar |
+| `atRegistrar(auto)` | Registra no histórico (ver `05-historico.md`); `auto` = chamado ao copiar um Fôlego fechado |
+| `atFolegoAuto()` | Verdadeiro na Renegociação com modalidade Fôlego e Resultado "fechou" (registro automático ao copiar) |
 | `atDebParcela(valor, venc, pgto)` | Encargos, multa e total de uma parcela em atraso (centavos), regra do ER (`AT_ENCARGOS`) |
 | `atDebCalcular(valor, qtd, vencIni, pgto)` | Parcelas mensais em atraso a partir do vencimento mais antigo + totais |
 | `atDebTrazer(tudo)` / `atDebLimpar()` | Preenche a calculadora com a ficha (Cobrança) / limpa o cálculo |

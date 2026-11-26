@@ -1,7 +1,7 @@
 # Módulo: Lembretes e Timers
 
-**Lembretes — Linhas:** 3768 – 4160  
-**Timers — Linhas:** 4835 – 5171  
+**Lembretes — Linhas:** 5058 – 5450  
+**Timers — Linhas:** 7408 – 7743  
 **Chaves de armazenamento:** `mfLembretes` (v2), `mfLembretesBackup_v0/_v1`, `mfLembretesExcluidos`, `mfLembretesAviso`
 
 ---
@@ -57,6 +57,10 @@ Uma versão antiga do script (v11.x) que encontrar a base v2 abre em **somente l
 ### Rastreamento de alterações
 
 Cada mudança registra: autor, versão do script, data. Cada pagamento tem ID único e autor. O acompanhamento mostra quem fez o quê.
+
+### Conclusão pelo Histórico (Campanha do Fôlego)
+
+"Cliente cumpriu" na aba Histórico (`hsFolegoCumprir`, ver `05-historico.md`) também conclui os lembretes **pendentes da mesma proposta** (status `concluido`, com "concluído: cliente cumpriu o acordo (Campanha do Fôlego)" no acompanhamento), sem pergunta extra: a confirmação do Histórico já avisa.
 
 ### Compartilhamento com a equipe
 

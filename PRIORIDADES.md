@@ -299,6 +299,15 @@ O módulo de geração de acordos (`at*`) já possui:
 
 ---
 
+- [ ] **P3.6 — Fluxo da Campanha do Fôlego até o cumprimento do acordo**
+
+  **Status:** Implementado (26/11/2026), aguardando teste da equipe  
+  **Objetivo:** acompanhar os acordos do Fôlego até o cliente cumprir e avisar o grupo.  
+  **Comportamento:** Renegociação com Fôlego e Resultado "fechou" vai direto para o histórico ao copiar a mensagem ou a linha; aba Histórico lista os acordos em aberto com "Cliente cumpriu", que finaliza o registro, conclui o lembrete pendente da proposta e gera a mensagem `*CAMPANHA DO FÔLEGO — ACORDO CUMPRIDO*` (data do acordo, nome, CPF buscado no ER). Detalhes em `docs/script/05-historico.md`.  
+  **A confirmar com o responsável:** título da mensagem, data usada ("realizado no dia" = data do registro) e busca do CPF pela proposta (assumidos na implementação).
+
+---
+
 - [ ] **P3.5 — Documentar melhorias necessárias identificadas na análise do código**
 
   **Status:** Pendente  

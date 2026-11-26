@@ -1,6 +1,6 @@
 # Módulo: Histórico de Acordos
 
-**Linhas:** 6822 – 7050  
+**Linhas:** 8329 – 8636  
 **Chave de armazenamento:** `mfAcordos` (versão 1)  
 **Retenção:** 30 dias após a última alteração
 
@@ -40,6 +40,26 @@ Acionado pelo botão "Registrar no histórico" no Atendimento.
 - Se o registro é idêntico ao existente → não cria duplicata
 - Se já existe registro da mesma proposta → pergunta: atualizar (vira revisão) ou criar novo
 
+### Campanha do Fôlego: acordos em aberto e "Cliente cumpriu" (26/11/2026)
+
+Fluxo: o cliente solicita (Negociação) → fecha o acordo (Renegociação) → o acordo fica **em aberto** no Histórico → quando o cliente cumpre, conclui-se aqui.
+
+- **Entrada automática:** na tela **Renegociação**, com modalidade **Campanha do Fôlego** e Resultado **"fechou"**, copiar a mensagem do grupo ("Copiar mensagem") ou a linha da planilha registra o acordo no histórico sozinho (`atFolegoAuto` → `atRegistrar(true)`): não pede as parcelas e não troca de aba. Mesmo acordo já registrado: não duplica. Mesma proposta com dados diferentes: pergunta, como no botão "Registrar no histórico". Faltando campo obrigatório: copia, mas avisa que não registrou.
+- **Acordos em aberto** (`#mf-hs-folego`, acima da lista, `hsFolegoDesenhar`): registros da modalidade `folego` com situação `realizado` (dentro dos 30 dias), do mais antigo ao mais novo, com data do acordo, quem registrou e o restante (total com juros − pago parcialmente) e o dia. Some quando não há nenhum.
+- **"Cliente cumpriu"** (`hsFolegoCumprir`; também no detalhe do registro): pede confirmação, muda a situação para `finalizado` com revisão (motivo "Cliente cumpriu o acordo (Campanha do Fôlego)", vai para a equipe), conclui o **lembrete pendente da mesma proposta**, se houver (com registro no acompanhamento do lembrete), e gera a mensagem.
+- **Mensagem para o grupo** (`hsFolegoTexto`), copiada na hora e editável numa caixa (só em memória):
+
+```
+*CAMPANHA DO FÔLEGO — ACORDO CUMPRIDO*
+
+Cliente cumpriu o acordo realizado no dia 21/11
+Nome: LEONARDO VIEIRA NUNES
+CPF: 473.374.938-43
+```
+
+  A data é a do registro do acordo no histórico (`criadoEm`). O **CPF continua fora do histórico**: é buscado no ER pela proposta (`dadosCliente`, aba Cliente da Mesa) só para a mensagem; sem resposta (outro site, sessão expirada), é pedido na hora e pode ficar em branco. Registros do Fôlego já finalizados têm o botão "Mensagem: acordo cumprido" para gerar de novo.
+- Nenhuma chave de armazenamento nova: usa a situação `finalizado` que já existia.
+
 ### Buscar
 
 Pesquisa por texto livre em: nome, proposta, telefone ou responsável.
@@ -59,6 +79,7 @@ Ao clicar num item do histórico, expande e permite:
 - Copiar telefone
 - Copiar resumo
 - Abrir no Atendimento (preenche o formulário com os dados do registro)
+- Campanha do Fôlego: **Cliente cumpriu** (registro em `realizado`) ou **Mensagem: acordo cumprido** (registro em `finalizado`); ver a seção da Campanha do Fôlego acima
 
 ### Corrigir
 
@@ -70,6 +91,21 @@ Permite editar: situação, número de contato, textos e observações.
 ### Anular
 
 Muda a situação para `Anulado`, com motivo obrigatório. O registro **nunca é apagado**.
+
+---
+
+## Funções
+
+| Função | Descrição |
+|---|---|
+| `atRegistrar(auto)` | Registra a ficha do Atendimento (botão "Registrar no histórico"; `auto = true` quando chamado ao copiar um Fôlego fechado) |
+| `hsDesenhar()` / `hsItem(r)` | Lista com filtros / item e detalhe de um registro |
+| `hsEditor(r)` / `hsAnular(id)` / `hsRevisar(rec, novo, motivo)` | Corrigir / anular / montar a revisão (de → para) |
+| `hsAbrirNoAtendimento(r)` | Preenche o Atendimento com o registro |
+| `hsFolegoAbertos()` / `hsFolegoDesenhar()` | Acordos em aberto da Campanha do Fôlego / bloco `#mf-hs-folego` |
+| `hsFolegoCumprir(id)` | Confirma, finaliza o registro, conclui o lembrete pendente da proposta e gera a mensagem |
+| `hsFolegoGerar(r)` / `hsFolegoCpf(proposta)` / `hsFolegoTexto(r, cpf)` | Gera e copia a mensagem / busca o CPF no ER (ou pede) / monta o texto (`HS_FOLEGO_TITULO`) |
+| `hsBadge()` | Contador de novos registros na aba |
 
 ---
 

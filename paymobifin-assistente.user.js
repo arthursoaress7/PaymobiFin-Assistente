@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.45.0
+// @version      13.46.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -31,7 +31,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.45.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.46.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -1293,6 +1293,8 @@
         #mf-p .mf-ng-bloco{margin-bottom:6px}
         #mf-p .mf-ng-saldo{font-size:14px;font-weight:700;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 9px}
         #mf-p .mf-ng-saldo:empty{display:none}
+        #mf-p .mf-ng-subtit{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#475569;border-bottom:1px solid #e2e8f0;padding:6px 0 3px;margin-top:4px}
+        #mf-p .mf-ng-dif input{border-color:#d97706;background:#fffbeb}
         #mf-p .mf-ng-saldo.erro{color:#b91c1c;background:#fef2f2;border-color:#fecaca}
         #mf-p .mf-deb-tab{width:100%;border-collapse:collapse;font-size:11px}
         #mf-p .mf-deb-tab th,#mf-p .mf-deb-tab td{padding:3px 4px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap}
@@ -1379,6 +1381,8 @@
         #mf-p[data-tema=escuro] option{background:#1e293b;color:#e2e8f0}
         #mf-p[data-tema=escuro] input.mf-erro,#mf-p[data-tema=escuro] textarea.mf-erro,#mf-p[data-tema=escuro] select.mf-erro{background:#450a0a !important;border-color:#ef4444 !important}
         #mf-p[data-tema=escuro] .mf-ng-saldo{color:#4ade80;background:#052e16;border-color:#166534}
+        #mf-p[data-tema=escuro] .mf-ng-subtit{color:#cbd5e1;border-color:#334155}
+        #mf-p[data-tema=escuro] .mf-ng-dif input{border-color:#f59e0b;background:#451a03}
         #mf-p[data-tema=escuro] .mf-ng-saldo.erro{color:#fca5a5;background:#450a0a;border-color:#7f1d1d}
         #mf-p[data-tema=escuro] .mf-deb-tab th,#mf-p[data-tema=escuro] .mf-deb-tab td{border-bottom-color:#334155}
         /* botões: antiga (cinza claro vira cinza escuro) e nova (neutros escuros; os principais azul/verde mantêm as cores) */
@@ -2231,6 +2235,7 @@
               <select id="mf-hs-periodo"><option value="30">Últimos 30 dias</option><option value="7">Últimos 7 dias</option><option value="1">Hoje</option></select>
             </div>
             <div id="mf-hs-equipe" class="mf-info" style="margin-top:6px"></div>
+            <div id="mf-hs-folego" style="margin-top:8px"></div>
             <div id="mf-hs-lista" style="margin-top:8px"></div>
           </div>
         </div>
@@ -4681,17 +4686,29 @@
       valor_pago_anterior: { rot: 'Pago anteriormente sobre a parcela', tipo: 'moeda' },
       data_pago_anterior: { rot: 'Data do pagamento anterior', tipo: 'data' },
     });
+    // Renegociação: "Condições aceitas" (o que o sistema aceitou, para a revisão do grupo). Cada uma espelha a solicitada
+    // enquanto não for alterada à mão (ngAceitasHook); vazia = igual à solicitada (ngValor).
+    Object.assign(NG_CAMPOS, {
+      aceita_data_entrada: { rot: 'Data 1ª parcela (entrada) aceita', tipo: 'data' },
+      aceita_quantidade_parcelas: { rot: 'Parcelas aceitas', tipo: 'num' },
+      aceita_valor_parcela: { rot: 'Valor de cada parcela aceito', tipo: 'moeda' },
+      aceita_proximo_vencimento: { rot: 'Próximo vencimento aceito', tipo: 'data' },
+    });
+    const NG_ACEITAS = { aceita_data_entrada: 'data_entrada', aceita_quantidade_parcelas: 'quantidade_parcelas', aceita_valor_parcela: 'valor_parcela_acordo', aceita_proximo_vencimento: 'proximo_vencimento' };
     const NG_CAB = c => '{{operacao}} — ' + c + '\n\nCliente: {{nome}}\nProposta: {{proposta}}\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\n';
     const NG_ABR = ['abrangencia_tipo', 'parcela_inicial', 'parcelas_especificas'];
     const NG_MODALIDADES = {
       geral: { nome: 'Condições gerais (modelo anterior)' },
-      entrada: {   // "Renegociação" (chave 'entrada' mantida pelo histórico): pedido do cliente + simulação; entrada opcional (some se vazia). Título no modelo do Fôlego
-        nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', 'valor_parcela', 'vencimento_contrato', 'parcelas_atraso', 'parcela_atual', ...NG_ABR, 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'observacoes'],
+      entrada: {   // "Renegociação" (chave 'entrada' mantida pelo histórico). Formato de 26/11/2026: condições solicitadas pelo cliente + condições aceitas
+        // (revisão do grupo). A entrada é a 1ª das parcelas (valor = valor da parcela, na "Data 1ª parcela"); as demais começam no Próximo vencimento.
+        nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', ...NG_ABR, 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'proximo_vencimento', ...Object.keys(NG_ACEITAS), 'observacoes'],
         obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
-        rotulos: { valor_solicitado: 'Valor de parcela solicitado pelo cliente', valor_entrada: 'Valor da entrada (se houver)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas negociadas', valor_parcela_acordo: 'Valor da parcela negociada', valor_parcela: 'Valor da parcela do contrato' },
-        texto: '*RENEGOCIAÇÃO — {{operacao_maiusc}}*\n\nNome: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\nValor Parcela: {{valor_parcela}}\nVencimento: {{vencimento_contrato}}\nParcelas em Atraso: {{parcelas_atraso}}\n\n{{acao_negociou}}\nEntrada: {{valor_entrada}}\nValor: {{valor_parcela_acordo}}\nQuantidade de parcelas: {{quantidade_parcelas}}\nVencimento: Todo dia {{dia_vencimento}}\n\nObservações: {{observacoes}}',
-        frases: (v, verbo) => { const e = (v('valor_entrada') ? '1 parcela de ' + v('valor_entrada') + ' como entrada' + (v('data_entrada') ? ' no dia ' + v('data_entrada') : '') + ', e ' : '') + v('quantidade_parcelas') + ' parcelas de ' + v('valor_parcela_acordo') + (v('dia_vencimento') ? ', vencendo todo dia ' + v('dia_vencimento') : '');
-          return { pedido: 'Cliente ' + verbo + ' ' + e, acordo: 'Prosseguimos com ' + e }; },
+        rotulos: { data_entrada: 'Data 1ª parcela (entrada)', quantidade_parcelas: 'Parcelas', valor_parcela_acordo: 'Valor de cada parcela', proximo_vencimento: 'Próximo vencimento' },
+        texto: '{{operacao}}\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nCondições solicitadas pelo cliente:\nData da entrada: {{data_entrada}}\nParcelas: {{quantidade_parcelas}}\nValor de cada parcela: {{valor_parcela_acordo}}\nPróximo vencimento: {{proximo_vencimento}}\n\nCondições aceitas:\nData da entrada: {{aceita_data_entrada}}\nParcelas: {{aceita_quantidade_parcelas}}\nValor de cada parcela: {{aceita_valor_parcela}}\nPróximo vencimento: {{aceita_proximo_vencimento}}\n\nObservações: {{observacoes}}',
+        // planilha: "Acordo Solicitado" = solicitadas; "Acordo Realizado" = aceitas
+        frases: (v, verbo) => { const e = (d, q, val, pv) => v(q) + ' parcelas de ' + v(val) + (v(d) ? ', sendo a 1ª (entrada) em ' + v(d) : '') + (v(pv) ? (v(d) ? ' e' : ',') + ' as demais a partir de ' + v(pv) : '');
+          return { pedido: 'Cliente ' + verbo + ' ' + e('data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'proximo_vencimento'),
+            acordo: 'Prosseguimos com ' + e('aceita_data_entrada', 'aceita_quantidade_parcelas', 'aceita_valor_parcela', 'aceita_proximo_vencimento') }; },
       },
       folego: {
         nome: 'Campanha do Fôlego (pagamento parcial)', campos: ['nome', 'proposta', 'cpf', 'parcela_negociada', 'valor_parcela', 'vencimento', 'valor_pago_parcial', 'data_pagamento', 'valor_total_juros', 'valor_restante', 'data_restante', 'quebra_acordo', 'valor_pago_anterior', 'data_pago_anterior'],
@@ -4806,6 +4823,7 @@
         const q = ngValor('qtd_antecipadas');
         return q ? 'a antecipação de ' + q + (q === '1' ? ' parcela' : ' parcelas') : '';
       }
+      if (k in NG_ACEITAS && (v == null || String(v).trim() === '')) return ngValor(NG_ACEITAS[k]);   // aceita vazia = igual à solicitada
       if (def.tipo === 'calc') return '';
       if (def.tipo === 'check') return v ? 'sim' : '';
       if (v == null || String(v).trim() === '') return '';
@@ -4858,7 +4876,7 @@
         lab.dataset.bloco = def.tipo === 'area' ? 'textos' : ['nome', 'proposta', 'cpf', 'parcela_atual'].includes(c) ? 'cliente' : NG_ABR.includes(c) ? 'abrangencia' : 'condicoes';
         grade.appendChild(lab);
       });
-      if (painel.dataset.ui !== 'nova' || ngNoAtendimento()) { caixa.appendChild(grade); ngSaldoHook(); ngMostrarDependentes(); return; }
+      if (painel.dataset.ui !== 'nova' || ngNoAtendimento()) { caixa.appendChild(grade); ngSaldoHook(); ngAceitasHook(); ngMostrarDependentes(); return; }
       ngBlocosNova(grade, m);
     }
     // um campo (rótulo + entrada) ligado a ngValores: o mesmo valor em todas as telas
@@ -4919,7 +4937,7 @@
         det.append(sum, g);
         caixa.appendChild(det);
       });
-      ngSaldoHook(); ngMostrarDependentes();
+      ngSaldoHook(); ngAceitasHook(); ngMostrarDependentes();
     }
     // campos que só aparecem conforme a escolha (abrangência; antecipação x quitação)
     function ngMostrarDependentes() {
@@ -4933,6 +4951,27 @@
     // pagamento parcial: saldo = total − pago (atualiza a cada digitação; não aceita pagamento acima do total)
     // saldo: true = total em valor_total_devido (sem modalidade usando desde 19/11/2026); saldo: '<campo>' = total nesse campo (Campanha do Fôlego e retorno do Fôlego: valor_total_juros)
     // saldoPago: '<campo>' = campo do valor pago (padrão valor_pago_parcial; retorno do Fôlego: valor_entrada)
+    // Renegociação: as "Condições aceitas" copiam as solicitadas enquanto não forem alteradas à mão; a diferença fica destacada
+    const ngAceitaAuto = {};
+    function ngAceitasHook() {
+      const pares = Object.entries(NG_ACEITAS).filter(([a]) => ngDef().campos.includes(a));
+      if (!pares.length) return;
+      const g = c => painel.querySelector('#mf-ng-campos [data-campo="' + c + '"]');
+      const bruto = c => String(ngValores[c] == null ? '' : ngValores[c]).trim();
+      const titulo = (c, t) => { const el = g(c); if (!el) return; const d = document.createElement('div'); d.className = 'mf-ng-subtit mf-cheia'; d.textContent = t; el.closest('label').before(d); };
+      titulo(pares[0][1], 'Condições solicitadas pelo cliente');
+      titulo(pares[0][0], 'Condições aceitas (revisão do grupo; iguais às solicitadas até você alterar)');
+      const marcar = () => pares.forEach(([a, s]) => { const el = g(a); if (el) el.closest('label').classList.toggle('mf-ng-dif', ngValor(a) !== ngValor(s)); });
+      pares.forEach(([a, s]) => {
+        const ea = g(a), es = g(s);
+        if (!ea || !es) return;
+        const espelha = () => bruto(a) === '' || bruto(a) === String(ngAceitaAuto[a] == null ? '' : ngAceitaAuto[a]).trim();
+        if (espelha() || bruto(a) === bruto(s)) { ngValores[a] = ngValores[s] || ''; ea.value = ngValores[a]; ngAceitaAuto[a] = ngValores[a]; }
+        es.addEventListener('input', () => { if (espelha()) { ngValores[a] = es.value; ea.value = es.value; ngAceitaAuto[a] = es.value; } marcar(); });
+        ea.addEventListener('input', marcar);
+      });
+      marcar();
+    }
     function ngSaldoHook() {
       const sd = ngDef().saldo;
       if (!sd) return;
@@ -7079,7 +7118,12 @@
         return { especial: l };
       }
       const s = { periodo: 'mensal' };
-      if (mod === 'entrada') Object.assign(s, { entradaValor: v('valor_entrada'), entradaData: v('data_entrada'), qtd: v('quantidade_parcelas'), valor: v('valor_parcela_acordo') });
+      if (mod === 'entrada') {   // condições ACEITAS (vazia = solicitada). A entrada é a 1ª das parcelas: valor da parcela na "Data 1ª parcela"; as demais a partir do Próximo vencimento
+        const ac = k => String(v(k) == null ? '' : v(k)).trim() || String(v(NG_ACEITAS[k]) == null ? '' : v(NG_ACEITAS[k])).trim();
+        const qtd = +ac('aceita_quantidade_parcelas') || 0, d1 = ac('aceita_data_entrada'), val = ac('aceita_valor_parcela'), pv = ac('aceita_proximo_vencimento');
+        Object.assign(s, d1 && qtd ? { entradaValor: val, entradaData: d1, qtd: qtd > 1 ? String(qtd - 1) : '', valor: val } : { qtd: qtd ? String(qtd) : '', valor: val });
+        if (pv) s.inicio = pv;
+      }
       if (mod === 'pix') Object.assign(s, { periodo: 'semanal', qtd: v('qtd_semanas'), valor: v('valor_semanal'), entradaValor: v('valor_entrada') });
       // Data renegociação (data do contrato novo / comprovante da entrada): base das datas quando o acordo não traz outra
       const iso = x => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) ? String(x) : '';
@@ -7304,6 +7348,7 @@
       GM_setClipboard(textoTab(linhas), 'text');
       msg(ngCtx === 'renegociacao' ? linhas.length + ' linha(s) copiadas (' + AT_COL_RENEG.length + ' colunas, Proposta → Negociação Concluída?). Cole na coluna Proposta da aba Renegociação.'
         : 'Linha copiada (' + AT_COL_NEG.length + ' colunas, Proposta → Negociação Concluída?). Cole na coluna Proposta da aba Negociação. Campos vazios vão em branco.');
+      if (atFolegoAuto()) atRegistrar(true);
     };
     $('#mf-at-mensagem').onclick = () => {
       const f = ngFaltando();
@@ -7312,7 +7357,7 @@
       $('#mf-at-msg-texto').value = ngMontar(ngTextoModelo(ngChave()));
       msg('Mensagem gerada (modelo editável em Configurações > Gerador de negociações). Revise e copie.');
     };
-    $('#mf-at-msg-copiar').onclick = () => { const t = $('#mf-at-msg-texto').value; if (!t.trim()) return msg('Gere a mensagem antes.'); GM_setClipboard(t, 'text'); msg('Mensagem copiada.'); };
+    $('#mf-at-msg-copiar').onclick = () => { const t = $('#mf-at-msg-texto').value; if (!t.trim()) return msg('Gere a mensagem antes.'); GM_setClipboard(t, 'text'); msg('Mensagem copiada.'); if (atFolegoAuto()) atRegistrar(true); };
     $('#mf-at-sugerir').onclick = () => {
       const feitos = [];
       const set = (k, v, rot) => { if (v && !String(ngValores[k] || '').trim()) { ngValores[k] = v; feitos.push(rot); } };
@@ -8376,11 +8421,15 @@
         rev: (rec.rev || 1) + 1, atualizadoEm: Date.now(), atualizadoPor: eqId(), atualizadoPorNome: eqNomeLocal() };
       return r;
     }
+    // Campanha do Fôlego fechada na Renegociação: vai direto para o histórico (acordo em aberto) ao copiar a mensagem ou a linha
+    const atFolegoAuto = () => ngCtx === 'renegociacao' && ngModalidade() === 'folego' && $('#mf-ng-frase-tipo').value === 'fechou';
     // registra o que está no Atendimento (evita duplicado: mesma proposta -> atualizar o existente, com revisão)
-    function atRegistrar() {
+    // auto: chamado ao copiar (Campanha do Fôlego); não pede as parcelas e não troca de aba
+    function atRegistrar(auto) {
+      auto = auto === true;
       const falta = atValidar();
-      if (falta.length) return msg('Preencha antes de registrar:\n- ' + falta.join('\n- '));
-      if (ngCtx === 'renegociacao' && !atPlano.length && !confirm('As parcelas da renegociação não foram montadas. Registrar assim mesmo?')) return;
+      if (falta.length) return msg((auto ? 'Copiado, mas NÃO foi para o histórico. ' : '') + 'Preencha antes de registrar:\n- ' + falta.join('\n- '));
+      if (!auto && ngCtx === 'renegociacao' && !atPlano.length && !confirm('As parcelas da renegociação não foram montadas. Registrar assim mesmo?')) return;
       if (!atTexto('pedido') && !atTexto('acordo')) ngGerarTextos(true);
       const status = { fechou: 'realizado', finalizou: 'finalizado', solicitou: 'pendente', nao: 'nao_concluido' }[$('#mf-ng-frase-tipo').value] || 'pendente';
       const valores = {};
@@ -8400,6 +8449,7 @@
       acRecarregar();
       const mesmos = acBase.itens.filter(x => x.cliente.proposta === rec.cliente.proposta && x.status !== 'anulado' && !eqExpirado('ac', x)).sort((a, b) => b.atualizadoEm - a.atualizadoEm);
       const igual = mesmos.find(x => x.tipo === rec.tipo && x.modalidade === rec.modalidade && x.status === rec.status && JSON.stringify(x.textos) === JSON.stringify(rec.textos) && JSON.stringify(x.valores) === JSON.stringify(rec.valores));
+      if (igual && auto) return msg('Copiado. O acordo já está no histórico (acordos em aberto da Campanha do Fôlego).');
       if (igual) { hsAberto = igual.id; mostrarAba('his'); hsDesenhar(); return msg('Este acordo já está no histórico (' + new Date(igual.criadoEm).toLocaleString('pt-BR') + ', por ' + igual.criadoPorNome + '). Nada foi duplicado.'); }
       if (mesmos.length) {
         const x = mesmos[0];
@@ -8413,9 +8463,9 @@
         if (!confirm('Criar um registro NOVO, separado, para a mesma proposta ' + rec.cliente.proposta + '?')) return msg('Nada foi registrado.');
       }
       acBase.itens.push(rec);
-      if (acSalvar(rec)) { hsAberto = rec.id; msg('Registrado no histórico' + (eqPronta() ? ' e enviado para a equipe' : ' (só neste navegador: ligue o compartilhamento em Configurações > Equipe)') + '.'); }
+      if (acSalvar(rec)) { hsAberto = rec.id; msg((auto ? 'Copiado e registrado no histórico como acordo em aberto da Campanha do Fôlego' : 'Registrado no histórico') + (eqPronta() ? ' e enviado para a equipe' : ' (só neste navegador: ligue o compartilhamento em Configurações > Equipe)') + '.'); }
     }
-    $('#mf-at-registrar').onclick = atRegistrar;
+    $('#mf-at-registrar').onclick = () => atRegistrar();
 
     /* ---- tela do histórico ---- */
     const selHsModal = $('#mf-hs-modal');
@@ -8443,6 +8493,7 @@
       caixa.innerHTML = '';
       if (!lista.length) { const v = document.createElement('div'); v.className = 'mf-info'; v.textContent = itens.length ? 'Nenhum registro com esses filtros.' : 'Nenhum acordo registrado ainda. No Atendimento, use "Registrar no histórico".'; caixa.appendChild(v); }
       lista.slice(0, 150).forEach(r => caixa.appendChild(hsItem(r)));
+      hsFolegoDesenhar();
       hsBadge();
       eqStatusUI();
     }
@@ -8476,6 +8527,8 @@
       if (r.cliente.contato) bt('Copiar telefone', 'cinza', () => hsCopiar(r.cliente.contato, 'Telefone'));
       bt('Copiar resumo', 'cinza', () => hsCopiar(['Proposta ' + r.cliente.proposta + ' · ' + r.cliente.nome + (r.cliente.contato ? ' · ' + r.cliente.contato : ''), HS_STATUS[r.status] + ' · ' + ngModNome(r.modalidade), r.textos.pedido, r.textos.acordo].filter(Boolean).join('\n'), 'Resumo'));
       bt('Abrir no Atendimento', 'azul', () => hsAbrirNoAtendimento(r));
+      if (r.modalidade === 'folego' && r.status === 'realizado') bt('Cliente cumpriu', 'verde', () => hsFolegoCumprir(r.id));
+      if (r.modalidade === 'folego' && r.status === 'finalizado') bt('Mensagem: acordo cumprido', 'cinza', () => hsFolegoGerar(r));
       if (r.status !== 'anulado') { bt('Corrigir', 'cinza', () => { hsCorrigindo = r.id; hsDesenhar(); }); bt('Anular', 'vermelho', () => hsAnular(r.id)); }
       el.append(det, acoes);
       if (hsCorrigindo === r.id) el.appendChild(hsEditor(r));
@@ -8537,6 +8590,77 @@
       atTrocar(r.tipo === 'renegociacao' ? 'renegociacao' : 'negociacao');
       mostrarAba('neg');
       msg('Registro aberto no Atendimento. O CPF não fica no histórico: use "Aplicar cliente atual" se precisar dele na planilha.');
+    }
+    /* ---- Campanha do Fôlego: acordos em aberto -> "Cliente cumpriu" -> mensagem para o grupo ----
+       Em aberto = registro da modalidade Fôlego com situação "Acordo realizado". Concluir = revisão para "Acordo finalizado"
+       (motivo fica nas alterações) e conclui o lembrete pendente da mesma proposta. O CPF não fica no histórico:
+       é buscado no ER pela proposta só para montar a mensagem (se não der, é pedido na hora). Nada novo é salvo. */
+    const HS_FOLEGO_TITULO = '*CAMPANHA DO FÔLEGO — ACORDO CUMPRIDO*';
+    let hsFolegoMsg = null;   // { id, texto } da última mensagem gerada (só em memória)
+    const hsFolegoAbertos = () => acBase.itens.filter(r => r.modalidade === 'folego' && r.status === 'realizado' && !eqExpirado('ac', r)).sort((a, b) => (a.criadoEm || 0) - (b.criadoEm || 0));
+    const hsDiaMes = ts => { const d = new Date(ts); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); };
+    const hsFolegoTexto = (r, cpf) => [HS_FOLEGO_TITULO, '', 'Cliente cumpriu o acordo realizado no dia ' + hsDiaMes(r.criadoEm), 'Nome: ' + (r.cliente.nome || ''), 'CPF: ' + (cpf || '')].join('\n');
+    async function hsFolegoCpf(proposta) {
+      if (proposta) {
+        try { const c = await dadosCliente(cacBase(), proposta); if (c.ok && c.cpf) return cacCpfFmt(c.cpf); } catch (_) { /* segue para digitar */ }
+      }
+      const t = prompt('Não consegui buscar o CPF da proposta ' + (proposta || '—') + ' no sistema.\nDigite o CPF (ou deixe em branco e complete na mensagem):', '');
+      const dig = String(t || '').replace(/\D/g, '');
+      return dig.length === 11 ? cacCpfFmt(dig) : String(t || '').trim().slice(0, 20);
+    }
+    async function hsFolegoGerar(r) {
+      msg('Buscando o CPF da proposta ' + (r.cliente.proposta || '—') + '…');
+      const cpf = await hsFolegoCpf(r.cliente.proposta);
+      hsFolegoMsg = { id: r.id, texto: hsFolegoTexto(r, cpf) };
+      hsDesenhar();
+      GM_setClipboard(hsFolegoMsg.texto, 'text');
+      msg('Mensagem "acordo cumprido" copiada' + (cpf ? '' : ' (sem CPF: complete antes de enviar)') + '. Revise e cole no grupo.');
+    }
+    async function hsFolegoCumprir(id) {
+      acRecarregar();
+      const atual = acBase.itens.find(x => x.id === id);
+      if (!atual || atual.status !== 'realizado') { hsDesenhar(); return msg('Este acordo não está mais em aberto (pode ter sido concluído por outro funcionário).'); }
+      lbRecarregar();
+      const prop = atual.cliente.proposta, lbs = prop ? lbBase.itens.filter(x => x.status === 'pendente' && x.proposta === prop) : [];
+      if (!confirm('Confirmar que o cliente ' + (atual.cliente.nome || '') + ' (proposta ' + (prop || '—') + ') cumpriu o acordo da Campanha do Fôlego de ' + new Date(atual.criadoEm).toLocaleDateString('pt-BR') + '?\n\n'
+        + 'O registro passa para "Acordo finalizado"' + (lbs.length ? ' e o lembrete pendente desta proposta é concluído' : '') + '. Depois a mensagem para o grupo é gerada.')) return;
+      const novo = hsRevisar(atual, { ...atual, status: 'finalizado' }, 'Cliente cumpriu o acordo (Campanha do Fôlego)');
+      acBase.itens[acBase.itens.findIndex(x => x.id === id)] = novo;
+      if (!acSalvar(novo)) return;
+      if (lbs.length) { lbs.forEach(it => { it.status = 'concluido'; lbTocar(it); lbHist(it, 'concluído: cliente cumpriu o acordo (Campanha do Fôlego)'); }); lbSalvar(); }
+      await hsFolegoGerar(novo);
+    }
+    function hsFolegoDesenhar() {
+      const cx = $('#mf-hs-folego');
+      if (!cx) return;
+      const ab = hsFolegoAbertos();
+      cx.innerHTML = '';
+      if (!ab.length && !hsFolegoMsg) return;
+      const tit = document.createElement('div'); tit.className = 'mf-tit'; tit.textContent = 'Campanha do Fôlego — acordos em aberto (' + ab.length + ')';
+      cx.appendChild(tit);
+      if (!ab.length) { const v = document.createElement('div'); v.className = 'mf-info'; v.textContent = 'Nenhum acordo em aberto.'; cx.appendChild(v); }
+      ab.forEach(r => {
+        const it = document.createElement('div'); it.className = 'mf-hs-item realizado'; it.style.cursor = 'default';
+        const l1 = document.createElement('div'); l1.className = 'mf-lb-l1'; l1.textContent = 'Proposta ' + (r.cliente.proposta || '—') + (r.cliente.nome ? ' · ' + r.cliente.nome : '');
+        const v = r.valores || {}, tot = ngCentavos(v.valor_total_juros), pg = ngCentavos(v.valor_pago_parcial);
+        const l2 = document.createElement('div');
+        l2.textContent = 'Acordo de ' + new Date(r.criadoEm).toLocaleDateString('pt-BR') + ' · ' + (r.criadoPorNome || '—')
+          + (tot != null && pg != null && tot >= pg ? ' · Restante ' + ngReais(tot - pg) : '') + (v.data_restante ? ' em ' + ngData(v.data_restante) : '');
+        const ac = document.createElement('div'); ac.className = 'mf-lb-acoes';
+        const b = document.createElement('button'); b.className = 'verde'; b.textContent = 'Cliente cumpriu';
+        b.onclick = e => { e.stopPropagation(); hsFolegoCumprir(r.id); };
+        ac.appendChild(b); it.append(l1, l2, ac); cx.appendChild(it);
+      });
+      if (hsFolegoMsg) {
+        const ta = document.createElement('textarea'); ta.style.height = '110px'; ta.style.marginTop = '6px'; ta.value = hsFolegoMsg.texto;
+        ta.addEventListener('input', () => { hsFolegoMsg.texto = ta.value; });
+        const ac = document.createElement('div'); ac.className = 'mf-lb-acoes';
+        const cp = document.createElement('button'); cp.className = 'verde'; cp.textContent = 'Copiar mensagem';
+        cp.onclick = () => { if (!ta.value.trim()) return msg('Mensagem vazia.'); GM_setClipboard(ta.value, 'text'); msg('Mensagem copiada.'); };
+        const fe = document.createElement('button'); fe.className = 'cinza'; fe.textContent = 'Fechar mensagem';
+        fe.onclick = () => { hsFolegoMsg = null; hsDesenhar(); };
+        ac.append(cp, fe); cx.append(ta, ac);
+      }
     }
     // contador da aba: registros de outros funcionários desde a última vez que o histórico foi aberto
     function hsBadge() {
