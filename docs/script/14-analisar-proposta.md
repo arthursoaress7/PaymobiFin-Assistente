@@ -79,6 +79,21 @@ A lista fica ordenada por gravidade, e cada proposta abre os detalhes ao clicar.
 Os resultados ficam só na memória da aba (somem ao recarregar).
 
 **Calibração (25/11/2026):** a análise foi rodada em 26 propostas reais de 24 e 25/11 (10 reprovadas, 8 efetivadas, 7 aprovadas, 1 reprovada manual). Daí saíram os ajustes de nome (espaço/acento, nome cortado), documentos frente/verso, aparelho e tipos "para a mesa" como alerta, parcela e reanálise.
+## Aprovadas manualmente: motivo da derivação e motivo da aprovação
+
+Toda análise (uma ou em massa) lê também o **histórico** da proposta (`anHistorico`: inclusão, quem aprovou e efetivação) e o **ponto de atendimento** da formalização (`anPontoAtendimento`, no formato da Fila, sem o código). Aprovação **manual** = há "APROVADA" no histórico (o analista, ex.: "ROBERTOTAS I ROBERTO MASTER" vira "ROBERTO MASTER"); só "APROVADOR" = automática. O cabeçalho mostra Ponto de atendimento, Inclusão, Aprovação, Motivo da derivação e, nas manuais, Motivo da aprovação.
+
+- **Motivo da derivação** (`anDerivacoes`): as mensagens "Derivar mesa/loja" e "Reprovar" do MobFacil (P1, P2 e reanálise, sem repetir), em texto de leitura: documentação ("Documentos Iguais", "para Análise Mesa de Crédito"), nome/CPF não conferidos no documento, nome ou nascimento divergente da Receita, crédito acima do limite do MobFacil, IMEI/modelo não cadastrado.
+- **Motivo da aprovação** (`anMotivoAprovacao`), para cada motivo da derivação, o que a análise confirma:
+  - documento: o **CPF** foi encontrado no documento e o facematch e a biometria estão ok = "Documento conferido" (o nome que o MobFacil não leu no documento não impede, ex.: 5491); sem o CPF = ⚠️;
+  - nome / nascimento: o dado atual do ER bate com a Receita ("corrigido no ER"); nome cortado no fim ou **incompleto** (todas as palavras da proposta estão no nome da Receita, ex.: 5508 "LOUISIANA CASTILHO" x "... REGO") é explicado; diferente de verdade = ⚠️;
+  - crédito: dentro da política da equipe (`CONFIG.FAIXAS`), mesmo acima do limite do MobFacil (ex.: 5536, que foi só por passagens); fora = ⚠️ "Crédito FORA da política";
+  - IMEI/modelo não cadastrado no MobFacil: ⚠️ "conferir na planilha e no site da Paymobi" (ainda não é conferido sozinho);
+  - sem derivação: "aprovada na mesa sem pendência apontada pelo motor".
+- **Buscar na Fila > "Aprovadas manualmente (efetivadas e não efetivadas)"**: pega as efetivadas e aprovadas do período e confere no histórico de cada uma (6 por vez) quais foram aprovadas por um analista.
+- **Copiar Excel (aprovadas manualmente)**: só as manuais, sem cabeçalho, colunas A a I: CPF (000.000.000-00), Nome Cliente, N° Proposta, Ponto Atendimento, Vendedor (digitador), DataInclusao (dd/mm/aaaa hh:mm:ss), Analista, Motivo Derivação, Motivo Aprovação.
+
+Testado em 25-26/11/2026 com 10 aprovadas na mesa (5487, 5488, 5491, 5508, 5511, 5512, 5515, 5536, 5537, 5597).
 ## Armazenamento
 
 | Chave | Conteúdo |
