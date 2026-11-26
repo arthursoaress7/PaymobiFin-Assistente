@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.46.1] — 2026-11-26
+
+### 🐛 Correções
+
+- fix: development como ambiente de teste, sem voltar para a versão da main (e1bbceb)
+
 ## [v13.46.0] — 2026-11-26
 
 ### ✨ Novas funcionalidades
