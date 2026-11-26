@@ -40,6 +40,26 @@ Acionado pelo botão "Registrar no histórico" no Atendimento.
 - Se o registro é idêntico ao existente → não cria duplicata
 - Se já existe registro da mesma proposta → pergunta: atualizar (vira revisão) ou criar novo
 
+### Campanha do Fôlego: acordos em aberto e "Cliente cumpriu" (26/11/2026)
+
+Fluxo: o cliente solicita (Negociação) → fecha o acordo (Renegociação) → o acordo fica **em aberto** no Histórico → quando o cliente cumpre, conclui-se aqui.
+
+- **Entrada automática:** na tela **Renegociação**, com modalidade **Campanha do Fôlego** e Resultado **"fechou"**, copiar a mensagem do grupo ("Copiar mensagem") ou a linha da planilha registra o acordo no histórico sozinho (`atFolegoAuto` → `atRegistrar(true)`): não pede as parcelas e não troca de aba. Mesmo acordo já registrado: não duplica. Mesma proposta com dados diferentes: pergunta, como no botão "Registrar no histórico". Faltando campo obrigatório: copia, mas avisa que não registrou.
+- **Acordos em aberto** (`#mf-hs-folego`, acima da lista, `hsFolegoDesenhar`): registros da modalidade `folego` com situação `realizado` (dentro dos 30 dias), do mais antigo ao mais novo, com data do acordo, quem registrou e o restante (total com juros − pago parcialmente) e o dia. Some quando não há nenhum.
+- **"Cliente cumpriu"** (`hsFolegoCumprir`; também no detalhe do registro): pede confirmação, muda a situação para `finalizado` com revisão (motivo "Cliente cumpriu o acordo (Campanha do Fôlego)", vai para a equipe), conclui o **lembrete pendente da mesma proposta**, se houver (com registro no acompanhamento do lembrete), e gera a mensagem.
+- **Mensagem para o grupo** (`hsFolegoTexto`), copiada na hora e editável numa caixa (só em memória):
+
+```
+*CAMPANHA DO FÔLEGO — ACORDO CUMPRIDO*
+
+Cliente cumpriu o acordo realizado no dia 21/11
+Nome: LEONARDO VIEIRA NUNES
+CPF: 473.374.938-43
+```
+
+  A data é a do registro do acordo no histórico (`criadoEm`). O **CPF continua fora do histórico**: é buscado no ER pela proposta (`dadosCliente`, aba Cliente da Mesa) só para a mensagem; sem resposta (outro site, sessão expirada), é pedido na hora e pode ficar em branco. Registros do Fôlego já finalizados têm o botão "Mensagem: acordo cumprido" para gerar de novo.
+- Nenhuma chave de armazenamento nova: usa a situação `finalizado` que já existia.
+
 ### Buscar
 
 Pesquisa por texto livre em: nome, proposta, telefone ou responsável.

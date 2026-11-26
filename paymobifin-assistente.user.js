@@ -2231,6 +2231,7 @@
               <select id="mf-hs-periodo"><option value="30">Últimos 30 dias</option><option value="7">Últimos 7 dias</option><option value="1">Hoje</option></select>
             </div>
             <div id="mf-hs-equipe" class="mf-info" style="margin-top:6px"></div>
+            <div id="mf-hs-folego" style="margin-top:8px"></div>
             <div id="mf-hs-lista" style="margin-top:8px"></div>
           </div>
         </div>
@@ -7304,6 +7305,7 @@
       GM_setClipboard(textoTab(linhas), 'text');
       msg(ngCtx === 'renegociacao' ? linhas.length + ' linha(s) copiadas (' + AT_COL_RENEG.length + ' colunas, Proposta → Negociação Concluída?). Cole na coluna Proposta da aba Renegociação.'
         : 'Linha copiada (' + AT_COL_NEG.length + ' colunas, Proposta → Negociação Concluída?). Cole na coluna Proposta da aba Negociação. Campos vazios vão em branco.');
+      if (atFolegoAuto()) atRegistrar(true);
     };
     $('#mf-at-mensagem').onclick = () => {
       const f = ngFaltando();
@@ -7312,7 +7314,7 @@
       $('#mf-at-msg-texto').value = ngMontar(ngTextoModelo(ngChave()));
       msg('Mensagem gerada (modelo editável em Configurações > Gerador de negociações). Revise e copie.');
     };
-    $('#mf-at-msg-copiar').onclick = () => { const t = $('#mf-at-msg-texto').value; if (!t.trim()) return msg('Gere a mensagem antes.'); GM_setClipboard(t, 'text'); msg('Mensagem copiada.'); };
+    $('#mf-at-msg-copiar').onclick = () => { const t = $('#mf-at-msg-texto').value; if (!t.trim()) return msg('Gere a mensagem antes.'); GM_setClipboard(t, 'text'); msg('Mensagem copiada.'); if (atFolegoAuto()) atRegistrar(true); };
     $('#mf-at-sugerir').onclick = () => {
       const feitos = [];
       const set = (k, v, rot) => { if (v && !String(ngValores[k] || '').trim()) { ngValores[k] = v; feitos.push(rot); } };
@@ -8376,11 +8378,15 @@
         rev: (rec.rev || 1) + 1, atualizadoEm: Date.now(), atualizadoPor: eqId(), atualizadoPorNome: eqNomeLocal() };
       return r;
     }
+    // Campanha do Fôlego fechada na Renegociação: vai direto para o histórico (acordo em aberto) ao copiar a mensagem ou a linha
+    const atFolegoAuto = () => ngCtx === 'renegociacao' && ngModalidade() === 'folego' && $('#mf-ng-frase-tipo').value === 'fechou';
     // registra o que está no Atendimento (evita duplicado: mesma proposta -> atualizar o existente, com revisão)
-    function atRegistrar() {
+    // auto: chamado ao copiar (Campanha do Fôlego); não pede as parcelas e não troca de aba
+    function atRegistrar(auto) {
+      auto = auto === true;
       const falta = atValidar();
-      if (falta.length) return msg('Preencha antes de registrar:\n- ' + falta.join('\n- '));
-      if (ngCtx === 'renegociacao' && !atPlano.length && !confirm('As parcelas da renegociação não foram montadas. Registrar assim mesmo?')) return;
+      if (falta.length) return msg((auto ? 'Copiado, mas NÃO foi para o histórico. ' : '') + 'Preencha antes de registrar:\n- ' + falta.join('\n- '));
+      if (!auto && ngCtx === 'renegociacao' && !atPlano.length && !confirm('As parcelas da renegociação não foram montadas. Registrar assim mesmo?')) return;
       if (!atTexto('pedido') && !atTexto('acordo')) ngGerarTextos(true);
       const status = { fechou: 'realizado', finalizou: 'finalizado', solicitou: 'pendente', nao: 'nao_concluido' }[$('#mf-ng-frase-tipo').value] || 'pendente';
       const valores = {};
@@ -8400,6 +8406,7 @@
       acRecarregar();
       const mesmos = acBase.itens.filter(x => x.cliente.proposta === rec.cliente.proposta && x.status !== 'anulado' && !eqExpirado('ac', x)).sort((a, b) => b.atualizadoEm - a.atualizadoEm);
       const igual = mesmos.find(x => x.tipo === rec.tipo && x.modalidade === rec.modalidade && x.status === rec.status && JSON.stringify(x.textos) === JSON.stringify(rec.textos) && JSON.stringify(x.valores) === JSON.stringify(rec.valores));
+      if (igual && auto) return msg('Copiado. O acordo já está no histórico (acordos em aberto da Campanha do Fôlego).');
       if (igual) { hsAberto = igual.id; mostrarAba('his'); hsDesenhar(); return msg('Este acordo já está no histórico (' + new Date(igual.criadoEm).toLocaleString('pt-BR') + ', por ' + igual.criadoPorNome + '). Nada foi duplicado.'); }
       if (mesmos.length) {
         const x = mesmos[0];
@@ -8413,9 +8420,9 @@
         if (!confirm('Criar um registro NOVO, separado, para a mesma proposta ' + rec.cliente.proposta + '?')) return msg('Nada foi registrado.');
       }
       acBase.itens.push(rec);
-      if (acSalvar(rec)) { hsAberto = rec.id; msg('Registrado no histórico' + (eqPronta() ? ' e enviado para a equipe' : ' (só neste navegador: ligue o compartilhamento em Configurações > Equipe)') + '.'); }
+      if (acSalvar(rec)) { hsAberto = rec.id; msg((auto ? 'Copiado e registrado no histórico como acordo em aberto da Campanha do Fôlego' : 'Registrado no histórico') + (eqPronta() ? ' e enviado para a equipe' : ' (só neste navegador: ligue o compartilhamento em Configurações > Equipe)') + '.'); }
     }
-    $('#mf-at-registrar').onclick = atRegistrar;
+    $('#mf-at-registrar').onclick = () => atRegistrar();
 
     /* ---- tela do histórico ---- */
     const selHsModal = $('#mf-hs-modal');
@@ -8443,6 +8450,7 @@
       caixa.innerHTML = '';
       if (!lista.length) { const v = document.createElement('div'); v.className = 'mf-info'; v.textContent = itens.length ? 'Nenhum registro com esses filtros.' : 'Nenhum acordo registrado ainda. No Atendimento, use "Registrar no histórico".'; caixa.appendChild(v); }
       lista.slice(0, 150).forEach(r => caixa.appendChild(hsItem(r)));
+      hsFolegoDesenhar();
       hsBadge();
       eqStatusUI();
     }
@@ -8476,6 +8484,8 @@
       if (r.cliente.contato) bt('Copiar telefone', 'cinza', () => hsCopiar(r.cliente.contato, 'Telefone'));
       bt('Copiar resumo', 'cinza', () => hsCopiar(['Proposta ' + r.cliente.proposta + ' · ' + r.cliente.nome + (r.cliente.contato ? ' · ' + r.cliente.contato : ''), HS_STATUS[r.status] + ' · ' + ngModNome(r.modalidade), r.textos.pedido, r.textos.acordo].filter(Boolean).join('\n'), 'Resumo'));
       bt('Abrir no Atendimento', 'azul', () => hsAbrirNoAtendimento(r));
+      if (r.modalidade === 'folego' && r.status === 'realizado') bt('Cliente cumpriu', 'verde', () => hsFolegoCumprir(r.id));
+      if (r.modalidade === 'folego' && r.status === 'finalizado') bt('Mensagem: acordo cumprido', 'cinza', () => hsFolegoGerar(r));
       if (r.status !== 'anulado') { bt('Corrigir', 'cinza', () => { hsCorrigindo = r.id; hsDesenhar(); }); bt('Anular', 'vermelho', () => hsAnular(r.id)); }
       el.append(det, acoes);
       if (hsCorrigindo === r.id) el.appendChild(hsEditor(r));
@@ -8537,6 +8547,77 @@
       atTrocar(r.tipo === 'renegociacao' ? 'renegociacao' : 'negociacao');
       mostrarAba('neg');
       msg('Registro aberto no Atendimento. O CPF não fica no histórico: use "Aplicar cliente atual" se precisar dele na planilha.');
+    }
+    /* ---- Campanha do Fôlego: acordos em aberto -> "Cliente cumpriu" -> mensagem para o grupo ----
+       Em aberto = registro da modalidade Fôlego com situação "Acordo realizado". Concluir = revisão para "Acordo finalizado"
+       (motivo fica nas alterações) e conclui o lembrete pendente da mesma proposta. O CPF não fica no histórico:
+       é buscado no ER pela proposta só para montar a mensagem (se não der, é pedido na hora). Nada novo é salvo. */
+    const HS_FOLEGO_TITULO = '*CAMPANHA DO FÔLEGO — ACORDO CUMPRIDO*';
+    let hsFolegoMsg = null;   // { id, texto } da última mensagem gerada (só em memória)
+    const hsFolegoAbertos = () => acBase.itens.filter(r => r.modalidade === 'folego' && r.status === 'realizado' && !eqExpirado('ac', r)).sort((a, b) => (a.criadoEm || 0) - (b.criadoEm || 0));
+    const hsDiaMes = ts => { const d = new Date(ts); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); };
+    const hsFolegoTexto = (r, cpf) => [HS_FOLEGO_TITULO, '', 'Cliente cumpriu o acordo realizado no dia ' + hsDiaMes(r.criadoEm), 'Nome: ' + (r.cliente.nome || ''), 'CPF: ' + (cpf || '')].join('\n');
+    async function hsFolegoCpf(proposta) {
+      if (proposta) {
+        try { const c = await dadosCliente(cacBase(), proposta); if (c.ok && c.cpf) return cacCpfFmt(c.cpf); } catch (_) { /* segue para digitar */ }
+      }
+      const t = prompt('Não consegui buscar o CPF da proposta ' + (proposta || '—') + ' no sistema.\nDigite o CPF (ou deixe em branco e complete na mensagem):', '');
+      const dig = String(t || '').replace(/\D/g, '');
+      return dig.length === 11 ? cacCpfFmt(dig) : String(t || '').trim().slice(0, 20);
+    }
+    async function hsFolegoGerar(r) {
+      msg('Buscando o CPF da proposta ' + (r.cliente.proposta || '—') + '…');
+      const cpf = await hsFolegoCpf(r.cliente.proposta);
+      hsFolegoMsg = { id: r.id, texto: hsFolegoTexto(r, cpf) };
+      hsDesenhar();
+      GM_setClipboard(hsFolegoMsg.texto, 'text');
+      msg('Mensagem "acordo cumprido" copiada' + (cpf ? '' : ' (sem CPF: complete antes de enviar)') + '. Revise e cole no grupo.');
+    }
+    async function hsFolegoCumprir(id) {
+      acRecarregar();
+      const atual = acBase.itens.find(x => x.id === id);
+      if (!atual || atual.status !== 'realizado') { hsDesenhar(); return msg('Este acordo não está mais em aberto (pode ter sido concluído por outro funcionário).'); }
+      lbRecarregar();
+      const prop = atual.cliente.proposta, lbs = prop ? lbBase.itens.filter(x => x.status === 'pendente' && x.proposta === prop) : [];
+      if (!confirm('Confirmar que o cliente ' + (atual.cliente.nome || '') + ' (proposta ' + (prop || '—') + ') cumpriu o acordo da Campanha do Fôlego de ' + new Date(atual.criadoEm).toLocaleDateString('pt-BR') + '?\n\n'
+        + 'O registro passa para "Acordo finalizado"' + (lbs.length ? ' e o lembrete pendente desta proposta é concluído' : '') + '. Depois a mensagem para o grupo é gerada.')) return;
+      const novo = hsRevisar(atual, { ...atual, status: 'finalizado' }, 'Cliente cumpriu o acordo (Campanha do Fôlego)');
+      acBase.itens[acBase.itens.findIndex(x => x.id === id)] = novo;
+      if (!acSalvar(novo)) return;
+      if (lbs.length) { lbs.forEach(it => { it.status = 'concluido'; lbTocar(it); lbHist(it, 'concluído: cliente cumpriu o acordo (Campanha do Fôlego)'); }); lbSalvar(); }
+      await hsFolegoGerar(novo);
+    }
+    function hsFolegoDesenhar() {
+      const cx = $('#mf-hs-folego');
+      if (!cx) return;
+      const ab = hsFolegoAbertos();
+      cx.innerHTML = '';
+      if (!ab.length && !hsFolegoMsg) return;
+      const tit = document.createElement('div'); tit.className = 'mf-tit'; tit.textContent = 'Campanha do Fôlego — acordos em aberto (' + ab.length + ')';
+      cx.appendChild(tit);
+      if (!ab.length) { const v = document.createElement('div'); v.className = 'mf-info'; v.textContent = 'Nenhum acordo em aberto.'; cx.appendChild(v); }
+      ab.forEach(r => {
+        const it = document.createElement('div'); it.className = 'mf-hs-item realizado'; it.style.cursor = 'default';
+        const l1 = document.createElement('div'); l1.className = 'mf-lb-l1'; l1.textContent = 'Proposta ' + (r.cliente.proposta || '—') + (r.cliente.nome ? ' · ' + r.cliente.nome : '');
+        const v = r.valores || {}, tot = ngCentavos(v.valor_total_juros), pg = ngCentavos(v.valor_pago_parcial);
+        const l2 = document.createElement('div');
+        l2.textContent = 'Acordo de ' + new Date(r.criadoEm).toLocaleDateString('pt-BR') + ' · ' + (r.criadoPorNome || '—')
+          + (tot != null && pg != null && tot >= pg ? ' · Restante ' + ngReais(tot - pg) : '') + (v.data_restante ? ' em ' + ngData(v.data_restante) : '');
+        const ac = document.createElement('div'); ac.className = 'mf-lb-acoes';
+        const b = document.createElement('button'); b.className = 'verde'; b.textContent = 'Cliente cumpriu';
+        b.onclick = e => { e.stopPropagation(); hsFolegoCumprir(r.id); };
+        ac.appendChild(b); it.append(l1, l2, ac); cx.appendChild(it);
+      });
+      if (hsFolegoMsg) {
+        const ta = document.createElement('textarea'); ta.style.height = '110px'; ta.style.marginTop = '6px'; ta.value = hsFolegoMsg.texto;
+        ta.addEventListener('input', () => { hsFolegoMsg.texto = ta.value; });
+        const ac = document.createElement('div'); ac.className = 'mf-lb-acoes';
+        const cp = document.createElement('button'); cp.className = 'verde'; cp.textContent = 'Copiar mensagem';
+        cp.onclick = () => { if (!ta.value.trim()) return msg('Mensagem vazia.'); GM_setClipboard(ta.value, 'text'); msg('Mensagem copiada.'); };
+        const fe = document.createElement('button'); fe.className = 'cinza'; fe.textContent = 'Fechar mensagem';
+        fe.onclick = () => { hsFolegoMsg = null; hsDesenhar(); };
+        ac.append(cp, fe); cx.append(ta, ac);
+      }
     }
     // contador da aba: registros de outros funcionários desde a última vez que o histórico foi aberto
     function hsBadge() {
