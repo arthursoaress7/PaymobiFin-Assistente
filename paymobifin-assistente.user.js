@@ -11,8 +11,8 @@
 // @include      https://app.tallos.com.br/*
 // @include      https://paymobi.com.br/*
 // @homepageURL  https://github.com/arthursoaress7/PaymobiFin-Assistente/tree/main
-// @downloadURL  https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/main/paymobifin-assistente.user.js
-// @updateURL    https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/main/paymobifin-assistente.user.js
+// @downloadURL  https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/development/paymobifin-assistente.user.js
+// @updateURL    https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/development/paymobifin-assistente.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_deleteValue

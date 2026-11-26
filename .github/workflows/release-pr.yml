@@ -41,7 +41,11 @@ jobs:
         id: dif
         run: |
           git fetch origin main
-          if git diff --quiet origin/main HEAD; then
+          # as URLs de atualização sempre diferem (development aponta para a development,
+          # main para a main): não contam como conteúdo novo
+          MUDANCAS=$(git diff -U0 origin/main HEAD | grep -E '^[+-]' | grep -vE '^(\+\+\+|---) ' \
+            | grep -vE '^[+-]// @(downloadURL|updateURL) ' || true)
+          if [ -z "$MUDANCAS" ]; then
             echo "Nada novo: development e main têm o mesmo conteúdo."
             echo "vazio=true" >> "$GITHUB_OUTPUT"
           else
@@ -61,9 +65,14 @@ jobs:
         id: rel
         run: python3 .github/scripts/preparar_release.py
 
-      - name: Conferir sintaxe do script
+      - name: Conferir sintaxe do script e URLs de produção
         if: steps.dif.outputs.vazio == 'false'
-        run: node --check paymobifin-assistente.user.js
+        run: |
+          node --check paymobifin-assistente.user.js
+          # a main nunca pode receber as URLs da development (todos os usuários iriam para o teste)
+          if grep -qE '^// @(downloadURL|updateURL) .*/refs/heads/development/' paymobifin-assistente.user.js; then
+            echo "❌ URLs da development no PR de release."; exit 1
+          fi
 
       - name: Publicar a branch release/proxima
         if: steps.dif.outputs.vazio == 'false'

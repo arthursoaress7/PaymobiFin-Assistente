@@ -21,17 +21,17 @@
 | Versão atual | 13.44.0 |
 | Sites alvo | `paymobi-app.ercard.com.br` (ER; o antigo `paymobi.ercard.com.br` também é aceito), `enviamotor.mobfacil.com.br`, `app.tallos.com.br` (RD) e `paymobi.com.br` (só o Acesso ao APP do Boleto+) |
 | Arquitetura | **Monolítica** — não dividir em arquivos |
-| Fluxo Git | branch temporária → `development` (testes) → `main` (produção) |
+| Fluxo Git | branch temporária → `development` (ambiente de teste) → `main` (produção, só pelo PR de release) |
 
 ---
 
 ## Regras inegociáveis
 
 - **Não divida o arquivo** — refatoração não está no escopo atual
-- **Não altere `@downloadURL`/`@updateURL`** — push na `main` atualiza todos os usuários
+- **Não altere `@downloadURL`/`@updateURL` à mão** — na `development` apontam para a `development` (teste); o PR de release troca para a `main` e a sincronização devolve (item 7 do `instructions.md`)
 - **Nunca commitar em `main` ou `development` diretamente** — sempre via branch + PR
 - **Branch temporária parte de `development`**, não de `main`
-- **PR de trabalho vai para `development`** — a `main` recebe só pelo PR de release (`release/proxima`), integrado pelo responsável
+- **PR de trabalho vai para `development`** — a `main` recebe **só** o PR de release (`release/proxima`), integrado pelo responsável. Nenhum outro merge na `main`, nem `hotfix/`
 - **Não sobrescreva dados de armazenamento existentes** — siga o padrão de `salvar()`
 - **Dentro do painel, use `$()`, não `document.querySelector()`**
 - **Timeouts apenas em `CONFIG`** — nunca valores hard-coded fora dele
