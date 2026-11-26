@@ -4688,27 +4688,34 @@
     });
     // Renegociação: "Condições aceitas" (o que o sistema aceitou, para a revisão do grupo). Cada uma espelha a solicitada
     // enquanto não for alterada à mão (ngAceitasHook); vazia = igual à solicitada (ngValor).
+    // Os campos do "liberado pelo sistema" são os mesmos do "solicitado pelo cliente" (pedido de 26/11/2026).
     Object.assign(NG_CAMPOS, {
-      aceita_data_entrada: { rot: 'Data 1ª parcela (entrada) aceita', tipo: 'data' },
-      aceita_quantidade_parcelas: { rot: 'Parcelas aceitas', tipo: 'num' },
-      aceita_valor_parcela: { rot: 'Valor de cada parcela aceito', tipo: 'moeda' },
-      aceita_proximo_vencimento: { rot: 'Próximo vencimento aceito', tipo: 'data' },
+      aceita_valor_entrada: { rot: 'Valor da entrada liberado pelo sistema', tipo: 'moeda' },
+      aceita_data_entrada: { rot: 'Data da entrada liberada pelo sistema', tipo: 'data' },
+      aceita_quantidade_parcelas: { rot: 'Quantidade de parcelas liberada pelo sistema', tipo: 'num' },
+      aceita_valor_parcela: { rot: 'Valor das parcelas liberado pelo sistema', tipo: 'moeda' },
+      aceita_proximo_vencimento: { rot: 'Data do vencimento liberada pelo sistema', tipo: 'data' },
+      // sem entrada específica, a entrada é a 1ª parcela (valor = valor das parcelas)
+      entrada_solicitada: { rot: 'Valor da entrada solicitada (vazio = valor das parcelas)', tipo: 'calc' },
+      entrada_liberada: { rot: 'Valor da entrada liberada (vazio = valor das parcelas)', tipo: 'calc' },
     });
-    const NG_ACEITAS = { aceita_data_entrada: 'data_entrada', aceita_quantidade_parcelas: 'quantidade_parcelas', aceita_valor_parcela: 'valor_parcela_acordo', aceita_proximo_vencimento: 'proximo_vencimento' };
+    const NG_ACEITAS = { aceita_valor_entrada: 'valor_entrada', aceita_data_entrada: 'data_entrada', aceita_quantidade_parcelas: 'quantidade_parcelas', aceita_valor_parcela: 'valor_parcela_acordo', aceita_proximo_vencimento: 'proximo_vencimento' };
     const NG_CAB = c => '{{operacao}} — ' + c + '\n\nCliente: {{nome}}\nProposta: {{proposta}}\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\n';
     const NG_ABR = ['abrangencia_tipo', 'parcela_inicial', 'parcelas_especificas'];
     const NG_MODALIDADES = {
       geral: { nome: 'Condições gerais (modelo anterior)' },
-      entrada: {   // "Renegociação" (chave 'entrada' mantida pelo histórico). Formato de 26/11/2026: condições solicitadas pelo cliente + condições aceitas
-        // (revisão do grupo). A entrada é a 1ª das parcelas (valor = valor da parcela, na "Data 1ª parcela"); as demais começam no Próximo vencimento.
-        nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', ...NG_ABR, 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'proximo_vencimento', ...Object.keys(NG_ACEITAS), 'observacoes'],
+      entrada: {   // "Renegociação" (chave 'entrada' mantida pelo histórico). Condições solicitadas pelo cliente + condições liberadas pelo sistema
+        // de renegociação (revisão do grupo), com os mesmos 5 campos. Sem entrada específica, a entrada é a 1ª parcela (valor = valor das parcelas).
+        nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', ...NG_ABR, 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'proximo_vencimento', ...Object.keys(NG_ACEITAS), 'observacoes'],
         obrig: ['nome', 'quantidade_parcelas', 'valor_parcela_acordo'],
-        rotulos: { data_entrada: 'Data 1ª parcela (entrada)', quantidade_parcelas: 'Parcelas', valor_parcela_acordo: 'Valor de cada parcela', proximo_vencimento: 'Próximo vencimento' },
-        texto: '{{operacao}}\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nCondições solicitadas pelo cliente:\nData da entrada: {{data_entrada}}\nParcelas: {{quantidade_parcelas}}\nValor de cada parcela: {{valor_parcela_acordo}}\nPróximo vencimento: {{proximo_vencimento}}\n\nCondições aceitas:\nData da entrada: {{aceita_data_entrada}}\nParcelas: {{aceita_quantidade_parcelas}}\nValor de cada parcela: {{aceita_valor_parcela}}\nPróximo vencimento: {{aceita_proximo_vencimento}}\n\nObservações: {{observacoes}}',
-        // planilha: "Acordo Solicitado" = solicitadas; "Acordo Realizado" = aceitas
-        frases: (v, verbo) => { const e = (d, q, val, pv) => v(q) + ' parcelas de ' + v(val) + (v(d) ? ', sendo a 1ª (entrada) em ' + v(d) : '') + (v(pv) ? (v(d) ? ' e' : ',') + ' as demais a partir de ' + v(pv) : '');
-          return { pedido: 'Cliente ' + verbo + ' ' + e('data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'proximo_vencimento'),
-            acordo: 'Prosseguimos com ' + e('aceita_data_entrada', 'aceita_quantidade_parcelas', 'aceita_valor_parcela', 'aceita_proximo_vencimento') }; },
+        rotulos: { valor_entrada: 'Valor da entrada (se houver; vazio = 1ª parcela)', data_entrada: 'Data da entrada (se houver)', quantidade_parcelas: 'Quantidade de parcelas sugerida', valor_parcela_acordo: 'Valor das parcelas', proximo_vencimento: 'Data do vencimento',
+          aceita_valor_entrada: 'Valor da entrada (se houver; vazio = 1ª parcela)', aceita_data_entrada: 'Data da entrada (se houver)', aceita_quantidade_parcelas: 'Quantidade de parcelas liberada', aceita_valor_parcela: 'Valor das parcelas', aceita_proximo_vencimento: 'Data do vencimento' },
+        texto: '{{operacao}}\n\nCliente: {{nome}}\nCPF: {{cpf}}\nProposta: {{proposta}}\n\nCondições solicitadas pelo cliente:\nValor da entrada: {{entrada_solicitada}}\nData da entrada: {{data_entrada}}\nParcelas: {{quantidade_parcelas}}\nValor de cada parcela: {{valor_parcela_acordo}}\nPróximo vencimento: {{proximo_vencimento}}\n\nCondições aceitas:\nValor da entrada: {{entrada_liberada}}\nData da entrada: {{aceita_data_entrada}}\nParcelas: {{aceita_quantidade_parcelas}}\nValor de cada parcela: {{aceita_valor_parcela}}\nPróximo vencimento: {{aceita_proximo_vencimento}}\n\nObservações: {{observacoes}}',
+        // planilha: "Acordo Solicitado" = solicitadas; "Acordo Realizado" = liberadas
+        frases: (v, verbo) => { const e = (ve, d, q, val, pv) => (v(ve) ? 'entrada de ' + v(ve) + (v(d) ? ' em ' + v(d) : '') + ' + ' + v(q) + ' parcelas de ' + v(val) + (v(pv) ? ' a partir de ' + v(pv) : '')
+              : v(q) + ' parcelas de ' + v(val) + (v(d) ? ', sendo a 1ª (entrada) em ' + v(d) : '') + (v(pv) ? (v(d) ? ' e' : ',') + ' as demais a partir de ' + v(pv) : ''));
+          return { pedido: 'Cliente ' + verbo + ' ' + e('valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'proximo_vencimento'),
+            acordo: 'Prosseguimos com ' + e('aceita_valor_entrada', 'aceita_data_entrada', 'aceita_quantidade_parcelas', 'aceita_valor_parcela', 'aceita_proximo_vencimento') }; },
       },
       folego: {
         nome: 'Campanha do Fôlego (pagamento parcial)', campos: ['nome', 'proposta', 'cpf', 'parcela_negociada', 'valor_parcela', 'vencimento', 'valor_pago_parcial', 'data_pagamento', 'valor_total_juros', 'valor_restante', 'data_restante', 'quebra_acordo', 'valor_pago_anterior', 'data_pago_anterior'],
@@ -4824,6 +4831,8 @@
         return q ? 'a antecipação de ' + q + (q === '1' ? ' parcela' : ' parcelas') : '';
       }
       if (k in NG_ACEITAS && (v == null || String(v).trim() === '')) return ngValor(NG_ACEITAS[k]);   // aceita vazia = igual à solicitada
+      if (k === 'entrada_solicitada') return ngValor('valor_entrada') || ngValor('valor_parcela_acordo');   // sem entrada específica = 1ª parcela
+      if (k === 'entrada_liberada') return ngValor('aceita_valor_entrada') || ngValor('aceita_valor_parcela');
       if (def.tipo === 'calc') return '';
       if (def.tipo === 'check') return v ? 'sim' : '';
       if (v == null || String(v).trim() === '') return '';
@@ -4959,8 +4968,8 @@
       const g = c => painel.querySelector('#mf-ng-campos [data-campo="' + c + '"]');
       const bruto = c => String(ngValores[c] == null ? '' : ngValores[c]).trim();
       const titulo = (c, t) => { const el = g(c); if (!el) return; const d = document.createElement('div'); d.className = 'mf-ng-subtit mf-cheia'; d.textContent = t; el.closest('label').before(d); };
-      titulo(pares[0][1], 'Condições solicitadas pelo cliente');
-      titulo(pares[0][0], 'Condições aceitas (revisão do grupo; iguais às solicitadas até você alterar)');
+      titulo(pares[0][1], 'O que o cliente solicitou');
+      titulo(pares[0][0], 'O que o sistema de renegociação liberou (igual ao solicitado até você alterar)');
       const marcar = () => pares.forEach(([a, s]) => { const el = g(a); if (el) el.closest('label').classList.toggle('mf-ng-dif', ngValor(a) !== ngValor(s)); });
       pares.forEach(([a, s]) => {
         const ea = g(a), es = g(s);
@@ -7120,8 +7129,10 @@
       const s = { periodo: 'mensal' };
       if (mod === 'entrada') {   // condições ACEITAS (vazia = solicitada). A entrada é a 1ª das parcelas: valor da parcela na "Data 1ª parcela"; as demais a partir do Próximo vencimento
         const ac = k => String(v(k) == null ? '' : v(k)).trim() || String(v(NG_ACEITAS[k]) == null ? '' : v(NG_ACEITAS[k])).trim();
-        const qtd = +ac('aceita_quantidade_parcelas') || 0, d1 = ac('aceita_data_entrada'), val = ac('aceita_valor_parcela'), pv = ac('aceita_proximo_vencimento');
-        Object.assign(s, d1 && qtd ? { entradaValor: val, entradaData: d1, qtd: qtd > 1 ? String(qtd - 1) : '', valor: val } : { qtd: qtd ? String(qtd) : '', valor: val });
+        const qtd = +ac('aceita_quantidade_parcelas') || 0, ve = ac('aceita_valor_entrada'), d1 = ac('aceita_data_entrada'), val = ac('aceita_valor_parcela'), pv = ac('aceita_proximo_vencimento');
+        // com entrada específica: entrada + N parcelas; sem ela, a entrada é a 1ª das N parcelas
+        Object.assign(s, ve ? { entradaValor: ve, entradaData: d1, qtd: qtd ? String(qtd) : '', valor: val }
+          : d1 && qtd ? { entradaValor: val, entradaData: d1, qtd: qtd > 1 ? String(qtd - 1) : '', valor: val } : { qtd: qtd ? String(qtd) : '', valor: val });
         if (pv) s.inicio = pv;
       }
       if (mod === 'pix') Object.assign(s, { periodo: 'semanal', qtd: v('qtd_semanas'), valor: v('valor_semanal'), entradaValor: v('valor_entrada') });
@@ -7174,8 +7185,8 @@
         const ent = String(ngValores.plano_entrada_valor || '').trim() ? ngCentavos(ngValores.plano_entrada_valor) : null;
         // entrada, nº e valor das parcelas vêm do bloco Acordo (não aparecem mais no bloco Renegociação)
         const pix = ngModalidade() === 'pix';
-        if (!(qtd >= 1 && qtd <= 240)) erros.push((pix ? 'Quantidade de semanas' : 'Quantidade de parcelas negociadas') + ' (bloco Acordo)');
-        if (valor == null) erros.push((pix ? 'Valor semanal' : 'Valor da parcela negociada') + ' (bloco Acordo)');
+        if (!(qtd >= 1 && qtd <= 240)) erros.push((pix ? 'Quantidade de semanas' : ngModalidade() === 'entrada' ? 'Quantidade de parcelas (solicitada ou liberada pelo sistema)' : 'Quantidade de parcelas negociadas') + ' (bloco Acordo)');
+        if (valor == null) erros.push((pix ? 'Valor semanal' : ngModalidade() === 'entrada' ? 'Valor das parcelas (solicitado ou liberado pelo sistema)' : 'Valor da parcela negociada') + ' (bloco Acordo)');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(ini)) erros.push('1º vencimento das parcelas (ou a Data renegociação, que é a base dele)');
         if (String(ngValores.plano_entrada_valor || '').trim() && ent == null) erros.push('Valor da entrada (bloco Acordo: valor inválido)');
         if (!erros.length) {
