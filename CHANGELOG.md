@@ -1,5 +1,16 @@
 # Changelog
 
+## [v13.46.0] — 2026-11-26
+
+### ✨ Novas funcionalidades
+
+- feat: mensagem do grupo da Renegociação com condições solicitadas e aceitas (#185) (cb9e793)
+- feat: acordos em aberto da campanha do fôlego e mensagem de acordo cumprido (#182) (9cd56db)
+
+### 🔧 Outros
+
+- docs: fluxo do fôlego nas tabelas de funções e linhas dos módulos atualizadas (#184) (a69e71c)
+
 ## [v13.45.0] — 2026-11-26
 
 ### ✨ Novas funcionalidades
