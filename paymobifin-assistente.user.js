@@ -427,6 +427,20 @@
       const x = extrairDeLista(soP1(lr));
       ['qtd', 'val', 'score', 'consultas', 'cpf'].forEach(k => { if (r[k] == null && x[k] != null) r[k] = x[k]; });
     }
+    // 3) ainda faltando score ou restrições: o resultado completo da análise na memória da página (anMotorResumo),
+    //    sem depender dos nós abertos na árvore. O relatório de Reprovadas para no motivo e nem sempre chegava a esses nós.
+    if (r.qtd == null || r.val == null || r.score == null) {
+      let rs = null;
+      try { rs = anMotorResumo(); } catch (_) { rs = null; }
+      const rg = rs && rs.p1 && String(rs.p1.id) === String(id) ? rs.p1.regras || {} : null;
+      if (rg) {
+        const br = v => (v == null || v === '' ? null : typeof v === 'number' ? String(v).replace('.', ',') : num(v));   // 10956.91 -> "10956,91"
+        const cr = rg.calculaRisco || {}, cl = rg.classificacaoRiscoDeCredito || {};
+        if (r.qtd == null) r.qtd = br(cr.QuantidadeRestritivos);
+        if (r.val == null) r.val = br(cr.ValorRestritivos);
+        if (r.score == null) r.score = br(cl.valorScore);
+      }
+    }
     // modo "rendas": Renda informada, nome e CPF vêm do cartão do resultado; RendaCalculo (renda do birô) vem da árvore
     // (tela e, se faltar, memória: primeiro o bloco "Fluxos P1", depois a árvore inteira)
     if (GM_getValue('modo', 'coleta') === 'rendas') {
@@ -3091,25 +3105,35 @@
       if (m === 'reprovadas') {
         const tipo = x.ana && !/master/i.test(x.ana) ? 'Manual' : 'Automática';
         // uma mensagem por motivo de reprovação (o MobFacil lista TODOS os que falharam, ex.: valor E quantidade)
+        // Por proposta: score, valor e quantidade de restrições SEMPRE listados, e o que reprovou marcado com o limite da
+        // faixa (tabela da equipe). Motivo = o que reprovou, por extenso. Outro motivo (renda, idade, nome...) vem antes.
         const msgs = motivosReprov(d).map(motivoDoMobFacil).filter(Boolean);
-        const motivo = [...new Set(msgs.map(x => x.label))].join(' / ');
-        const partes = [];
-        msgs.forEach(mf => {
-          let t;
-          if (mf.label === 'Restrições' && /quantidade|qtd/i.test(mf.descr)) {
-            const q = aNum(mf.atual);
-            t = isNaN(q) ? '' : q + ' restrições';
-          } else if (mf.label === 'Score') {
-            t = String(mf.atual || (d.score != null ? d.score : '')).replace(/,0+$/, '');
-          } else {
-            t = fmtAtual(mf.atual);   // valor das restrições, renda, idade...
-          }
-          if (t && !partes.includes(t)) partes.push(t);
-        });
-        let det = partes.join('\n');   // sem mensagem do MobFacil: Motivo em branco e N/A (não inventa)
-        if (!String(det).trim()) det = 'N/A';
-        if (estilo() === 'p2col') cols = [id, hh, titulo(loja), tipo, motivo, partes[0] || 'N/A', partes.slice(1).join(' ')];
-        else cols = [id, hh, titulo(loja), tipo, motivo, det];
+        const dd = d || {};
+        const vazio = x => x == null || String(x).trim() === '';
+        const sc = vazio(dd.score) ? null : aNum(dd.score);
+        const fx = sc != null && !isNaN(sc) ? faixaDe(null, sc) : null;
+        const ehScore = mf => /score|ponto de corte/i.test(mf.descr + ' ' + mf.label);
+        const ehRestr = mf => mf.label === 'Restrições' && /quantidade|qtd|valor/i.test(mf.descr);
+        const ehQtd = mf => ehRestr(mf) && /quantidade|qtd/i.test(mf.descr);
+        const mScore = msgs.some(ehScore), mQtd = msgs.some(ehQtd), mValor = msgs.some(mf => ehRestr(mf) && !ehQtd(mf));
+        const outros = msgs.filter(mf => !ehScore(mf) && !ehRestr(mf));
+        const nomes = [];
+        outros.forEach(mf => { const t = mf.label === 'Renda' ? 'Renda abaixo da mínima' : mf.label; if (!nomes.includes(t)) nomes.push(t); });
+        if (mScore) nomes.push('Score baixo');
+        if (mValor && mQtd) nomes.push('Valor e quantidade de restrições acima do limite');
+        else if (mValor) nomes.push('Valor de restrições acima do limite');
+        else if (mQtd) nomes.push('Quantidade de restrições acima do limite');
+        const motivo = nomes.join(' / ');
+        const partes = outros.map(mf => 'Motivo: ' + (mf.descr || mf.label) + (mf.atual ? ' (' + fmtAtual(mf.atual) + ')' : ''));
+        partes.push('Score: ' + (sc != null && !isNaN(sc) ? String(sc) + (fx ? ' (faixa ' + fx.faixa + ')' : '') : NA) +
+          (mScore ? ' ← motivo: ' + (fx && fx.valor == null ? 'faixa ' + fx.faixa + ' (até ' + fx.ate + ') reprova sempre' : 'abaixo do ponto de corte') : ''));
+        partes.push('Restrições: ' + (vazio(dd.val) ? NA : moeda(num(dd.val) || dd.val)) +
+          (mValor ? ' ← motivo: acima do limite' + (fx && fx.valor != null ? ' de ' + moeda(String(fx.valor)) : '') : ''));
+        partes.push('Quantidade: ' + (vazio(dd.qtd) ? NA : String(dd.qtd)) +
+          (mQtd ? ' ← motivo: acima do limite' + (fx && fx.qtd != null ? ' de ' + fx.qtd : '') : ''));
+        const det = partes.join('\n');
+        if (estilo() === 'p2col') cols = [id, hh, titulo(loja), tipo, motivo || NA, partes[0], partes.slice(1).join(' · ')];
+        else cols = [id, hh, titulo(loja), tipo, motivo || NA, det];
       } else if (m === 'valortransacao') {
         const vt = valorTransacao(e);
         const nv = vt ? num(vt) : null;                                   // "R$1.864,00" -> "1864,00" (Excel pt-BR)
