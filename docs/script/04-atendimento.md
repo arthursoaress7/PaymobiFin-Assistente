@@ -1,7 +1,7 @@
 # Módulo: Atendimento (Negociação e Renegociação)
 
-**Linhas:** 5537 – 5900  
-**Gerador de textos:** 4092 – 4590 (modelos, campos, `ngValor`, `ngMontar`); `ngFrases` logo antes do Atendimento  
+**Linhas:** 6920 – 7407  
+**Gerador de textos:** 4553 – 5057 (modelos, campos, `ngValor`, `ngMontar`); `ngFrases` logo antes do Atendimento  
 **Funções principais:** `atDesenhar()`, `atLinhas()`, `atMontarPlano()`, `ngGerarTextos()`, `ngFrases()`
 
 ---
@@ -240,6 +240,8 @@ O fluxo tem duas etapas e cada uma fica num lugar só:
 | `atSomarMeses(iso, n)` | Soma N meses a uma data ISO (respeitando últimos dias do mês) |
 | `atPlanoCampos()` | Retorna os campos do plano de parcelas |
 | `atValidar()` | Valida campos obrigatórios antes de registrar |
+| `atRegistrar(auto)` | Registra no histórico (ver `05-historico.md`); `auto` = chamado ao copiar um Fôlego fechado |
+| `atFolegoAuto()` | Verdadeiro na Renegociação com modalidade Fôlego e Resultado "fechou" (registro automático ao copiar) |
 | `atDebParcela(valor, venc, pgto)` | Encargos, multa e total de uma parcela em atraso (centavos), regra do ER (`AT_ENCARGOS`) |
 | `atDebCalcular(valor, qtd, vencIni, pgto)` | Parcelas mensais em atraso a partir do vencimento mais antigo + totais |
 | `atDebTrazer(tudo)` / `atDebLimpar()` | Preenche a calculadora com a ficha (Cobrança) / limpa o cálculo |

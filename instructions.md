@@ -14,7 +14,7 @@ O **PaymobiFin - Assistente** é um userscript Tampermonkey que roda em dois sit
 | `paymobi-app.ercard.com.br` (antigo: `paymobi.ercard.com.br`) | Painel principal com todas as funcionalidades |
 | `enviamotor.mobfacil.com.br` | Motor de coleta de dados de crédito (iframe) |
 
-**Arquivo de código:** `paymobifin-assistente.user.js` — único arquivo JavaScript, ~8.800 linhas, sem transpilador ou bundler.
+**Arquivo de código:** `paymobifin-assistente.user.js` — único arquivo JavaScript, ~10.400 linhas, sem transpilador ou bundler.
 
 **Nome antigo:** até a v13.27.1 o script se chamava `automacaomobfacil.user.js`. Esse arquivo ficou como ponte (congelado na 13.27.2) para migrar as instalações antigas e foi removido em 19/11/2026 (P4.8). Instalações que ainda apontem para o nome antigo não recebem mais atualizações: reinstalar pelo endereço de `paymobifin-assistente.user.js`.
 
@@ -402,7 +402,7 @@ else if (window.top === window) iniciarPainel();
 | → Timers (`tm`) | Agendamentos de expediente |
 | → Navegação/Aparência | Nova UI / UI Antiga |
 | → Equipe (`eq`) | Pusher, criptografia AES-GCM |
-| → Histórico (`hs`) | Acordos registrados |
+| → Histórico (`hs`) | Acordos registrados; acordos em aberto da Campanha do Fôlego e "Cliente cumpriu" (`hsFolego*`) |
 | → Busca de cliente (`bs`) | Central de busca (somente leitura) |
 | → Navegação automática | Troca de tela automática no ER |
 | → Relatório de Pendências (`pd`) | Fila de Pendências da conta master (somente leitura) |
