@@ -14,8 +14,16 @@ O que faz:
   5. Escreve as saídas em $GITHUB_OUTPUT (ou na tela): versao, incremento, titulo e o
      corpo do PR em /tmp/release_corpo.md.
 
+  6. Sempre (com ou sem incremento): aponta @downloadURL/@updateURL para a main.
+     Na development elas apontam para a própria development (ambiente de teste), e o
+     release.yml as devolve para a development na sincronização main -> development.
+
 Falha (código 1) se algum local de versão não for encontrado: a documentação nunca pode
 divergir do @version sem que alguém perceba.
+
+Uso só das URLs (sem calcular versão), por exemplo na sincronização:
+    python3 .github/scripts/preparar_release.py --urls development
+    python3 .github/scripts/preparar_release.py --urls main
 """
 import datetime
 import os
@@ -39,6 +47,23 @@ LOCAIS = [
 # commits do próprio fluxo, que não entram no cálculo nem no CHANGELOG
 IGNORAR = re.compile(r'^(chore: release v|chore: sincroniza main na development|chore: integrar development na main|chore: versão \d)', re.I)
 TIPO = re.compile(r'^(\w+)(\([^)]*\))?(!)?: ')
+
+
+URL_BASE = 'https://github.com/arthursoaress7/PaymobiFin-Assistente/raw/refs/heads/'
+URLS = re.compile(r'(?m)^(// @(?:downloadURL|updateURL)\s+)(\S+)$')
+
+
+def ajustar_urls(branch):
+    """Aponta @downloadURL e @updateURL para a branch (main = produção; development = teste)."""
+    if branch not in ('main', 'development'):
+        sys.exit(f'ERRO: branch de URL inválida: {branch}')
+    with open(SCRIPT, encoding='utf-8', newline='') as f:
+        texto = f.read()
+    novo, n = URLS.subn(lambda m: m.group(1) + URL_BASE + branch + '/' + SCRIPT, texto)
+    if n != 2:
+        sys.exit(f'ERRO: esperado 2 linhas @downloadURL/@updateURL, encontrado {n}')
+    with open(SCRIPT, 'w', encoding='utf-8', newline='') as f:
+        f.write(novo)
 
 
 def git(*args):
@@ -151,6 +176,13 @@ def saida(chave, valor):
 
 
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == '--urls':
+        ajustar_urls(sys.argv[2])
+        return
+
+    # a main sempre distribui pela main, mesmo sem mudança de versão
+    ajustar_urls('main')
+
     atual = versao_da_main()
     commits = commits_novos()
     inc = incremento(commits)
