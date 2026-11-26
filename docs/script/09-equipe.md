@@ -1,6 +1,6 @@
 # Módulo: Equipe e Compartilhamento
 
-**Linhas:** 6355 – 6821  
+**Linhas:** 7862 – 8328  
 **Funções principais:** `eqCifrar()`, `eqDecifrar()`, `eqHmac()`, `eqChaveAes()`, `eqTodos()`, `eqAplicar()`, `eqUnir()`
 
 ---

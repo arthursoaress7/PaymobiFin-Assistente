@@ -1,7 +1,7 @@
 # Módulo: Lembretes e Timers
 
-**Lembretes — Linhas:** 3768 – 4160  
-**Timers — Linhas:** 4835 – 5171  
+**Lembretes — Linhas:** 5058 – 5450  
+**Timers — Linhas:** 7408 – 7743  
 **Chaves de armazenamento:** `mfLembretes` (v2), `mfLembretesBackup_v0/_v1`, `mfLembretesExcluidos`, `mfLembretesAviso`
 
 ---

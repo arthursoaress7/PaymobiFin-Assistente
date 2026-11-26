@@ -1,6 +1,6 @@
 # Módulo: Consulta CAC
 
-**Linhas:** 4984 – 5329  
+**Linhas:** 5451 – 5801  
 **Funções principais:** `cacConsultar()`, `cacAbrir()`, `cacMostrar()`, `cacReq()`; lista PEFIN: `pfAdicionar()`, `pfMontar()`, `pfCadastro()`, `pfCac()`, `pfDivida()`, `pfValor()`, `pfTexto()`
 
 ---

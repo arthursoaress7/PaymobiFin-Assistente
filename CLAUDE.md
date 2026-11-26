@@ -16,7 +16,7 @@
 
 | Item | Valor |
 |---|---|
-| Arquivo principal | `paymobifin-assistente.user.js` (~8.800 linhas) |
+| Arquivo principal | `paymobifin-assistente.user.js` (~10.400 linhas) |
 | Tipo | Tampermonkey userscript (monólito, sem build) |
 | Versão atual | 13.44.0 |
 | Sites alvo | `paymobi-app.ercard.com.br` (ER; o antigo `paymobi.ercard.com.br` também é aceito), `enviamotor.mobfacil.com.br`, `app.tallos.com.br` (RD) e `paymobi.com.br` (só o Acesso ao APP do Boleto+) |

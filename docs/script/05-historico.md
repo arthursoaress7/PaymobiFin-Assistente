@@ -1,6 +1,6 @@
 # Módulo: Histórico de Acordos
 
-**Linhas:** 6822 – 7050  
+**Linhas:** 8329 – 8636  
 **Chave de armazenamento:** `mfAcordos` (versão 1)  
 **Retenção:** 30 dias após a última alteração
 
@@ -79,6 +79,7 @@ Ao clicar num item do histórico, expande e permite:
 - Copiar telefone
 - Copiar resumo
 - Abrir no Atendimento (preenche o formulário com os dados do registro)
+- Campanha do Fôlego: **Cliente cumpriu** (registro em `realizado`) ou **Mensagem: acordo cumprido** (registro em `finalizado`); ver a seção da Campanha do Fôlego acima
 
 ### Corrigir
 
@@ -90,6 +91,21 @@ Permite editar: situação, número de contato, textos e observações.
 ### Anular
 
 Muda a situação para `Anulado`, com motivo obrigatório. O registro **nunca é apagado**.
+
+---
+
+## Funções
+
+| Função | Descrição |
+|---|---|
+| `atRegistrar(auto)` | Registra a ficha do Atendimento (botão "Registrar no histórico"; `auto = true` quando chamado ao copiar um Fôlego fechado) |
+| `hsDesenhar()` / `hsItem(r)` | Lista com filtros / item e detalhe de um registro |
+| `hsEditor(r)` / `hsAnular(id)` / `hsRevisar(rec, novo, motivo)` | Corrigir / anular / montar a revisão (de → para) |
+| `hsAbrirNoAtendimento(r)` | Preenche o Atendimento com o registro |
+| `hsFolegoAbertos()` / `hsFolegoDesenhar()` | Acordos em aberto da Campanha do Fôlego / bloco `#mf-hs-folego` |
+| `hsFolegoCumprir(id)` | Confirma, finaliza o registro, conclui o lembrete pendente da proposta e gera a mensagem |
+| `hsFolegoGerar(r)` / `hsFolegoCpf(proposta)` / `hsFolegoTexto(r, cpf)` | Gera e copia a mensagem / busca o CPF no ER (ou pede) / monta o texto (`HS_FOLEGO_TITULO`) |
+| `hsBadge()` | Contador de novos registros na aba |
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Navegação Automática
 
-**Linhas:** 7357 – 7420 (inclui Mesa de Crédito: datas do dia)  
+**Linhas:** 8943 – 9006 (inclui Mesa de Crédito: datas do dia)  
 **Chave de armazenamento:** `navAuto`
 
 ---
@@ -50,7 +50,7 @@ Ao abrir, a Mesa vem do sistema com as datas padrão dele (dois dias para trás)
 
 ## Busca de Cliente
 
-**Linhas:** 7051 – 7356  
+**Linhas:** 8637 – 8942  
 **Armazenamento:** `sessionStorage` da aba (não persiste entre sessões)
 
 ---

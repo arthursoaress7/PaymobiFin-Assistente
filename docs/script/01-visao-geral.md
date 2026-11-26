@@ -18,6 +18,7 @@ O **PaymobiFin - Assistente** é um userscript que adiciona um painel flutuante 
 - Coleta dados de análise de crédito diretamente da árvore do MobFacil (score, restritivos, consultas, CPF, motivo de reprovação)
 - Gera e copia linhas formatadas para as planilhas de Negociação e Renegociação
 - Registra e compartilha o histórico de acordos entre os funcionários
+- Acompanha os acordos da Campanha do Fôlego até o cliente cumprir (acordos em aberto no Histórico e mensagem "acordo cumprido" para o grupo)
 - Gerencia lembretes de pagamentos parciais com sincronização em equipe
 - Realiza consultas CAC (Central de Atendimento ao Cliente)
 - Faz download de CCBs em lote
@@ -40,24 +41,24 @@ O script é dividido em dois pontos de entrada principais:
 
 | Seção no código | Módulo | Linha aprox. |
 |---|---|---|
-| Leitura da árvore | Motor de coleta React | 153 |
-| Iframe do motor | Navegação da árvore MobFacil | 452 |
-| Interface base | Painel, abas, arrastar, redimensionar | 974 |
-| CCBs | Download de certificados | 3624 |
-| Contas | Troca rápida de conta | 3816 |
-| Gerador de Negociações | Modelos (grupo e cliente), campos e montagem dos textos | 4108 |
-| Lembretes | Pagamentos parciais (v2) | 4591 |
-| Consulta CAC | Central de Atendimento | 4984 |
-| Relatório de Pendências | Pendências do ER (somente leitura) | 5330 |
-| Atendimento | Negociação, Renegociação, Desbloqueios e Mensagens | 5537 |
-| Timers | Agendamentos de expediente | 5907 |
-| Navegação/Aparência | Nova UI / UI Antiga | 6243 |
-| Equipe | Compartilhamento via Pusher | 6361 |
-| Histórico | Acordos registrados pela equipe | 6828 |
-| Busca de cliente | Central de busca somente leitura | 7057 |
-| Navegação automática | Troca de tela automática no ER | 7363 |
-| Mesa de crédito | Datas do dia | 7371 |
-| RD Atendimento | Encerramento com IA (app.tallos.com.br) | 7427 |
+| Leitura da árvore | Motor de coleta React | 174 |
+| Iframe do motor | Navegação da árvore MobFacil | 544 |
+| Interface base | Painel, abas, arrastar, redimensionar | 1067 |
+| CCBs | Download de certificados | 4058 |
+| Contas | Troca rápida de conta | 4261 |
+| Gerador de Negociações | Modelos (grupo e cliente), campos e montagem dos textos | 4553 |
+| Lembretes | Pagamentos parciais (v2) | 5058 |
+| Consulta CAC | Central de Atendimento | 5451 |
+| Relatório de Pendências | Pendências do ER (somente leitura) | 6107 |
+| Atendimento | Negociação, Renegociação, Desbloqueios e Mensagens | 6920 |
+| Timers | Agendamentos de expediente | 7408 |
+| Navegação/Aparência | Nova UI / UI Antiga | 7744 |
+| Equipe | Compartilhamento via Pusher | 7862 |
+| Histórico | Acordos registrados pela equipe; acordos em aberto da Campanha do Fôlego | 8329 |
+| Busca de cliente | Central de busca somente leitura | 8637 |
+| Navegação automática | Troca de tela automática no ER | 8943 |
+| Mesa de crédito | Datas do dia | 8951 |
+| RD Atendimento | Encerramento com IA (app.tallos.com.br) | 9007 |
 | Boleto+ (`iniciarBoletoPlus`) | Acesso ao APP das Efetivadas (paymobi.com.br, só responde ao ER) | fim do arquivo |
 
 ---
