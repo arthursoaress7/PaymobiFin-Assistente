@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.44.0] — 2026-11-26
+
+### ✨ Novas funcionalidades
+
+- feat: Reprovadas lista score, valor e quantidade com o motivo explícito (#175) (e64cbe5)
+
 ## [v13.43.0] — 2026-11-25
 
 ### ✨ Novas funcionalidades
