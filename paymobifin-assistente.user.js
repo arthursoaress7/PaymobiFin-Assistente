@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.44.0
+// @version      13.45.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -31,7 +31,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.44.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.45.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -113,6 +113,7 @@
     ignorarCanceladasTestes: true,   // canceladas e testes nunca são processadas
     diarioTudo: true,                // Relatório Diário: visão geral do dia (entram canceladas e em digitação; testes continuam fora)
     rendasReprovadas: false,         // relatório de Rendas: false = só aprovadas/efetivadas; true = inclui as reprovadas
+    reprovadasFormatoAntigo: false,  // relatório de Reprovadas: true = formato antigo (Motivo curto + só o valor do motivo, para o Canva)
     formatoAuto: true,               // formato de cópia escolhido pelo modo
     formatosAntigos: false,          // mostra os formatos antigos na escolha manual
     aparencia: 'nova',               // 'nova' (padrão) ou 'antiga'
@@ -2321,6 +2322,7 @@
             <label class="mf-opc" title="Proposta cancelada ou de teste (cliente ou digitador TESTE) nunca é processada, qualquer que seja a situação."><input type="checkbox" id="mf-canc"><span><b>Ignorar canceladas e testes</b></span></label>
             <label class="mf-opc" title="Só no Relatório Diário. Testes continuam fora."><input type="checkbox" id="mf-diario-tudo"><span><b>Relatório Diário: visão geral do dia</b><small>Inclui canceladas e em digitação (CONF CAD), além de aprovadas, reprovadas e pendentes, como na planilha do Relatório Diário. Propostas de teste continuam fora.</small></span></label>
             <label class="mf-opc" title="Relatório de Rendas: por padrão só entram propostas aprovadas e efetivadas (pendentes, canceladas e testes ficam de fora). Ligado: as reprovadas também entram; as que não tiverem a renda do birô (RendaCalculo) no motor saem com a coluna F vazia."><input type="checkbox" id="mf-rendas-repr"><span><b>Rendas: incluir reprovadas</b></span></label>
+            <label class="mf-opc" title="Relatório de Reprovadas. Desligado (padrão): o Detalhe lista score, valor e quantidade de restrições e marca o que reprovou com o limite da faixa. Ligado: formato antigo, para o Canva: Motivo curto (Score, Restrições, Renda...) e o Detalhe só com o valor do motivo."><input type="checkbox" id="mf-repr-antigo"><span><b>Reprovadas: formato antigo</b><small>Só o motivo e o valor dele (como no Canva). Desligado: score, valor e quantidade com o motivo marcado.</small></span></label>
             <label class="mf-opc" title="Copia o resultado sozinho quando a fila termina."><input type="checkbox" id="mf-auto-copia"><span><b>Copiar ao concluir</b></span></label>
           </details>
           <details class="mf-grupo" data-grupo="formato"><summary>Formato de cópia</summary>
@@ -2867,6 +2869,7 @@
     ligarOpcao('#mf-audit-full', 'auditoriaCompleta');
     ligarOpcao('#mf-canc', 'ignorarCanceladasTestes');
     ligarOpcao('#mf-diario-tudo', 'diarioTudo');
+    ligarOpcao('#mf-repr-antigo', 'reprovadasFormatoAntigo');
     ligarOpcao('#mf-rendas-repr', 'rendasReprovadas');
     ligarOpcao('#mf-auto-copia', 'copiarAoConcluir');
     ligarOpcao('#mf-formato-auto', 'formatoAuto');
@@ -3095,6 +3098,27 @@
       ];
     }
 
+    // Reprovadas no formato antigo (até a v13.43): Motivo = os rótulos ("Score", "Restrições", "Renda"...) e o Detalhe só com o
+    // valor do que reprovou ("374", "R$6.875,37" e "12 restrições"). Sem mensagem do MobFacil: Motivo em branco e N/A.
+    function reprovadasColsAntigo(id, hh, loja, tipo, msgs, d) {
+      const motivo = [...new Set(msgs.map(x => x.label))].join(' / ');
+      const partes = [];
+      msgs.forEach(mf => {
+        let t;
+        if (mf.label === 'Restrições' && /quantidade|qtd/i.test(mf.descr)) {
+          const q = aNum(mf.atual);
+          t = isNaN(q) ? '' : q + ' restrições';
+        } else if (mf.label === 'Score') {
+          t = String(mf.atual || (d && d.score != null ? d.score : '')).replace(/,0+$/, '');
+        } else {
+          t = fmtAtual(mf.atual);   // valor das restrições, renda, idade...
+        }
+        if (t && !partes.includes(t)) partes.push(t);
+      });
+      const det = partes.join('\n') || NA;
+      return estilo() === 'p2col' ? [id, hh, titulo(loja), tipo, motivo, partes[0] || NA, partes.slice(1).join(' ')] : [id, hh, titulo(loja), tipo, motivo, det];
+    }
+
     function relatorioCols(m, id, d, processada) {
       const na = t => (t ? t : processada ? NA : '');   // procurado e não encontrado = N/A
       const x = GM_getValue('meta', {})[id] || {};
@@ -3108,6 +3132,8 @@
         // Por proposta: score, valor e quantidade de restrições SEMPRE listados, e o que reprovou marcado com o limite da
         // faixa (tabela da equipe). Motivo = o que reprovou, por extenso. Outro motivo (renda, idade, nome...) vem antes.
         const msgs = motivosReprov(d).map(motivoDoMobFacil).filter(Boolean);
+        // formato antigo (Configurações: "Reprovadas: formato antigo"): Motivo curto + só o valor do que reprovou, para o Canva
+        if (cfg('reprovadasFormatoAntigo')) return reprovadasColsAntigo(id, hh, loja, tipo, msgs, d);
         const dd = d || {};
         const vazio = x => x == null || String(x).trim() === '';
         const sc = vazio(dd.score) ? null : aNum(dd.score);
