@@ -2357,7 +2357,7 @@
               <button id="mf-ng-cfg-restaurar" class="cinza">Restaurar original</button>
             </div>
             <div id="mf-ng-cfg-vars" class="mf-info" style="margin-top:6px;white-space:pre-wrap"></div>
-            <div class="mf-info" style="margin:10px 0 4px">Dados para pagamento (só neste navegador; usados no modelo "Retorno do setor — Instruções de pagamento")</div>
+            <div class="mf-info" style="margin:10px 0 4px">Dados para pagamento (só neste navegador; usados nos modelos "Retorno do setor — Instruções de pagamento" e "Retorno ao cliente — Campanha do Fôlego")</div>
             <div class="mf-grade">
               <input id="mf-ng-pix" type="text" placeholder="Chave PIX" autocomplete="off" class="mf-cheia">
               <input id="mf-ng-banco" type="text" placeholder="Banco" autocomplete="off">
@@ -4619,12 +4619,13 @@
         rotulos: { quantidade_parcelas: 'Quantidade de parcelas', valor_parcela: 'Valor da parcela', vencimento: 'Data do primeiro vencimento após a entrada', proximo_vencimento: 'Próximo vencimento (vazio = data do primeiro vencimento)' },
         texto: 'Segue retorno do setor responsável pela negociação:\n\nQuantidade de parcelas: {{quantidade_parcelas}}\nValor: {{valor_parcela}}\nData do primeiro vencimento após a entrada: {{vencimento}}\n\nPara confirmação desta negociação, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
       },
-      retornoFolego: {   // confirmação das condições com o cliente (formato da equipe, 20/11/2026)
-        nome: 'Retorno ao cliente — Campanha do Fôlego', desc: 'Confirma com o cliente as condições do acordo do Fôlego (entrada + data para pagar o restante). Fôlego não é parcelamento. "Aplicar cliente atual" preenche o nome; o restante é calculado se o total com juros for informado.',
-        campos: ['nome', 'tratamento', 'parcela_negociada', 'valor_total_juros', 'valor_entrada', 'data_entrada', 'valor_restante', 'proximo_vencimento'],
-        obrig: ['nome', 'tratamento', 'parcela_negociada', 'valor_total_juros', 'valor_entrada', 'data_entrada', 'valor_restante', 'proximo_vencimento'], saldo: 'valor_total_juros', saldoPago: 'valor_entrada',
-        rotulos: { parcela_negociada: 'Parcela do contrato (nº: 1 ou 3 4 5)', valor_total_juros: 'Valor total atualizado com juros', valor_entrada: 'Primeiro pagamento (valor)', data_entrada: 'Data do primeiro pagamento', valor_restante: 'Valor restante', proximo_vencimento: 'Data do pagamento do restante' },
-        texto: '{{tratamento}} {{primeiro_nome}}, conforme sua solicitação, gostaríamos de confirmar as condições do acordo referente {{parcela_ref}} do seu contrato.\nO acordo ficou estabelecido da seguinte forma:\n\n* Valor total atualizado com juros: {{valor_total_juros}}\n* Primeiro pagamento: {{valor_entrada}}, em {{data_entrada}}.\n* Pagamento do valor restante: {{valor_restante}}, em {{proximo_vencimento}}.\n\nPor gentileza, confirme se está de acordo com os valores e as datas informadas para que possamos dar continuidade à formalização do acordo.',
+      retornoFolego: {   // retorno do setor do acordo do Fôlego (formato da equipe, 27/11/2026). Usa as MESMAS chaves da modalidade Campanha do Fôlego do Atendimento:
+                         // ngValores é compartilhado entre as abas, então o que foi preenchido na Negociação já aparece aqui (reflete o acordo enviado ao grupo)
+        nome: 'Retorno ao cliente — Campanha do Fôlego', desc: 'Retorno do setor do acordo do Fôlego aprovado: valor de hoje, data e valor do restante, PIX/TED (Configurações > Gerador de negociações) e validade. Os valores vêm do que foi preenchido na Campanha do Fôlego da aba Negociação (entrada, data e valor do restante); o restante é calculado se o total com juros for informado.',
+        campos: ['valor_pago_parcial', 'data_restante', 'valor_total_juros', 'valor_restante', 'prazo_dias_uteis', 'incluir_ted'],
+        obrig: ['valor_pago_parcial', 'data_restante', 'valor_restante', 'prazo_dias_uteis', 'chave_pix'], saldo: 'valor_total_juros',
+        rotulos: { valor_pago_parcial: 'Valor que deve ser pago hoje (entrada)', data_restante: 'Data do primeiro vencimento após a entrada', valor_total_juros: 'Valor total com juros (opcional: calcula o restante)', valor_restante: 'Valor que deve ser pago no dia (restante)' },
+        texto: 'Segue retorno do setor responsável pelo acordo:\n\nValor que deve ser pago hoje: {{valor_pago_parcial}}\nData do primeiro vencimento após a entrada: {{data_restante}}\nValor que deve ser pago no dia: {{valor_restante}}\n\nPara confirmação deste acordo, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{data_restante}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
       },
       antecipacao: {
         nome: 'Antecipação de parcela', desc: 'Dados da antecipação como informados; nenhum valor é calculado pelo script.',
@@ -7246,6 +7247,8 @@
     }
     function atTrocar(ctx) {
       ngCtx = ctx; GM_setValue('atModelo', ctx);
+      // Fôlego preenchido na Negociação: a aba Mensagens já abre no retorno do Fôlego, com os mesmos valores (ngValores é compartilhado)
+      if (ctx === 'mensagens' && ngModalidade() === 'folego' && String(ngValores.valor_pago_parcial || '').trim()) { GM_setValue('negModeloAtual', 'retornoFolego'); $('#mf-ng-modelo').value = 'retornoFolego'; }
       $('#mf-ng-texto').value = '';
       atDesenhar();
     }
