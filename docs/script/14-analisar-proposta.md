@@ -79,6 +79,10 @@ A lista fica ordenada por gravidade, e cada proposta abre os detalhes ao clicar.
 Os resultados ficam só na memória da aba (somem ao recarregar).
 
 **Calibração (25/11/2026):** a análise foi rodada em 26 propostas reais de 24 e 25/11 (10 reprovadas, 8 efetivadas, 7 aprovadas, 1 reprovada manual). Daí saíram os ajustes de nome (espaço/acento, nome cortado), documentos frente/verso, aparelho e tipos "para a mesa" como alerta, parcela e reanálise.
+## Base de aparelhos da equipe
+
+`CONFIG.APARELHOS`: a planilha de aparelhos da equipe (28/11/2026), uma linha por TAC: [TAC = "IMEI (RAIZ)", descrição técnica, nome comercial, valor base, valor teto, valor médio, limite máx. de financiamento]. O mesmo TAC pode ter mais de um modelo (ex.: 86579607 = C75X e 15X). A conferência "IMEI na base de aparelhos da equipe" (`anBaseAparelho`) usa o IMEI enviado ao MobFacil (`PROP_IMEI`): na base = ✅ com o modelo e o limite; fora = ❌ "conferir no site da Paymobi". O limite máximo de financiamento só é mostrado (com mais de um modelo no TAC, o maior): a regra de comparação com o valor da proposta ainda não foi definida. Quando a planilha mudar, atualizar `CONFIG.APARELHOS`.
+
 ## Aprovadas manualmente: motivo da derivação e motivo da aprovação
 
 Toda análise (uma ou em massa) lê também o **histórico** da proposta (`anHistorico`: inclusão, quem aprovou e efetivação) e o **ponto de atendimento** da formalização (`anPontoAtendimento`, no formato da Fila, sem o código). Aprovação **manual** = há "APROVADA" no histórico (o analista, ex.: "ROBERTOTAS I ROBERTO MASTER" vira "ROBERTO MASTER"); só "APROVADOR" = automática. O cabeçalho mostra Ponto de atendimento, Inclusão, Aprovação, Motivo da derivação e, nas manuais, Motivo da aprovação.
@@ -88,7 +92,7 @@ Toda análise (uma ou em massa) lê também o **histórico** da proposta (`anHis
   - documento: o **CPF** foi encontrado no documento e o facematch e a biometria estão ok = "Documento conferido" (o nome que o MobFacil não leu no documento não impede, ex.: 5491); sem o CPF = ⚠️;
   - nome / nascimento: o dado atual do ER bate com a Receita ("corrigido no ER"); nome cortado no fim ou **incompleto** (todas as palavras da proposta estão no nome da Receita, ex.: 5508 "LOUISIANA CASTILHO" x "... REGO") é explicado; diferente de verdade = ⚠️;
   - crédito: dentro da política da equipe (`CONFIG.FAIXAS`), mesmo acima do limite do MobFacil (ex.: 5536, que foi só por passagens); fora = ⚠️ "Crédito FORA da política";
-  - IMEI/modelo não cadastrado no MobFacil: ⚠️ "conferir na planilha e no site da Paymobi" (ainda não é conferido sozinho);
+  - IMEI/modelo não cadastrado no MobFacil: confere o TAC (8 primeiros dígitos do IMEI) na **base de aparelhos da equipe** (`CONFIG.APARELHOS`, planilha de 28/11/2026, 65 modelos): na base = "IMEI na base da equipe (modelo, limite)"; fora = ⚠️ "conferir no site da Paymobi";
   - sem derivação: "aprovada na mesa sem pendência apontada pelo motor".
 - **Buscar na Fila > "Aprovadas manualmente (efetivadas e não efetivadas)"**: pega as efetivadas e aprovadas do período e confere no histórico de cada uma (6 por vez) quais foram aprovadas por um analista.
 - **Copiar Excel (aprovadas manualmente)**: só as manuais, sem cabeçalho, colunas A a I: CPF (000.000.000-00), Nome Cliente, N° Proposta, Ponto Atendimento, Vendedor (digitador), DataInclusao (dd/mm/aaaa hh:mm:ss), Analista, Motivo Derivação, Motivo Aprovação.
