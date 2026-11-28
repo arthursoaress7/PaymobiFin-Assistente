@@ -2184,7 +2184,7 @@
             <div class="mf-sec">
               <div class="mf-tit">Mensagens para o cliente</div>
               <select id="mf-ng-modelo"></select>
-              <select id="mf-ng-modalidade" style="display:none" title="Tipo de acordo realizado (fonte das opções da Modalidade do Atendimento)"></select>
+              <div style="display:none !important" aria-hidden="true"><select id="mf-ng-modalidade" tabindex="-1"></select></div><!-- só guarda as opções da Modalidade do Atendimento; nunca aparece -->
               <div id="mf-ng-desc" class="mf-info" style="margin-top:6px"></div>
             </div>
             <details class="mf-grupo" id="mf-ng-dados" data-grupo="ng-dados" open><summary>Dados</summary>
@@ -4605,19 +4605,14 @@
     // aba Mensagens = só textos para o CLIENTE (enviados depois de validar no grupo).
     // Mensagens para o grupo e textos da planilha ficam em Negociação/Renegociação (modalidades abaixo).
     const NG_MODELOS = {
-      retorno: {
-        nome: 'Retorno do setor', desc: 'Repassa o que o SETOR autorizou, sem alterar as condições.',
-        campos: ['nome', 'proposta', 'valor_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'instrucoes', 'prazo_pagamento', 'validade', 'condicoes', 'observacoes'],
-        obrig: ['nome'], umDe: [['valor_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'condicoes']],
-        rotulos: { valor_entrada: 'Entrada autorizada', quantidade_parcelas: 'Parcelas autorizadas', valor_parcela_acordo: 'Valor das parcelas autorizadas', dia_vencimento: 'Dia de vencimento autorizado', condicoes: 'Condições adicionais' },
-        texto: 'Retorno do setor responsável\n\nCliente: {{nome}}\nProposta: {{proposta}}\n\nCondições autorizadas pelo setor:\nEntrada: {{valor_entrada}}\nParcelas: {{quantidade_parcelas}}\nValor das parcelas: {{valor_parcela_acordo}}\nVencimento: todo dia {{dia_vencimento}}\n\nInstruções de pagamento: {{instrucoes}}\nPrazo para pagamento: {{prazo_pagamento}}\nAcordo válido até {{validade}}\n\nCondições adicionais: {{condicoes}}\n\nObservações: {{observacoes}}',
-      },
       retornoPix: {
-        nome: 'Retorno do setor — Instruções de pagamento', desc: 'Usa a chave PIX e a conta cadastradas em Configurações > Gerador de negociações.',
-        campos: ['quantidade_parcelas', 'valor_parcela', 'vencimento', 'prazo_dias_uteis', 'proximo_vencimento', 'incluir_ted'],
-        obrig: ['quantidade_parcelas', 'valor_parcela', 'vencimento', 'prazo_dias_uteis', 'chave_pix'],
-        rotulos: { quantidade_parcelas: 'Quantidade de parcelas', valor_parcela: 'Valor da parcela', vencimento: 'Data do primeiro vencimento após a entrada', proximo_vencimento: 'Próximo vencimento (vazio = data do primeiro vencimento)' },
-        texto: 'Segue retorno do setor responsável pela negociação:\n\nQuantidade de parcelas: {{quantidade_parcelas}}\nValor: {{valor_parcela}}\nData do primeiro vencimento após a entrada: {{vencimento}}\n\nPara confirmação desta negociação, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
+        // retorno da Renegociação: usa as condições ACEITAS da modalidade Renegociação do Atendimento (vazia = a solicitada, regra geral de NG_ACEITAS em ngValor);
+        // ngValores é compartilhado entre as abas, então o acordo feito na Negociação já aparece aqui. Chave 'retornoPix' mantida (texto salvo/preferência).
+        nome: 'Retorno ao cliente — Renegociação', desc: 'Retorno do setor da renegociação aprovada: quantidade e valor das parcelas, 1º vencimento após a entrada, PIX/TED (Configurações > Gerador de negociações) e validade. Os valores vêm das condições aceitas da Renegociação na aba Negociação (vazias = as solicitadas).',
+        campos: ['aceita_quantidade_parcelas', 'aceita_valor_parcela', 'aceita_proximo_vencimento', 'prazo_dias_uteis', 'incluir_ted'],
+        obrig: ['aceita_quantidade_parcelas', 'aceita_valor_parcela', 'aceita_proximo_vencimento', 'prazo_dias_uteis', 'chave_pix'],
+        rotulos: { aceita_quantidade_parcelas: 'Quantidade de parcelas (vazio = a solicitada)', aceita_valor_parcela: 'Valor da parcela (vazio = o solicitado)', aceita_proximo_vencimento: 'Data do primeiro vencimento após a entrada (vazio = a solicitada)' },
+        texto: 'Segue retorno do setor responsável pela negociação:\n\nQuantidade de parcelas: {{aceita_quantidade_parcelas}}\nValor: {{aceita_valor_parcela}}\nData do primeiro vencimento após a entrada: {{aceita_proximo_vencimento}}\n\nPara confirmação desta negociação, peço que realize o pagamento da primeira parcela via PIX, conforme os dados abaixo.\n\nDados para pagamento:\n\nChave PIX: {{chave_pix}}\n\nConta corrente (caso prefira TED/transferência):\nBanco: {{banco}}\nAgência: {{agencia}}\nConta: {{conta}}\n\nApós a efetuação do pagamento, por gentileza, envie o comprovante. Os demais boletos serão encaminhados mediante confirmação do pagamento.\n\nEste acordo é válido por {{prazo_dias_uteis}} dias úteis. Caso o pagamento seja realizado dentro desse prazo, o seu próximo vencimento será no dia {{aceita_proximo_vencimento}}. Se o pagamento não for realizado dentro do prazo, o acordo será cancelado e será necessário entrar em contato com o nosso suporte para renegociar novamente.',
       },
       retornoFolego: {   // retorno do setor do acordo do Fôlego (formato da equipe, 27/11/2026). Usa as MESMAS chaves da modalidade Campanha do Fôlego do Atendimento:
                          // ngValores é compartilhado entre as abas, então o que foi preenchido na Negociação já aparece aqui (reflete o acordo enviado ao grupo)
@@ -4635,16 +4630,10 @@
       },
     };
 
-    const NG_ACORDO_GERAL = {
-      nome: 'Acordo realizado', desc: 'Registra as condições EFETIVAMENTE aceitas pelo cliente.',
-      campos: ['nome', 'proposta', 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'dia_vencimento', 'proximo_vencimento', 'condicoes', 'observacoes'],
-      obrig: ['nome'], umDe: [['valor_entrada', 'valor_parcela_acordo', 'condicoes']],
-      texto: '{{operacao}}\n\nCliente: {{nome}}\nProposta: {{proposta}}\n\nCondições aceitas pelo cliente:\nEntrada: {{valor_entrada}}\nData da entrada: {{data_entrada}}\nParcelas: {{quantidade_parcelas}}\nValor de cada parcela: {{valor_parcela_acordo}}\nVencimento: todo dia {{dia_vencimento}}\nPróximo vencimento: {{proximo_vencimento}}\n\nOutras condições: {{condicoes}}\n\nObservações: {{observacoes}}',
-    };
     /* ---- "Acordo realizado": modalidades (levantadas nas planilhas Negociação e Renegociação) ----
        Cada modalidade = campos + obrigatórios + modelo de texto (editável) + frases para a planilha.
        Para criar uma nova modalidade basta acrescentar uma entrada aqui (nada mais no gerador muda).
-       Chave do modelo editável: 'acordo:<modalidade>'. 'geral' usa o modelo "Acordo realizado" anterior (chave 'acordo'). */
+       Chave do modelo editável: 'acordo:<modalidade>'. (A modalidade 'geral' e o modelo 'acordo' foram removidos em 28/11/2026.) */
     Object.assign(NG_CAMPOS, {
       parcela_atual: { rot: 'Parcela atual do contrato', tipo: 'num' },
       tratamento: { rot: 'Tratamento', tipo: 'select', opcoes: [['Senhor', 'Senhor'], ['Senhora', 'Senhora']] },
@@ -4706,7 +4695,6 @@
     const NG_CAB = c => '{{operacao}} — ' + c + '\n\nCliente: {{nome}}\nProposta: {{proposta}}\nParcela atual do contrato: {{parcela_atual}}\nAbrangência: {{abrangencia}}\n\n';
     const NG_ABR = ['abrangencia_tipo', 'parcela_inicial', 'parcelas_especificas'];
     const NG_MODALIDADES = {
-      geral: { nome: 'Condições gerais (modelo anterior)' },
       entrada: {   // "Renegociação" (chave 'entrada' mantida pelo histórico). Condições solicitadas pelo cliente + condições liberadas pelo sistema
         // de renegociação (revisão do grupo), com os mesmos 5 campos. Sem entrada específica, a entrada é a 1ª parcela (valor = valor das parcelas).
         nome: 'Renegociação (entrada + parcelas)', campos: ['nome', 'proposta', 'cpf', ...NG_ABR, 'valor_entrada', 'data_entrada', 'quantidade_parcelas', 'valor_parcela_acordo', 'proximo_vencimento', ...Object.keys(NG_ACEITAS), 'observacoes'],
@@ -4744,17 +4732,17 @@
       },
 
     };
-    const NG_ALL = { ...NG_MODELOS, acordo: NG_ACORDO_GERAL };
-    Object.entries(NG_MODALIDADES).forEach(([k, md]) => { if (k !== 'geral') NG_ALL['acordo:' + k] = { ...md, nome: 'Acordo realizado — ' + md.nome, desc: 'Acordo realizado: ' + md.nome + '. Registra só o que foi efetivamente combinado.' }; });
+    const NG_ALL = { ...NG_MODELOS };
+    Object.entries(NG_MODALIDADES).forEach(([k, md]) => { NG_ALL['acordo:' + k] = { ...md, nome: 'Acordo realizado — ' + md.nome, desc: 'Acordo realizado: ' + md.nome + '. Registra só o que foi efetivamente combinado.' }; });
     // modalidades removidas em 19/11/2026 (mensagens excessivas; parcial: a Campanha do Fôlego faz o mesmo): só o nome, para o histórico antigo continuar legível
-    const NG_MOD_REMOVIDAS = { mensal: 'Novo valor mensal', parcelamento: 'Parcelamento (quantidade × valor)', vencimento: 'Alteração da data de vencimento', antecipacao: 'Antecipação / quitação', regularizacao: 'Regularização de parcela(s) em atraso', semacordo: 'Sem acordo / pagamento normal', parcial: 'Pagamento parcial + restante' };
+    const NG_MOD_REMOVIDAS = { mensal: 'Novo valor mensal', parcelamento: 'Parcelamento (quantidade × valor)', vencimento: 'Alteração da data de vencimento', antecipacao: 'Antecipação / quitação', regularizacao: 'Regularização de parcela(s) em atraso', semacordo: 'Sem acordo / pagamento normal', parcial: 'Pagamento parcial + restante', geral: 'Condições gerais (modelo anterior)' };
     const ngModNome = k => (NG_MODALIDADES[k] || {}).nome || NG_MOD_REMOVIDAS[k] || k || '';
     const ngModalidade = () => (GM_getValue('negModalidade', 'entrada') in NG_MODALIDADES ? GM_getValue('negModalidade', 'entrada') : 'entrada');
     // contexto: 'negociacao' / 'renegociacao' (Atendimento: sempre o acordo da modalidade) ou 'mensagens' (modelos para o cliente)
     let ngCtx = GM_getValue('atModelo', 'negociacao');
     if (!['negociacao', 'renegociacao', 'mensagens', 'desbloqueios'].includes(ngCtx)) ngCtx = 'negociacao';
     const ngNoAtendimento = () => ngCtx !== 'mensagens' && ngCtx !== 'desbloqueios';
-    const ngChave = () => ngNoAtendimento() ? (ngModalidade() !== 'geral' ? 'acordo:' + ngModalidade() : 'acordo') : ngModeloAtual();
+    const ngChave = () => ngNoAtendimento() ? 'acordo:' + ngModalidade() : ngModeloAtual();
     const ngDef = () => NG_ALL[ngChave()];
     const ngOrdinal = n => n + '°';
     const ngValores = {};   // SÓ em memória: some ao recarregar a página
@@ -4810,8 +4798,6 @@
       if ((k === 'valor_pago_anterior' || k === 'data_pago_anterior') && !ngValores.quebra_acordo) return '';   // só vale com a quebra marcada
       // Renegociação: vazio = usa a "Parcela(s) negociada(s)" do acordo (mesmo formato)
       if (k === 'parcela_renegociada' && String(v == null ? '' : v).trim() === '') return ngValores.parcela_negociada ? ngValor('parcela_negociada') : '';
-      // retorno do setor (PIX): "próximo vencimento" vazio = a data do primeiro vencimento após a entrada
-      if (k === 'proximo_vencimento' && !String(v == null ? '' : v).trim() && ngCtx === 'mensagens' && ngModeloAtual() === 'retornoPix' && ngValores.vencimento) return ngValor('vencimento');
       if (k === 'primeiro_nome') {   // "ADRIANO PEREIRA SILVA" -> "Adriano"
         const w = String(ngValores.nome || '').trim().split(/\s+/)[0] || '';
         return w ? w.charAt(0).toLocaleUpperCase('pt-BR') + w.slice(1).toLocaleLowerCase('pt-BR') : '';
@@ -4868,7 +4854,7 @@
       });
       return saida.join('\n\n').replace(/\{\{[^}]*\}\}/g, '').trim();
     }
-    const ngModeloAtual = () => GM_getValue('negModeloAtual', 'retorno') in NG_MODELOS ? GM_getValue('negModeloAtual', 'retorno') : 'retorno';
+    const ngModeloAtual = () => GM_getValue('negModeloAtual', 'retornoPix') in NG_MODELOS ? GM_getValue('negModeloAtual', 'retornoPix') : 'retornoPix';
     // campos que no Atendimento ficam nos blocos fixos (Cliente / Cobrança), e não repetidos na modalidade
     const AT_FIXOS = new Set(['nome', 'proposta', 'cpf', 'parcela_atual', 'valor_parcela', 'parcelas_atraso', 'dias_atraso', 'vencimento_antigo']);
     function ngDesenharCampos() {
@@ -5040,7 +5026,7 @@
     selNg.addEventListener('change', () => { GM_setValue('negModeloAtual', selNg.value); $('#mf-ng-texto').value = ''; ngDesenharCampos(); });
     // "Acordo realizado": tipo de acordo (modalidade)
     const selMod = $('#mf-ng-modalidade');
-    Object.entries(NG_MODALIDADES).filter(([k]) => k !== 'geral').concat([['geral', NG_MODALIDADES.geral]]).forEach(([k, md]) => { const o = document.createElement('option'); o.value = k; o.textContent = md.nome; selMod.appendChild(o); });
+    Object.entries(NG_MODALIDADES).forEach(([k, md]) => { const o = document.createElement('option'); o.value = k; o.textContent = md.nome; selMod.appendChild(o); });
     selMod.value = ngModalidade();
     selMod.addEventListener('change', () => { GM_setValue('negModalidade', selMod.value); $('#mf-ng-texto').value = ''; ['#mf-ng-f-pedido', '#mf-ng-f-acordo', '#mf-ng-f-parcela'].forEach(x => { const e = $(x); if (e) e.value = ''; }); ngDesenharCampos(); });
     $('#mf-ng-gerar').onclick = () => {
@@ -7069,29 +7055,10 @@
     function ngFrases(tipo) {
       const v = ngValor;   // só no Atendimento: sempre o acordo da modalidade
       const verbo = tipo === 'fechou' ? 'fechou' : 'solicitou';
-      if (ngModalidade() !== 'geral') {
-        const md = NG_MODALIDADES[ngModalidade()];
-        const falta = ngFaltando().filter(x => x !== ((md.rotulos || {}).nome || NG_CAMPOS.nome.rot));
-        if (falta.length) return { erro: 'Para as frases, preencha: ' + falta.join(', ') + '.' };
-        return md.frases(v, verbo);
-      }
-      const ent = v('valor_entrada'), dEnt = v('data_entrada');
-      const qtd = v('quantidade_parcelas');
-      const parc = v('valor_parcela_acordo');
-      const dia = v('dia_vencimento');
-      const todoDia = dia ? ', com vencimento para todo dia ' + dia : '';
-      if (ent && qtd && parc) {
-        const e = ent + (dEnt ? ' no dia ' + dEnt : '');
-        return { pedido: 'Cliente ' + verbo + ' pagar de entrada ' + e + ' + ' + qtd + 'x ' + parc + (dia ? ' para todo dia ' + dia : ''),
-          acordo: 'Prosseguimos com o acordo de ' + e + ' de entrada + ' + qtd + 'x ' + parc + (dia ? ' para todo dia ' + dia : '') };
-      }
-      if (qtd && parc) {
-        const venc = todoDia;
-        return { pedido: 'Cliente ' + verbo + ' renegociar as parcelas para ' + qtd + ' parcelas de ' + parc + venc, acordo: 'Prosseguimos com o acordo de ' + qtd + ' parcelas de ' + parc + venc };
-      }
-      if (parc && dia) return { pedido: 'Cliente ' + verbo + ' pagar ' + parc + ' todo dia ' + dia, acordo: 'Prosseguimos com ' + parc + ' todo dia ' + dia };
-      if (ent && dEnt) return { pedido: 'Cliente ' + verbo + ' pagar ' + ent + ' no dia ' + dEnt, acordo: 'Prosseguimos com o pagamento de ' + ent + ' no dia ' + dEnt };
-      return { erro: 'Para a frase, preencha: quantidade e valor das parcelas, ou valor da parcela e dia de vencimento, ou entrada com data.' };
+      const md = NG_MODALIDADES[ngModalidade()];   // 'geral' (frases genéricas) removida em 28/11/2026
+      const falta = ngFaltando().filter(x => x !== ((md.rotulos || {}).nome || NG_CAMPOS.nome.rot));
+      if (falta.length) return { erro: 'Para as frases, preencha: ' + falta.join(', ') + '.' };
+      return md.frases(v, verbo);
     }
     // Atendimento: Resultado decide o verbo (Negociação e Renegociação). "Finalizado" usa as frases do acordo fechado. "Não concluída": só o pedido, se houver dados.
     function ngGerarTextos(silencioso) {
@@ -7248,7 +7215,12 @@
     function atTrocar(ctx) {
       ngCtx = ctx; GM_setValue('atModelo', ctx);
       // Fôlego preenchido na Negociação: a aba Mensagens já abre no retorno do Fôlego, com os mesmos valores (ngValores é compartilhado)
-      if (ctx === 'mensagens' && ngModalidade() === 'folego' && String(ngValores.valor_pago_parcial || '').trim()) { GM_setValue('negModeloAtual', 'retornoFolego'); $('#mf-ng-modelo').value = 'retornoFolego'; }
+      if (ctx === 'mensagens') {   // a aba Mensagens segue a modalidade feita na Negociação: abre no retorno dela, já com os valores (ngValores é compartilhado)
+        const tem = c => String(ngValores[c] || '').trim(), mod = ngModalidade();
+        const ret = mod === 'folego' && tem('valor_pago_parcial') ? 'retornoFolego'
+          : mod === 'entrada' && (tem('aceita_quantidade_parcelas') || tem('quantidade_parcelas')) ? 'retornoPix' : '';
+        if (ret) { GM_setValue('negModeloAtual', ret); $('#mf-ng-modelo').value = ret; }
+      }
       $('#mf-ng-texto').value = '';
       atDesenhar();
     }

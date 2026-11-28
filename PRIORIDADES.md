@@ -162,9 +162,9 @@ O módulo de lembretes (`lb*`) já possui:
 
 O módulo de mensagens (`ng*` e `at*`) já possui:
 
-- **Mensagens para o grupo** (Negociação/Renegociação, botão "Mensagem p/ grupo"): uma por modalidade (`NG_MODALIDADES`); "Condições gerais" usa `NG_ACORDO_GERAL`.
-- **4 modelos de mensagem para o cliente** (aba Mensagens, `NG_MODELOS`): Retorno do setor, Retorno do setor — Instruções de pagamento, Retorno ao cliente — Campanha do Fôlego, Antecipação de parcela. Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba em 17/11/2026 (eram cópias do que o Atendimento gera para o grupo).
-- **4 modalidades de acordo** (`NG_MODALIDADES`): Renegociação (entrada + parcelas; padrão; chave `entrada`), Campanha do Fôlego, PIX semanal/Automático, Condições gerais. Renegociação e Fôlego usam o mesmo padrão de título: `*RENEGOCIAÇÃO — <OPERAÇÃO>*` / `*CAMPANHA DO FÔLEGO — <OPERAÇÃO>*`. (Removidas em 19/11/2026: Novo valor mensal, Parcelamento, Alteração de vencimento, Antecipação/quitação, Regularização, Sem acordo e Pagamento parcial + restante — este porque a Campanha do Fôlego faz o mesmo.)
+- **Mensagens para o grupo** (Negociação/Renegociação, botão "Mensagem p/ grupo"): uma por modalidade (`NG_MODALIDADES`).
+- **3 modelos de mensagem para o cliente** (aba Mensagens, `NG_MODELOS`), um por modalidade + Antecipação: Retorno ao cliente — Renegociação, Retorno ao cliente — Campanha do Fôlego, Antecipação de parcela. A aba abre no retorno da modalidade feita na Negociação, já com os valores. Falta o retorno do PIX Automático (aguardando o texto da equipe). "Retorno do setor" genérico removido em 28/11/2026. Pedido de negociação, Acordo realizado, Campanha do Fôlego e Solicitação de negociação saíram da aba em 17/11/2026 (eram cópias do que o Atendimento gera para o grupo).
+- **3 modalidades de acordo** (`NG_MODALIDADES`): Renegociação (entrada + parcelas; padrão; chave `entrada`), Campanha do Fôlego, PIX semanal/Automático. "Condições gerais" removida em 28/11/2026. Renegociação e Fôlego usam o mesmo padrão de título: `*RENEGOCIAÇÃO — <OPERAÇÃO>*` / `*CAMPANHA DO FÔLEGO — <OPERAÇÃO>*`. (Removidas em 19/11/2026: Novo valor mensal, Parcelamento, Alteração de vencimento, Antecipação/quitação, Regularização, Sem acordo e Pagamento parcial + restante — este porque a Campanha do Fôlego faz o mesmo.)
 - **Preenchimento automático existente:**
   - `data_contato` = hoje (padrão)
   - `responsavel` = nome da equipe ou apelido da conta ativa
@@ -184,7 +184,7 @@ O módulo de mensagens (`ng*` e `at*`) já possui:
 - [ ] **P2.1 — Revisar os modelos de mensagens existentes**
 
   **Status:** Pendente  
-  **Objetivo:** avaliar se os modelos (4 para o cliente) e as 4 modalidades atuais atendem às necessidades da equipe.  
+  **Objetivo:** avaliar se os modelos (3 para o cliente) e as 3 modalidades atuais atendem às necessidades da equipe.  
   **Comportamento esperado:** modelos cobrem todos os cenários do dia a dia sem precisar edição manual excessiva.  
   **Critérios de aceite:** lista de modelos que precisam ajuste, novos modelos necessários ou modelos obsoletos.  
   **Dependências:** feedback da equipe sobre o uso real.  
