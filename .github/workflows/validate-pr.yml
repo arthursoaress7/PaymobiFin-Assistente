@@ -3,7 +3,8 @@ name: Validate PR
 # Valida todo PR para main, development e feature/*. Em PRs rotineiros (Categoria A)
 # para development ou feature/*, faz o merge automático depois que a validação passa.
 #
-# - PR para a main: só o PR de release (release/proxima). Nunca tem merge automático.
+# - PR para a main: só o PR de release (release/proxima) ou hotfix/* (correção urgente, com o
+#   @version aumentado no próprio PR). Nunca tem merge automático.
 # - URLs de atualização: PR para a main exige as da main (produção); PR para development ou
 #   feature/** exige as da development (ambiente de teste).
 # - Categoria B (workflows, scripts de CI, package.json, arquivo-ponte): a validação passa,
@@ -100,12 +101,28 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           case "$HEAD_REF" in
-            release/proxima) echo "✅ Origem permitida para a main: $HEAD_REF" ;;
+            release/proxima|hotfix/*) echo "✅ Origem permitida para a main: $HEAD_REF" ;;
             *)
-              echo "❌ A main só recebe o PR de release (release/proxima). Origem: $HEAD_REF"
+              echo "❌ A main só recebe o PR de release (release/proxima) ou hotfix/*. Origem: $HEAD_REF"
               echo "Abra o PR para a development (ambiente de teste); a main recebe pelo PR de release."
               exit 1 ;;
           esac
+
+      - name: Hotfix aumenta a versão
+        if: github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'hotfix/')
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # sem versão maior o Tampermonkey da equipe não recebe a correção
+          VB=$(git show "$BASE_SHA:paymobifin-assistente.user.js" | grep -oP '(?<=@version\s{6})\S+')
+          VH=$(grep -oP '(?<=@version\s{6})\S+' paymobifin-assistente.user.js)
+          MAIOR=$(printf '%s\n%s\n' "$VB" "$VH" | sort -V | tail -1)
+          if [ "$VH" = "$VB" ] || [ "$MAIOR" != "$VH" ]; then
+            echo "❌ Hotfix precisa aumentar o @version (main: $VB, PR: $VH): use PATCH e atualize os locais do item 12."
+            exit 1
+          fi
+          echo "✅ Versão do hotfix: $VB → $VH"
+          grep -qF "## [v$VH]" CHANGELOG.md || echo "::warning::CHANGELOG.md sem a entrada [v$VH]: as notas da release ficam só com o título."
 
       # 5. Conflitos
       - name: Verificar conflitos

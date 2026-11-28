@@ -3,10 +3,11 @@ name: Release
 # Depois de cada merge na main:
 #   1. Lê o @version do script. Se a tag vX.Y.Z ainda não existe, cria a tag e a GitHub Release
 #      com as notas da seção correspondente do CHANGELOG.md (preparado no PR de release).
-#   2. Se a main tiver commits que a development não tem (ex.: o merge do PR de release),
-#      cria a branch chore/sync-main-vX.Y.Z (development + merge da main, com as URLs de
-#      teste da development) e abre o PR "chore: sincroniza main na development", que a
-#      validação integra sozinha (merge commit).
+#   2. Só depois de HOTFIX (PR hotfix/* -> main) ou quando rodado à mão: cria a branch
+#      chore/sync-main-vX.Y.Z (development + merge da main, com as URLs de teste da
+#      development) e abre o PR "chore: sincroniza main na development", que a validação
+#      integra sozinha (merge commit). Depois de um PR de release a main não volta para a
+#      development: a release/proxima já parte da main e contém a development.
 #
 # Este workflow não faz commits na main: a versão e o CHANGELOG já chegam prontos pelo
 # PR de release (workflow "Preparar release").
@@ -87,13 +88,31 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
+      # A main só volta para a development depois de hotfix (correção feita direto na main).
+      # Depois de um PR de release não há o que trazer: a release/proxima parte da main e
+      # já contém a development (release-pr.yml). Rodar à mão (workflow_dispatch) força a
+      # sincronização.
+      #
       # A development é o ambiente de teste: o script dela se atualiza pela própria development.
-      # Um PR direto main -> development traria as URLs da main e faria quem testa voltar
-      # para a versão de produção. Por isso a sincronização é feita numa branch que parte da
-      # development, junta a main (merge commit) e devolve as URLs da development.
+      # Por isso a sincronização é feita numa branch que parte da development, junta a main
+      # (merge commit) e devolve as URLs da development.
       - name: Preparar branch de sincronização
         id: sync
+        env:
+          EVENTO: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
         run: |
+          if [ "$EVENTO" = "push" ]; then
+            ORIGEM=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[0].head.ref // empty' || true)
+            case "$ORIGEM" in
+              hotfix/*) echo "Merge de hotfix ($ORIGEM): a correção volta para a development." ;;
+              *)
+                echo "Merge na main vindo de '${ORIGEM:-desconhecido}': sem sincronização (só depois de hotfix)."
+                echo "fazer=false" >> "$GITHUB_OUTPUT"
+                exit 0 ;;
+            esac
+          fi
           git fetch origin development main
           if [ -z "$(git rev-list origin/development..origin/main)" ]; then
             echo "A development já contém a main."
@@ -132,7 +151,7 @@ jobs:
         run: |
           if gh pr create --head "$RAMO" --base development \
             --title "chore: sincroniza main na development" \
-            --body "Gerado automaticamente depois do merge na main. Traz para a development o que só está na main (versão e CHANGELOG do release) e mantém o @downloadURL/@updateURL apontando para a development (ambiente de teste). Integrado sozinho pela validação (merge commit)."; then
+            --body "Gerado automaticamente depois do merge de um hotfix na main. Traz a correção para a development e mantém o @downloadURL/@updateURL apontando para a development (ambiente de teste). Integrado sozinho pela validação (merge commit)."; then
             echo "## PR de sincronização aberto ($RAMO)" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "::warning::O GitHub não permitiu ao Actions abrir o PR de sincronização. Abra à mão: $RAMO -> development."
