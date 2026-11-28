@@ -1,5 +1,11 @@
 # Changelog
 
+## [v13.50.0] — 2026-11-28
+
+### ✨ Novas funcionalidades
+
+- feat: base de aparelhos da equipe na análise de propostas (#201) (e69132b)
+
 ## [v13.49.0] — 2026-11-28
 
 ### ✨ Novas funcionalidades
