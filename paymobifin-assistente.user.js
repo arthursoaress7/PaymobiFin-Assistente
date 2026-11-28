@@ -3,7 +3,7 @@
 // @name:pt-BR   PaymobiFin - Assistente
 // @name:pt      PaymobiFin - Assistente
 // @namespace    mobfacil-planilha
-// @version      13.49.0
+// @version      13.50.0
 // @author       Arthur
 // @description  PaymobiFin - Assistente: atendimento (negociação e renegociação), histórico da equipe, lembretes, relatórios, CCBs e troca rápida de contas
 // @include      /^https?:\/\/paymobi(-app)?\.ercard\.com\.br(:\d+)?\/.*/
@@ -31,7 +31,7 @@
   'use strict';
 
   // versão: lida do cabeçalho (@version) pelo Tampermonkey; o número só existe num lugar
-  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.49.0');
+  const VERSAO = 'v' + ((typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) || '13.50.0');
   const TITULO = 'PaymobiFin - Assistente';
   const CONFIG = {
     TEMPO_MAX: 120,         // s máximos por proposta (janela principal)
@@ -70,7 +70,77 @@
       { faixa: 'E', de: 391, ate: 466, valor: 300, qtd: 2 },
       { faixa: 'F', de: 0, ate: 390, valor: null, qtd: null },
     ],
-    VAZIAS_APOS_ID: 3,      // colunas entre a Proposta e a Qtd Restritivos (Nome, CPF, IMEI)
+    // Base de aparelhos da equipe (planilha de 28/11/2026): TAC = "IMEI (RAIZ)", os 8 primeiros dígitos do IMEI.
+    // [TAC, descrição técnica, nome comercial, valor base, valor teto, valor médio, limite máx. de financiamento]
+    // O mesmo TAC pode ter mais de um modelo (ex.: 86579607 = C75X e 15X). Atualizar aqui quando a planilha mudar.
+    APARELHOS: [
+      ['86134008', 'REALME 70T', 'NOTE 70', 1499.9, 1699.9, 1599.9, 1279.92],
+      ['86096708', 'RMX5313', 'NOTE 70S', 1697, 1697, 1697, 1357.6],
+      ['86480606', 'RMX3840', 'REALME 12 PRO+', 3199.9, 3599.9, 3399.9, 2719.92],
+      ['86678207', 'RMX3910', 'REALME C65', 1899, 1999, 1949, 1559.2],
+      ['86536007', 'RMX3930', 'REALME C 61', 1697, 1699, 1698, 1358.4],
+      ['86161607', 'RMX3933', 'REALME C 61', 1697, 1699, 1698, 1358.4],
+      ['86565707', 'RMX3933', 'REALME C 61', 1697, 1699, 1698, 1358.4],
+      ['86624107', 'RMX3930', 'REALME C 61', 1697, 1699, 1698, 1358.4],
+      ['86617307', 'RMX3941', 'REALME C75', 2099.9, 2099.9, 2099.9, 1679.92],
+      ['86039707', 'RMX3943', 'REALME C75', 2099.9, 2099.9, 2099.9, 1679.92],
+      ['86519707', 'RMX3943', 'REALME C75', 2099.9, 2099.9, 2099.9, 1679.92],
+      ['86579607', 'RMX5020', 'REALME C75X', 2099.9, 2099.9, 2099.9, 1679.92],
+      ['86281307', 'RMX3963', 'REALME C75 5G', 2399.9, 2399.9, 2399.9, 1919.92],
+      ['86579607', 'RMX5020', 'REALME 15X', 1600, 2600, 2100, 1680],
+      ['86844707', 'RMX5020', 'REALME 15X', 1600, 2600, 2100, 1680],
+      ['86992907', 'RMX3999', 'REALME 12 5G', 2597, 3047, 2822, 2257.6],
+      ['86567407', 'RMX3999', 'REALME 12C', 2349, 2699, 2524, 2019.2],
+      ['86862407', 'RMX3999', 'REALME 12C', 2349, 2699, 2524, 2019.2],
+      ['86411907', 'RMX5000', 'REALME 13+', 3047, 3047, 3047, 2437.6],
+      ['86559907', 'RMX5051', 'REALME 14 PRO PLUS', 4199.9, 4799.9, 4499.9, 3599.92],
+      ['86213907', 'RMX5056', 'REALME 14 PRO 5G', 3499, 3499, 3499, 2799.2],
+      ['86854307', 'RMX5057', 'REALME 14 PRO', 3499, 3499, 3499, 2799.2],
+      ['86384307', 'RMX5070', 'REALME 14 5G', 3549.9, 3549.9, 3549.9, 2839.92],
+      ['86479407', 'RMX5078', 'REALME 14T', 3147, 3147, 3147, 2517.6],
+      ['86404707', 'RMX5303', 'REALME C71 4G', 1797, 1797, 1797, 1437.6],
+      ['86564307', 'RMX5303', 'REALME C71', 1699.9, 1899.9, 1799.9, 1439.92],
+      ['86719007', 'RMX5303', 'REALME C71', 1699.9, 1899.9, 1799.9, 1439.92],
+      ['86096708', 'RMX5313', 'REALME 70T', 1399, 1697, 1548, 1238.4],
+      ['86670308', 'RMX5555', 'REALME C85 PRO', 2197, 2499.9, 2348.45, 1878.76],
+      ['86896208', 'RMX5555', 'REALME C85 PRO', 2197, 2499.9, 2348.45, 1878.76],
+      ['86886408', 'RMX5566', 'REALME C85', 2197, 2499.9, 2348.45, 1878.76],
+      ['86056608', 'RMX5566', 'REALME C85', 2197, 2499.9, 2348.45, 1878.76],
+      ['86301808', 'RMX5566', 'REALME C85 4G', 2197, 2499.9, 2348.45, 1878.76],
+      ['86552307', 'RMX5253', 'REALME C85 5G', 3597, 3597, 3597, 2877.6],
+      ['86250507', 'RMX3938', 'REALME NOTE 60X 64/3', 749, 749, 749, 599.2],
+      ['86250507', 'RMX3938', 'REALME NOTE 60X', 999, 1199, 1099, 879.2],
+      ['86436907', 'RMX3933', 'REALME NOTE 60', 1299.9, 1299.9, 1299.9, 1039.92],
+      ['86891607', 'RMX3933', 'REALME NOTE 60S', 1349, 1349, 1349, 1079.2],
+      ['86454607', 'RMX3939', 'REALME C63', 1697, 1697, 1697, 1357.6],
+      ['86430808', 'RMX5377', 'REALME C100i', 1997, 2100, 2048.5, 1638.8],
+      ['86512508', 'RMX5377', 'REALME C100i', 1699.9, 2100, 1899.95, 1519.96],
+      ['86566308', 'RMX5388', 'REALME NOTE 80', 1797, 1997, 1897, 1517.6],
+      ['86719007', 'RMX5303', 'REALME C73', 1799.9, 1999.9, 1899.9, 1519.92],
+      ['86430808', 'RMX5377', 'REALME P4 LITE', 1699.9, 2149.9, 1924.9, 1539.92],
+      ['86621408', 'RMX5107', 'REALME P4 POWER', 3947.9, 5047, 4497.45, 3597.96],
+      ['35219998', 'XT2535-1', 'MOTO G06', 1200, 1599, 1399.5, 1119.6],
+      ['35770417', 'XT2535-1', 'MOTO G06', 1200, 1599, 1399.5, 1119.6],
+      ['35615333', 'XT2623-1', 'MOTO G17', 1500, 1700, 1600, 1280],
+      ['35188440', 'XT2623-1', 'MOTO G17', 1500, 1700, 1600, 1280],
+      ['35062970', 'XT2527-1', 'MOTO G86', 2500, 2700, 2600, 2080],
+      ['86645508', 'NLA-LX1', 'HONOR X5C', 1100, 1400, 1250, 1000],
+      ['86249908', 'NLA-LX1', 'HONOR X5C PLUS', 1200, 1400, 1300, 1040],
+      ['86937608', 'MLD-LX3', 'HONOR PLAY 20A', 1400, 1600, 1500, 1200],
+      ['35986914', 'X6840', 'INFINIX SMART 20 PRETO', 1200, 1350, 1275, 1020],
+      ['35469656', 'X6840', 'SMART 20 AZUL E CINZA', 1200, 1350, 1275, 1020],
+      ['35759233', 'X6885', 'INFINIX HOT 60 PRO', 1900, 2200, 2050, 1640],
+      ['35220534', 'X6885', 'INFINIX HOT 60 PRO', 1900, 2200, 2050, 1640],
+      ['86010108', '25028PC03G', 'Xiaomi Poco C71', 1400, 1600, 1500, 1200],
+      ['86053407', '25078PC3EG', 'Xiaomi Poco C85', 1800, 2000, 1900, 1520],
+      ['86083408', '25118PC98G', 'Xiaomi Poco M8', 2400, 2600, 2500, 2000],
+      ['86305608', 'LGN-LX2', 'Honor X7D', 2199, 2400, 2299.5, 1839.6],
+      ['35316884', 'X6895', 'Infinix Hot 70', 2100, 2300, 2200, 1760],
+      ['86309708', 'RMX5366', 'C100x 128 GB', 1999, 2299, 2149, 1719.2],
+      ['86183608', 'RMX5366', 'C100X 256 GB', 2499, 2699, 2599, 2079.2],
+      ['86418806', 'RMX3890', 'Realme C67', 1499, 1799, 1799, 1439.2],
+    ],
+    VAZIAS_APOS_ID: 3,     // colunas entre a Proposta e a Qtd Restritivos (Nome, CPF, IMEI)
     TIMEOUT_CCB: 20,        // s máximos esperando cada resposta do sistema no download de CCB
     // Analisar proposta (aba do menu Mais)
     AN_ESPERA: 35,          // s máximos esperando o MobFacil (iframe escondido) devolver o resultado do motor
@@ -6584,7 +6654,13 @@
       else add(pc > pm ? 'alerta' : 'ok', 'Parcela x máximo mensal', 'parcela ' + anReais(pc) + (pc > pm ? ' acima do' : ' dentro do') + ' máximo de ' + anReais(pm));
       // aparelho: pendente mesa (ex.: IMEI/modelo não cadastrado) = alerta; reprovado = problema
       const ap = r1.validaAparelho || r2.validaAparelho;
-      porStatus('Aparelho disponível para crédito', ap, rg => [motivoCom(/aparelho|imei/i) || rg.Regra, rg.LimitesFinanciamento ? 'limite R$' + rg.LimitesFinanciamento : ''].filter(Boolean).join(' · '), 'alerta');
+      // base de aparelhos da equipe (CONFIG.APARELHOS): TAC do IMEI e limite de financiamento do modelo
+      { const b = anBaseAparelho(m), IA = 'IMEI na base de aparelhos da equipe';
+        if (!m) add('nc', IA, semMotor);
+        else if (!b.imei) add('nc', IA, 'o MobFacil não trouxe o IMEI da proposta');
+        else if (!b.itens.length) add('erro', IA, 'TAC ' + b.tac + ' (IMEI ' + b.imei + ') não está na base: conferir no site da Paymobi');
+        else add('ok', IA, 'TAC ' + b.tac + ': ' + b.txt); }
+      porStatus('Aparelho disponível para crédito', ap,rg => [motivoCom(/aparelho|imei/i) || rg.Regra, rg.LimitesFinanciamento ? 'limite R$' + rg.LimitesFinanciamento : ''].filter(Boolean).join(' · '), 'alerta');
       // 3. documentos e contato (fluxo P2: só depois do cadastro completo)
       if (m && !p2) {
         add('nc', 'Documentos e contato (fluxo P2)', reprovadaAntes ? 'a proposta foi reprovada antes da validação de documentos e contato'
@@ -6659,6 +6735,18 @@
       if (dec === 'A' && pol === 'fora') return ['erro', AN_DEC, 'o MobFacil APROVOU o crédito, mas está FORA da política (' + tab + ')'];
       if (dec === 'P' && pol === 'dentro') return ['alerta', AN_DEC, 'o MobFacil mandou para a mesa pelo crédito, mas está dentro da política (' + tab + ')' + usado];
       return ['ok', AN_DEC, 'confere: o MobFacil ' + verbo + ' e a política diz ' + pol + ' (' + tab + ')'];
+    }
+    // IMEI da proposta na base de aparelhos da equipe (CONFIG.APARELHOS, pelo TAC = 8 primeiros dígitos). O limite máximo de
+    // financiamento do modelo só é mostrado (com mais de um modelo no mesmo TAC, o maior): a regra de comparação não foi definida
+    function anBaseAparelho(m) {
+      const d = Object.assign({}, (m && m.p1 && m.p1.dados) || {}, (m && m.p2 && m.p2.dados) || {});
+      const ap = (m && ((m.p1 && m.p1.regras && m.p1.regras.validaAparelho) || (m.p2 && m.p2.regras && m.p2.regras.validaAparelho))) || {};
+      const imei = String(d.PROP_IMEI || ap.DadoInformado || '').replace(/\D/g, '');
+      if (imei.length < 8) return { imei: '', itens: [] };
+      const tac = imei.slice(0, 8);
+      const itens = (CONFIG.APARELHOS || []).filter(x => x[0] === tac);
+      const lim = itens.length ? Math.max(...itens.map(x => x[6])) : null;
+      return { imei, tac, itens, lim, txt: [...new Set(itens.map(x => x[2] + ' (' + x[1] + ')'))].join(' / ') + (lim != null ? ', limite máx. de financiamento ' + anReais(lim) : '') };
     }
     // score, faixa e restrições do motor (para a política, a planilha e a conferência no formato da equipe)
     function anNumeros(m) {
@@ -6803,7 +6891,12 @@
         const lim = nf.fx ? 'faixa ' + nf.fx.faixa + (nf.fx.valor != null ? ': até ' + anReais(nf.fx.valor) + ' e ' + nf.fx.qtd + '; atual ' + anReais(nf.v) + ' e ' + nf.q : ': reprova sempre') : '';
         out.push(pol === 'dentro' ? 'Crédito dentro da política da equipe (' + lim + ')' : pol === 'fora' ? '⚠️ Crédito FORA da política da equipe (' + lim + ')' : '⚠️ Crédito: sem score/restrições para conferir');
       }
-      if (cats.has('imei')) out.push('⚠️ IMEI/modelo não cadastrado no MobFacil: conferir na planilha e no site da Paymobi');
+      if (cats.has('imei')) {
+        const b = anBaseAparelho(m);
+        out.push(!b.imei ? '⚠️ IMEI: o MobFacil não trouxe o IMEI para conferir na base'
+          : b.itens.length ? 'IMEI na base da equipe (' + b.txt + ')'
+          : '⚠️ IMEI fora da base da equipe (TAC ' + b.tac + '): conferir no site da Paymobi');
+      }
       der.filter(x => x.cat === 'outro').forEach(x => out.push('⚠️ ' + x.txt + ': conferir'));
       if (!der.length) out.push('Sem derivação do MobFacil: aprovada na mesa sem pendência apontada pelo motor');
       return out.join(' / ');
