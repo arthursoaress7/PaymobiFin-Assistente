@@ -15,8 +15,11 @@ O que faz:
      corpo do PR em /tmp/release_corpo.md.
 
   6. Sempre (com ou sem incremento): aponta @downloadURL/@updateURL para a main.
-     Na development elas apontam para a própria development (ambiente de teste), e o
-     release.yml as devolve para a development na sincronização main -> development.
+     Na development elas apontam para a própria development (ambiente de teste). A main só
+     volta para a development depois de hotfix (release.yml), e aí as URLs de teste são devolvidas.
+
+Roda na release/proxima já montada (origin/main + merge da development, release-pr.yml):
+a versão e o CHANGELOG partem dos da main.
 
 Falha (código 1) se algum local de versão não for encontrado: a documentação nunca pode
 divergir do @version sem que alguém perceba.
@@ -45,7 +48,7 @@ LOCAIS = [
 ]
 
 # commits do próprio fluxo, que não entram no cálculo nem no CHANGELOG
-IGNORAR = re.compile(r'^(chore: release v|chore: sincroniza main na development|chore: integrar development na main|chore: versão \d)', re.I)
+IGNORAR = re.compile(r'^(chore: release v|chore: sincroniza main na development|chore: integrar development na main|chore: versão \d|chore: mantém as URLs de teste)', re.I)
 TIPO = re.compile(r'^(\w+)(\([^)]*\))?(!)?: ')
 
 
@@ -214,6 +217,7 @@ def main():
         '',
         '- [ ] As mudanças foram testadas na `development`',
         '- [ ] A verificação "Validar alterações" passou',
+        '- [ ] Integrar com **Create a merge commit** (não usar Squash: a release parte da main e o merge commit mantém a development dentro dela)',
         '',
         'Este PR é atualizado sozinho a cada merge na `development`. **Não** é integrado automaticamente: o merge na `main` é feito pelo responsável.',
     ]
