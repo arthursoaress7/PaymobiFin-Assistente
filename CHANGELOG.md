@@ -1,5 +1,16 @@
 # Changelog
 
+## [v13.49.0] — 2026-11-28
+
+### ✨ Novas funcionalidades
+
+- feat: aba Mensagens com um retorno por modalidade, seguindo a Negociação; remove Retorno do setor genérico e Condições gerais (#198) (3b65563)
+- feat: retorno do Fôlego na aba Mensagens no formato do setor e refletindo o acordo da Negociação (#196) (fa49303)
+
+### 🐛 Correções
+
+- fix: release parte da main; main só volta para a development depois de hotfix (1aff60f)
+
 ## [v13.48.0] — 2026-11-26
 
 ### ✨ Novas funcionalidades

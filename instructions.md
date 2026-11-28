@@ -18,7 +18,7 @@ O **PaymobiFin - Assistente** é um userscript Tampermonkey que roda em dois sit
 
 **Nome antigo:** até a v13.27.1 o script se chamava `automacaomobfacil.user.js`. Esse arquivo ficou como ponte (congelado na 13.27.2) para migrar as instalações antigas e foi removido em 19/11/2026 (P4.8). Instalações que ainda apontem para o nome antigo não recebem mais atualizações: reinstalar pelo endereço de `paymobifin-assistente.user.js`.
 
-**Versão atual:** 13.48.0 (fonte de verdade: campo `@version` no cabeçalho do script — ver item 12)
+**Versão atual:** 13.49.0 (fonte de verdade: campo `@version` no cabeçalho do script — ver item 12)
 
 **Repositório:** `git@github.com:arthursoaress7/PaymobiFin-Assistente.git`  
 **Proprietário do repositório:** arthursoaress7 (pode ter permissões administrativas que o usuário atual não tem)
@@ -151,7 +151,7 @@ development  ←  ambiente de teste — todo trabalho passa por aqui antes de ir
 
 | Branch | Papel |
 |---|---|
-| `main` | Produção. Recebe **somente** o PR de release (`release/proxima`), integrado pelo responsável. Nenhum outro merge na `main`: nem de branch de tarefa, nem de `hotfix/`, nem PR `development` → `main` aberto à mão. |
+| `main` | Produção. Recebe **somente** o PR de release (`release/proxima`) e, em emergência, PR de `hotfix/*`; os dois com merge manual do responsável. Nenhum outro merge na `main`: nem de branch de tarefa, nem PR `development` → `main` aberto à mão. |
 | `development` | **Ambiente de teste.** Toda implementação é mergeada aqui primeiro. O script desta branch tem `@downloadURL`/`@updateURL` apontando para a própria `development`, para quem testa não ser levado de volta à versão da `main`. |
 
 ### URLs de atualização por ambiente
@@ -161,9 +161,15 @@ development  ←  ambiente de teste — todo trabalho passa por aqui antes de ir
 | `main` | `.../raw/refs/heads/main/paymobifin-assistente.user.js` | Toda a equipe (produção) |
 | `development` (e branches de tarefa) | `.../raw/refs/heads/development/paymobifin-assistente.user.js` | Quem testa |
 
-- As URLs **não são editadas à mão**: o PR de release troca para a `main` (`preparar_release.py`) e a sincronização devolve para a `development` (`release.yml`).
+- As URLs **não são editadas à mão**: o PR de release troca para a `main` (`preparar_release.py`) e a sincronização depois de hotfix devolve para a `development` (`release.yml`).
 - A validação reprova PR para a `main` com URLs da `development` e PR para a `development`/`feature/**` com URLs da `main`.
-- Quem tem a versão da `development` instalada recebe atualização quando o `@version` da `development` passa o instalado (depois de cada release sincronizada). Para pegar uma mudança antes disso, reinstale pela URL da `development`.
+- A `development` **não recebe** o `@version` nem o `CHANGELOG.md` de cada release (ficam só na `main`). Por isso o `@version` da `development` pode estar atrás do da `main`, e quem testa não recebe atualização automática: para pegar as mudanças, reinstale pela URL da `development`.
+
+### A `main` só volta para a `development` depois de hotfix
+
+- O PR de release parte da `main` (`release/proxima` = `main` + merge da `development`), então a `main` sempre contém a `development` e não há nada para trazer de volta depois de uma release.
+- Depois de um PR `hotfix/*` → `main`, o `release.yml` abre a sincronização `chore/sync-main-vX.Y.Z` → `development` (merge commit, URLs de teste mantidas), para a correção não se perder no próximo release.
+- Se o "Preparar release" falhar com conflito, é sinal de hotfix na `main` que ainda não voltou: integre a sincronização pendente.
 
 ### Branches temporárias
 
@@ -178,7 +184,7 @@ Criadas a partir de `development`, mergeadas de volta em `development` via PR.
 | `docs/` | Documentação |
 | `refactor/` | Refatoração autorizada |
 | `chore/` | Manutenção e configurações |
-| `hotfix/` | Correção urgente: parte da `development` e segue o fluxo normal (PR → `development` → PR de release). Não vai direto para a `main` |
+| `hotfix/` | Correção urgente em produção: parte da `main`, PR → `main` com o `@version` aumentado (PATCH) no próprio PR e merge manual; depois volta sozinho para a `development` |
 
 ### Regras
 
@@ -186,7 +192,7 @@ Criadas a partir de `development`, mergeadas de volta em `development` via PR.
 - Uma branch por tarefa — não acumular múltiplas tarefas na mesma branch
 - **Nunca commitar diretamente em `main` nem em `development`**
 - Branches temporárias são removidas após o merge
-- `hotfix/` não tem exceção: também parte da `development` e entra na `main` só pelo PR de release
+- `hotfix/` é a única exceção: parte da `main`, entra na `main` por PR (merge manual) e volta para a `development` pela sincronização automática
 
 ---
 
@@ -342,9 +348,9 @@ O incremento é calculado no **PR de release** (workflow "Preparar release", scr
 
 | Arquivo | Trigger | Responsabilidade |
 |---|---|---|
-| `.github/workflows/validate-pr.yml` | PR para `main`, `development` ou `feature/**` | Valida título, origem (PR para a `main` só de `release/proxima`), conflitos, integridade e sintaxe do script (`node --check`), URLs de atualização do ambiente (`main` → produção; `development`/`feature/**` → teste) e versão da documentação. Classifica Categoria A/B. Job **Merge automático**: Categoria A para `development`/`feature/**` é integrada sozinha (Squash; sincronização `chore/sync-main-*` → `development` por merge commit). Depois do merge na `development`, dispara o "Preparar release" (`workflow_dispatch`), porque o merge feito pelo `GITHUB_TOKEN` não dispara o `push`. |
-| `.github/workflows/release-pr.yml` ("Preparar release") | `push` → `development`; `workflow_dispatch` (disparado pelo merge automático ou à mão em Actions) | Abre ou atualiza o PR de release `release/proxima` → `main` com a próxima versão, documentação, `CHANGELOG.md` e as URLs de atualização trocadas para a `main` (`.github/scripts/preparar_release.py`). Fecha o PR se não houver nada novo (as URLs não contam). |
-| `.github/workflows/release.yml` | `push` → `main` | Cria a tag `vX.Y.Z` (do `@version`) e a GitHub Release com as notas do `CHANGELOG.md`. Quando a `main` tem commits que a `development` não tem, cria a branch `chore/sync-main-vX.Y.Z` (`development` + merge da `main`, com as URLs devolvidas para a `development`) e abre o PR "chore: sincroniza main na development". Não faz commits na `main`. |
+| `.github/workflows/validate-pr.yml` | PR para `main`, `development` ou `feature/**` | Valida título, origem (PR para a `main` só de `release/proxima` ou `hotfix/*`; hotfix precisa aumentar o `@version`), conflitos, integridade e sintaxe do script (`node --check`), URLs de atualização do ambiente (`main` → produção; `development`/`feature/**` → teste) e versão da documentação. Classifica Categoria A/B. Job **Merge automático**: Categoria A para `development`/`feature/**` é integrada sozinha (Squash; sincronização `chore/sync-main-*` → `development` por merge commit). Depois do merge na `development`, dispara o "Preparar release" (`workflow_dispatch`), porque o merge feito pelo `GITHUB_TOKEN` não dispara o `push`. |
+| `.github/workflows/release-pr.yml` ("Preparar release") | `push` → `development`; `workflow_dispatch` (disparado pelo merge automático ou à mão em Actions) | Monta a `release/proxima` a partir da `main` com merge da `development` e abre ou atualiza o PR de release → `main` com a próxima versão, documentação, `CHANGELOG.md` e as URLs de atualização trocadas para a `main` (`.github/scripts/preparar_release.py`). Fecha o PR se a `main` já contiver a `development`. O PR de release é integrado com **merge commit** (não Squash). |
+| `.github/workflows/release.yml` | `push` → `main` | Cria a tag `vX.Y.Z` (do `@version`) e a GitHub Release com as notas do `CHANGELOG.md`. **Só depois de merge de `hotfix/*`** (ou rodado à mão), cria a branch `chore/sync-main-vX.Y.Z` (`development` + merge da `main`, com as URLs devolvidas para a `development`) e abre o PR "chore: sincroniza main na development". Não faz commits na `main`. |
 
 ### Fluxo completo
 
@@ -355,15 +361,18 @@ branch de tarefa → PR → development
 development
   ↓ release-pr.yml (Preparar release)
 PR release/proxima → main   (versão, documentação e CHANGELOG já calculados)
-  ↓ merge manual pelo responsável (um clique)
+  ↑ release/proxima = main + merge da development (sem conflito)
+  ↓ merge manual pelo responsável (Create a merge commit)
 main → Tampermonkey de todos os usuários
-  ↓ release.yml: tag vX.Y.Z + GitHub Release
-  ↓ branch chore/sync-main-vX.Y.Z (URLs de teste mantidas)
+  ↓ release.yml: tag vX.Y.Z + GitHub Release (a development não recebe nada de volta)
+
+hotfix/* (parte da main, @version +PATCH) → PR → main   merge manual
+  ↓ release.yml: tag + branch chore/sync-main-vX.Y.Z (URLs de teste mantidas)
   ↓ PR "chore: sincroniza main na development" → merge automático (merge commit)
 ```
 
-- **A `main` nunca tem merge automático e só recebe o PR de release.** Cada merge nela chega na hora a toda a equipe.
-- **A sincronização nunca faz a `development` voltar para a versão da `main`:** as URLs de teste são mantidas.
+- **A `main` nunca tem merge automático e só recebe o PR de release ou hotfix.** Cada merge nela chega na hora a toda a equipe.
+- **A `main` só volta para a `development` depois de hotfix**, e a sincronização mantém as URLs de teste.
 - **Rótulo `sem-auto-merge`:** impede o merge automático de um PR específico.
 - **Incremento:** `feat` → MINOR · `fix`/`perf` → PATCH · `!`/`BREAKING CHANGE` → MAJOR · demais → nenhum (o PR de release se chama "chore: integrar development na main").
 

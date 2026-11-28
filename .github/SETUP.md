@@ -10,7 +10,8 @@
 ```
 branch de tarefa → PR → development     validação + merge automático (Categoria A) — ambiente de teste
 development → PR de release → main       aberto/atualizado sozinho; merge manual (um clique); único caminho para a main
-main → tag + release                     automático; depois a main volta para a development sozinha
+main → tag + release                     automático; a development não recebe nada de volta
+hotfix/* → PR → main                     merge manual; depois a correção volta para a development sozinha
                                          (branch chore/sync-main-*, mantendo as URLs de teste da development)
 ```
 
@@ -57,7 +58,7 @@ PRs e merges feitos com o token padrão do GitHub Actions (`GITHUB_TOKEN`) **nã
 
 | Opção | Valor | Motivo |
 |---|---|---|
-| Allow merge commits | ✅ | A sincronização `main` → `development` usa merge commit |
+| Allow merge commits | ✅ | O PR de release e a sincronização pós-hotfix usam merge commit |
 | Allow squash merging | ✅ | PRs de tarefa entram com um commit cada |
 | Allow auto-merge | ✅ | O merge automático espera as verificações em vez de integrar direto |
 | Automatically delete head branches | ✅ (recomendado) | Remove as branches de tarefa depois do merge. **Não** apaga `main` nem `development` |
@@ -90,7 +91,7 @@ PRs e merges feitos com o token padrão do GitHub Actions (`GITHUB_TOKEN`) **nã
 2. **Validate PR** roda; o job **Merge automático** integra o PR.
 3. **Preparar release** roda e abre o PR **"chore: integrar development na main"** (ou "chore: release vX.Y.Z" se houver `feat`/`fix`), já com a verificação "Validar alterações".
 4. Integre o PR de release na `main`.
-5. **Release** roda: cria a tag (se a versão mudou) e abre **"chore: sincroniza main na development"**, que é integrado sozinho.
+5. **Release** roda e cria a tag (se a versão mudou). Não abre sincronização: ela só acontece depois de hotfix.
 
 ---
 
@@ -103,7 +104,10 @@ Veja o resumo do workflow **Validate PR**. Causas comuns: título fora do padrã
 Coloque o rótulo `sem-auto-merge` no PR.
 
 **Posso integrar o PR de release com "Squash and merge"?**
-Pode. "Create a merge commit" deixa o histórico mais claro, mas os dois funcionam: a sincronização traz a `main` de volta para a `development`.
+Não. Use **"Create a merge commit"**. A `release/proxima` parte da `main` e contém a `development`; com Squash a `main` perde essa ligação e o próximo release volta a ter conflito.
+
+**Quando a main volta para a development?**
+Só depois de um hotfix (`hotfix/*` → `main`). O "Release" abre a sincronização sozinho. Para forçar em outro caso: Actions → Release → Run workflow.
 
 **O token expirou. O que acontece?**
 Os workflows que usam `RELEASE_TOKEN` falham com erro de autenticação. Gere um token novo (Passo 1) e atualize o secret.

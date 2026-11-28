@@ -2,7 +2,7 @@
 
 Userscript Tampermonkey que adiciona um painel flutuante ao sistema ER da Paymobi, automatizando tarefas operacionais da equipe de cobrança e crédito.
 
-**Versão atual:** 13.48.0
+**Versão atual:** 13.49.0
 
 ---
 
@@ -69,7 +69,7 @@ PaymobiFin-Assistente/
 │   └── workflows/
 │       ├── validate-pr.yml         ← valida todo PR antes do merge
 │       ├── release-pr.yml          ← abre/atualiza o PR de release (development → main)
-│       └── release.yml             ← cria tag e release; sincroniza main na development
+│       └── release.yml             ← cria tag e release; sincroniza main na development só após hotfix
 └── docs/
     └── script/
         ├── 01-visao-geral.md
@@ -208,7 +208,7 @@ Ao integrar o PR de release na `main`, o `release.yml` cria a tag e a GitHub Rel
 |---|---|---|
 | `validate-pr.yml` | PR para `main`, `development` ou `feature/**` | Valida título, origem, script e versão; merge automático da Categoria A (fora da `main`) |
 | `release-pr.yml` | Push na `development` | Abre/atualiza o PR de release com versão, documentação e CHANGELOG |
-| `release.yml` | Push na `main` | Cria tag e GitHub Release; abre o PR de sincronização `main` → `development` |
+| `release.yml` | Push na `main` | Cria tag e GitHub Release; depois de hotfix, abre o PR de sincronização `main` → `development` |
 
 > **Configuração necessária:** ver [`.github/SETUP.md`](./.github/SETUP.md) para as configurações que o proprietário do repositório precisa aplicar.
 

@@ -1,6 +1,9 @@
 name: Preparar release
 
 # A cada merge na development, abre ou atualiza o PR de release (release/proxima -> main):
+#   - a release/proxima parte da MAIN e junta a development (merge commit). Assim o PR de
+#     release não tem conflito com os commits de release que só existem na main, e a
+#     development não precisa receber a main de volta (isso só acontece depois de hotfix);
 #   - calcula a próxima versão pelos commits da development que ainda não estão na main;
 #   - atualiza o @version, os locais de versão da documentação (item 12 do instructions.md)
 #     e o CHANGELOG.md (.github/scripts/preparar_release.py);
@@ -41,15 +44,38 @@ jobs:
         id: dif
         run: |
           git fetch origin main
-          # as URLs de atualização sempre diferem (development aponta para a development,
-          # main para a main): não contam como conteúdo novo
-          MUDANCAS=$(git diff -U0 origin/main HEAD | grep -E '^[+-]' | grep -vE '^(\+\+\+|---) ' \
-            | grep -vE '^[+-]// @(downloadURL|updateURL) ' || true)
-          if [ -z "$MUDANCAS" ]; then
-            echo "Nada novo: development e main têm o mesmo conteúdo."
+          # commits da development que a main ainda não tem (a main tem os commits de release,
+          # que a development não recebe: por isso não se compara o conteúdo)
+          if [ -z "$(git rev-list origin/main..HEAD)" ]; then
+            echo "Nada novo: a main já contém a development."
             echo "vazio=true" >> "$GITHUB_OUTPUT"
           else
             echo "vazio=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Montar a release/proxima (main + development)
+        if: steps.dif.outputs.vazio == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          DEV=$(git rev-parse HEAD)
+          # Fora os commits de release (versão, CHANGELOG, URLs), a main não pode ter nada que
+          # a development não tenha. Se tiver, é hotfix que ainda não voltou: integrar antes.
+          PENDENTE=$(git log --no-merges --format='%h %s' "$DEV..origin/main" \
+            | grep -vE '^[0-9a-f]+ chore: (release v|integrar development na main|mantém as URLs de teste)' || true)
+          if [ -n "$PENDENTE" ]; then
+            echo "::error::A main tem correções que não voltaram para a development. Integre o PR de sincronização (chore/sync-main-*) e rode o Preparar release de novo."
+            echo "$PENDENTE"
+            exit 1
+          fi
+          git checkout -B "$RAMO" origin/main
+          # Os únicos conflitos possíveis são nas linhas que só a main muda (versão nos locais do
+          # item 12, URLs): a development vence e o preparar_release.py recalcula a versão a
+          # partir da main logo depois.
+          if ! git merge --no-ff --no-edit -X theirs "$DEV" -m "chore: integra a development na release"; then
+            git merge --abort || true
+            echo "::error::Não foi possível juntar a development na main (conflito que o -X theirs não resolve, ex.: arquivo apagado de um lado). Resolva à mão."
+            exit 1
           fi
 
       - name: Fechar PR de release sem conteúdo
@@ -57,7 +83,7 @@ jobs:
         run: |
           N=$(gh pr list --head "$RAMO" --base main --state open --json number --jq '.[0].number // empty')
           if [ -n "$N" ]; then
-            gh pr close "$N" --comment "Fechado automaticamente: a main já tem todo o conteúdo da development." --delete-branch
+            gh pr close "$N" --comment "Fechado automaticamente: a main já contém a development." --delete-branch
           fi
 
       - name: Calcular versão e atualizar arquivos
@@ -77,9 +103,6 @@ jobs:
       - name: Publicar a branch release/proxima
         if: steps.dif.outputs.vazio == 'false'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$RAMO"
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "${{ steps.rel.outputs.titulo }}"
